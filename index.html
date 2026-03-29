@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Games — Powered by CURBy</title>
+  <style>
+    :root {
+      --bg: #0a0a14;
+      --surface: #10101e;
+      --card: #16162a;
+      --border: #2a2a4a;
+      --accent: #7c3aed;
+      --accent2: #06b6d4;
+      --accent3: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --glow: 0 0 20px rgba(124,58,237,0.4);
+      --glow2: 0 0 20px rgba(6,182,212,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Particle canvas background ── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.4;
+    }
+
+    /* ── Layout shells ── */
+    .screen { display: none; position: relative; z-index: 1; }
+    .screen.active { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ══════════════════════════════════════
+       HOME SCREEN
+    ══════════════════════════════════════ */
+    #home {
+      align-items: center; justify-content: center; gap: 3rem; padding: 2rem;
+      text-align: center;
+    }
+    .home-header h1 {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      letter-spacing: -1px;
+    }
+    .home-header p {
+      color: var(--muted); margin-top: .5rem; font-size: 1rem;
+    }
+    .quantum-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.4);
+      border-radius: 999px; padding: .25rem .75rem;
+      font-size: .75rem; color: var(--accent2); margin-top: .75rem;
+    }
+    .quantum-badge::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent2); animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(1.5); }
+    }
+
+    .game-cards {
+      display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center;
+    }
+    .game-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      width: 300px;
+      cursor: pointer;
+      transition: transform .2s, border-color .2s, box-shadow .2s;
+      text-align: left;
+    }
+    .game-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--accent);
+      box-shadow: var(--glow);
+    }
+    .game-card.game2:hover {
+      border-color: var(--accent2);
+      box-shadow: var(--glow2);
+    }
+    .card-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .card-title { font-size: 1.25rem; font-weight: 700; margin-bottom: .5rem; }
+    .card-desc { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+    .card-tag {
+      display: inline-block; margin-top: 1rem;
+      background: rgba(124,58,237,.2); color: var(--accent);
+      font-size: .75rem; padding: .2rem .6rem; border-radius: 4px;
+    }
+    .game2 .card-tag { background: rgba(6,182,212,.2); color: var(--accent2); }
+
+    /* ══════════════════════════════════════
+       SHARED GAME UI
+    ══════════════════════════════════════ */
+    .game-screen { padding: 1.5rem; align-items: stretch; gap: 1rem; }
+    .top-bar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .btn-back {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); padding: .4rem .9rem; border-radius: 8px;
+      cursor: pointer; font-size: .875rem; transition: all .15s;
+    }
+    .btn-back:hover { border-color: var(--text); color: var(--text); }
+    .game-title { font-weight: 700; font-size: 1.1rem; flex: 1; }
+    .score-badge {
+      background: var(--card); border: 1px solid var(--border);
+      padding: .3rem .8rem; border-radius: 8px; font-size: .875rem;
+    }
+    .score-badge span { color: var(--accent); font-weight: 700; }
+
+    .entropy-indicator {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .7rem; color: var(--muted); margin-left: auto;
+    }
+    .entropy-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); transition: background .3s;
+    }
+    .entropy-dot.live { background: var(--success); animation: pulse 1.5s infinite; }
+
+    /* ══════════════════════════════════════
+       GAME 1 — EQUATION BUILDER
+    ══════════════════════════════════════ */
+    #game1 .arena {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 1.5rem; padding: 1rem 0;
+    }
+    .target-display {
+      text-align: center;
+    }
+    .target-label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .target-number {
+      font-size: clamp(3rem, 10vw, 6rem); font-weight: 900;
+      background: linear-gradient(135deg, var(--accent3), #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .eq-drop-zone {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: .5rem; justify-content: center;
+      min-height: 70px; min-width: 280px;
+      background: rgba(255,255,255,.03);
+      border: 2px dashed var(--border);
+      border-radius: 1rem; padding: 1rem 1.5rem;
+      transition: border-color .2s;
+    }
+    .eq-drop-zone.drag-over { border-color: var(--accent); }
+    .eq-drop-zone .placeholder-text {
+      color: var(--muted); font-size: .875rem; pointer-events: none;
+    }
+    .tile {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 52px; height: 52px; border-radius: 10px;
+      font-size: 1.25rem; font-weight: 700;
+      cursor: grab; user-select: none;
+      transition: transform .1s, box-shadow .1s;
+      position: relative;
+    }
+    .tile:active { cursor: grabbing; transform: scale(1.1); }
+    .tile.num-tile {
+      background: var(--card); border: 2px solid var(--accent);
+      color: var(--text); box-shadow: 0 0 8px rgba(124,58,237,.3);
+    }
+    .tile.op-tile {
+      background: var(--card); border: 2px solid var(--accent2);
+      color: var(--accent2); box-shadow: 0 0 8px rgba(6,182,212,.3);
+    }
+    .tile.in-zone {
+      position: relative;
+    }
+    .tile .remove-btn {
+      display: none; position: absolute; top: -6px; right: -6px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--danger); color: #fff;
+      font-size: 10px; align-items: center; justify-content: center;
+      cursor: pointer; line-height: 1;
+    }
+    .tile.in-zone:hover .remove-btn { display: flex; }
+
+    .tile-palette {
+      display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center;
+      max-width: 500px;
+    }
+
+    .eq-result {
+      font-size: 1.1rem; min-height: 1.5rem; font-weight: 600;
+    }
+    .eq-result.correct { color: var(--success); }
+    .eq-result.wrong { color: var(--danger); }
+    .eq-result.info { color: var(--accent2); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: #fff; border: none; padding: .65rem 2rem;
+      border-radius: 10px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: opacity .15s, transform .1s;
+      box-shadow: 0 4px 15px rgba(124,58,237,.4);
+    }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn-primary.cyan {
+      background: linear-gradient(135deg, var(--accent2), #0284c7);
+      box-shadow: 0 4px 15px rgba(6,182,212,.4);
+    }
+
+    .game-over-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    .game-over-overlay.show { display: flex; }
+    .game-over-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 2.5rem; text-align: center;
+      max-width: 380px; width: 90%;
+    }
+    .game-over-card h2 { font-size: 2rem; margin-bottom: .5rem; }
+    .game-over-card .final-score { font-size: 3rem; font-weight: 900; color: var(--accent); margin: 1rem 0; }
+    .game-over-card p { color: var(--muted); margin-bottom: 1.5rem; }
+
+    /* rounds */
+    .round-info {
+      display: flex; gap: 1.5rem; align-items: center;
+    }
+    .round-badge {
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3);
+      border-radius: 8px; padding: .3rem .8rem; font-size: .8rem;
+    }
+    .lives {
+      display: flex; gap: 4px;
+    }
+    .heart { font-size: 1.1rem; }
+
+    /* timer bar */
+    .timer-bar-wrap {
+      width: 100%; max-width: 400px;
+      height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width .1s linear, background .3s;
+    }
+
+    /* ══════════════════════════════════════
+       GAME 2 — AIM TRAINER
+    ══════════════════════════════════════ */
+    #game2 .arena {
+      flex: 1; position: relative;
+      background: radial-gradient(ellipse at center, #0d0d22 0%, #050510 100%);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem; overflow: hidden;
+      min-height: 400px; cursor: crosshair;
+    }
+    .aim-start-msg {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem;
+      font-size: 1.1rem; color: var(--muted);
+    }
+    .target-circle {
+      position: absolute;
+      border-radius: 50%;
+      cursor: crosshair;
+      transform: translate(-50%, -50%);
+      display: flex; align-items: center; justify-content: center;
+      animation: targetPop .15s ease-out;
+      transition: box-shadow .1s;
+    }
+    @keyframes targetPop {
+      from { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+      to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .target-circle:hover { box-shadow: 0 0 20px 4px rgba(255,255,255,.3); }
+    .target-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.2);
+      animation: ringPulse 1s ease-out infinite;
+    }
+    @keyframes ringPulse {
+      from { transform: scale(1); opacity: .6; }
+      to   { transform: scale(1.3); opacity: 0; }
+    }
+
+    .aim-stats {
+      display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+    }
+    .stat-pill {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: .3rem .8rem;
+      font-size: .8rem; color: var(--muted);
+    }
+    .stat-pill strong { color: var(--text); }
+    .miss-dots { display: flex; gap: 4px; align-items: center; }
+    .miss-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--border); transition: background .2s;
+    }
+    .miss-dot.filled { background: var(--danger); }
+
+    /* ripple on click miss */
+    .ripple {
+      position: absolute; border-radius: 50%;
+      width: 30px; height: 30px;
+      border: 2px solid var(--danger);
+      transform: translate(-50%, -50%) scale(0);
+      animation: rippleAnim .5s ease-out forwards;
+      pointer-events: none; z-index: 10;
+    }
+    @keyframes rippleAnim {
+      to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+
+    /* combo popup */
+    .combo-popup {
+      position: absolute; pointer-events: none;
+      font-weight: 900; font-size: 1.5rem;
+      color: var(--accent3);
+      text-shadow: 0 0 10px rgba(245,158,11,.6);
+      animation: floatUp .8s ease-out forwards;
+      z-index: 20;
+    }
+    @keyframes floatUp {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(-60px) scale(1.4); }
+    }
+
+    /* loading */
+    .loading-msg {
+      display: flex; align-items: center; gap: .5rem;
+      color: var(--muted); font-size: .875rem;
+    }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* responsive */
+    @media (max-width: 500px) {
+      .game-cards { flex-direction: column; align-items: center; }
+      .game-card { width: 100%; max-width: 360px; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ══════════════════════════════════
+     HOME SCREEN
+══════════════════════════════════ -->
+<section id="home" class="screen active">
+  <div class="home-header">
+    <h1>Quantum Games</h1>
+    <p>Every move powered by real quantum entropy</p>
+    <div class="quantum-badge">Live quantum randomness from CURBy · University of Colorado</div>
+  </div>
+  <div class="game-cards">
+    <div class="game-card" onclick="showGame(1)">
+      <div class="card-icon">🧮</div>
+      <div class="card-title">Equation Builder</div>
+      <div class="card-desc">A quantum-chosen target number. Drag number & operator tiles to build an equation that equals it. Race against the clock.</div>
+      <span class="card-tag">Quantum Number</span>
+    </div>
+    <div class="game-card game2" onclick="showGame(2)">
+      <div class="card-icon">🎯</div>
+      <div class="card-title">Quantum Aim Trainer</div>
+      <div class="card-desc">Targets appear at quantum-random positions. Click them before they vanish. Gets faster. Gets smaller. How long can you last?</div>
+      <span class="card-tag">Quantum Position</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 1 — EQUATION BUILDER
+══════════════════════════════════ -->
+<section id="game1" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🧮 Equation Builder</span>
+    <div class="score-badge">Score <span id="g1-score">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g1-dot"></div>
+      <span id="g1-entropy-label">connecting…</span>
+    </div>
+  </div>
+
+  <div class="arena" id="g1-arena">
+    <div class="round-info">
+      <div class="round-badge" id="g1-round">Round 1</div>
+      <div class="lives" id="g1-lives"></div>
+    </div>
+
+    <div class="target-display">
+      <div class="target-label">Make this number</div>
+      <div class="target-number" id="g1-target">?</div>
+    </div>
+
+    <div class="timer-bar-wrap"><div class="timer-bar" id="g1-timer-bar"></div></div>
+
+    <div
+      class="eq-drop-zone"
+      id="g1-drop-zone"
+      ondragover="dzDragOver(event)"
+      ondragleave="dzDragLeave(event)"
+      ondrop="dzDrop(event)"
+    >
+      <span class="placeholder-text" id="g1-zone-placeholder">Drop tiles here to build your equation</span>
+    </div>
+
+    <div class="eq-result" id="g1-result"></div>
+
+    <div class="tile-palette" id="g1-palette"></div>
+
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+      <button class="btn-primary" id="g1-check-btn" onclick="checkEquation()" disabled>Check ✓</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="clearZone()">Clear</button>
+    </div>
+
+    <div class="loading-msg" id="g1-loading">
+      <div class="spinner"></div> Fetching quantum entropy…
+    </div>
+  </div>
+
+  <div class="game-over-overlay" id="g1-over">
+    <div class="game-over-card">
+      <h2>Game Over</h2>
+      <div class="final-score" id="g1-final-score">0</div>
+      <p>quantum equations solved</p>
+      <button class="btn-primary" onclick="restartGame(1)">Play Again</button>
+      <br><br>
+      <button class="btn-back" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 2 — AIM TRAINER
+══════════════════════════════════ -->
+<section id="game2" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🎯 Quantum Aim Trainer</span>
+    <div class="score-badge">Score <span id="g2-score">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g2-dot"></div>
+      <span id="g2-entropy-label">connecting…</span>
+    </div>
+  </div>
+
+  <div class="aim-stats">
+    <div class="stat-pill">Level <strong id="g2-level">1</strong></div>
+    <div class="stat-pill">Combo <strong id="g2-combo">×1</strong></div>
+    <div class="stat-pill">Accuracy <strong id="g2-acc">—</strong></div>
+    <div class="stat-pill" style="display:flex;align-items:center;gap:.4rem;">
+      Misses
+      <span class="miss-dots" id="g2-miss-dots"></span>
+    </div>
+  </div>
+
+  <div class="arena" id="g2-arena" onclick="arenaMissClick(event)">
+    <div class="aim-start-msg" id="g2-start-msg">
+      <div class="loading-msg" id="g2-loading" style="display:none">
+        <div class="spinner"></div> Fetching quantum entropy…
+      </div>
+      <button class="btn-primary cyan" id="g2-start-btn" onclick="startAimGame(event)">Start Game</button>
+      <span style="font-size:.8rem">Click targets before they disappear</span>
+    </div>
+  </div>
+
+  <div class="game-over-overlay" id="g2-over">
+    <div class="game-over-card">
+      <h2>Game Over 🎯</h2>
+      <div class="final-score" id="g2-final-score" style="color:var(--accent2)">0</div>
+      <p id="g2-over-stats">—</p>
+      <button class="btn-primary cyan" onclick="restartGame(2)">Play Again</button>
+      <br><br>
+      <button class="btn-back" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+// ═══════════════════════════════════════════════════════
+//  CURBy quantum entropy client (via esm.sh)
+// ═══════════════════════════════════════════════════════
+import { Client } from 'https://esm.sh/@buff-beacon-project/curby-client@1.2.0'
+
+let curbyClient = null
+let latestRandomness = null
+let entropyPool = []   // pool of shuffled ints we drain as needed
+let poolIndex = 0
+
+async function initCurby() {
+  try {
+    curbyClient = await Client.create()
+    await refreshEntropy()
+    return true
+  } catch (e) {
+    console.warn('CURBy init failed, using fallback PRNG:', e)
+    return false
+  }
+}
+
+async function refreshEntropy() {
+  if (!curbyClient) return
+  try {
+    latestRandomness = await curbyClient.randomness()
+    // Build a fresh pool: shuffle 0..4095 to give us ~4096 unique quantum numbers
+    const base = Array.from({ length: 4096 }, (_, i) => i)
+    entropyPool = latestRandomness.shuffled(base)
+    poolIndex = 0
+    setEntropyLive(true)
+  } catch (e) {
+    setEntropyLive(false)
+    console.warn('Entropy refresh failed:', e)
+  }
+}
+
+// Refresh entropy once per minute (CURBy updates every minute)
+setInterval(refreshEntropy, 60_000)
+
+function setEntropyLive(live) {
+  for (const id of ['g1-dot', 'g2-dot']) {
+    const el = document.getElementById(id)
+    if (el) el.className = 'entropy-dot' + (live ? ' live' : '')
+  }
+  const label = live ? 'quantum live' : 'local fallback'
+  document.getElementById('g1-entropy-label').textContent = label
+  document.getElementById('g2-entropy-label').textContent = label
+}
+
+/**
+ * Returns a quantum random integer in [0, max)
+ * Drains the pool; falls back to Math.random if pool exhausted
+ */
+function qRandInt(max) {
+  if (entropyPool.length > 0) {
+    const raw = entropyPool[poolIndex % entropyPool.length]
+    poolIndex++
+    // If pool exhausted, trigger background refresh
+    if (poolIndex >= entropyPool.length) {
+      poolIndex = 0
+      refreshEntropy()
+    }
+    return raw % max
+  }
+  return Math.floor(Math.random() * max)
+}
+
+/** Pick n unique ints from [0, max) using quantum entropy */
+function qPickUnique(n, max) {
+  if (n > max) n = max
+  const arr = Array.from({ length: max }, (_, i) => i)
+  if (latestRandomness) {
+    const shuffled = latestRandomness.shuffled(arr)
+    return shuffled.slice(0, n)
+  }
+  // fallback Fisher-Yates
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr.slice(0, n)
+}
+
+// ═══════════════════════════════════════════════════════
+//  BACKGROUND PARTICLE CANVAS
+// ═══════════════════════════════════════════════════════
+const canvas = document.getElementById('bg-canvas')
+const ctx = canvas.getContext('2d')
+let particles = []
+
+function initCanvas() {
+  canvas.width = window.innerWidth
+  canvas.height = window.innerHeight
+  particles = Array.from({ length: 80 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: Math.random() * 1.5 + .3,
+    vx: (Math.random() - .5) * .3,
+    vy: (Math.random() - .5) * .3,
+    alpha: Math.random() * .6 + .2,
+  }))
+}
+function animCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  for (const p of particles) {
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(124,58,237,${p.alpha})`
+    ctx.fill()
+    p.x += p.vx; p.y += p.vy
+    if (p.x < 0) p.x = canvas.width
+    if (p.x > canvas.width) p.x = 0
+    if (p.y < 0) p.y = canvas.height
+    if (p.y > canvas.height) p.y = 0
+  }
+  requestAnimationFrame(animCanvas)
+}
+window.addEventListener('resize', initCanvas)
+initCanvas(); animCanvas()
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+window.showGame = function(n) {
+  document.getElementById('home').classList.remove('active')
+  document.getElementById(`game${n}`).classList.add('active')
+  if (n === 1) initGame1()
+  if (n === 2) initGame2()
+}
+window.goHome = function() {
+  stopG1Timer(); stopSpawn()
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById('home').classList.add('active')
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME 1 — EQUATION BUILDER
+// ═══════════════════════════════════════════════════════
+const G1 = {
+  score: 0, round: 0, lives: 3,
+  target: 0, zone: [],
+  timerSec: 30, timerInterval: null,
+  timeLeft: 30, active: false,
+}
+const OPS = ['+', '−', '×', '÷']
+const OP_MAP = { '+': '+', '−': '-', '×': '*', '÷': '/' }
+
+async function initGame1() {
+  G1.score = 0; G1.round = 0; G1.lives = 3; G1.active = true
+  document.getElementById('g1-over').classList.remove('show')
+  document.getElementById('g1-loading').style.display = 'flex'
+  document.getElementById('g1-check-btn').disabled = true
+  setEntropyLive(false)
+  await initCurby()
+  document.getElementById('g1-loading').style.display = 'none'
+  updateG1UI()
+  nextRoundG1()
+}
+
+function nextRoundG1() {
+  if (!G1.active) return
+  G1.round++
+  clearZone()
+
+  // Quantum-chosen target: harder each round
+  const maxTarget = Math.min(20 + G1.round * 5, 100)
+  G1.target = qRandInt(maxTarget - 2) + 2   // at least 2
+
+  // Timer decreases as rounds progress (30s → 15s)
+  G1.timerSec = Math.max(15, 30 - G1.round * 2)
+  G1.timeLeft = G1.timerSec
+
+  // Build palette: quantum-chosen numbers + operators
+  buildPalette()
+  updateG1UI()
+  startG1Timer()
+}
+
+function buildPalette() {
+  const palette = document.getElementById('g1-palette')
+  palette.innerHTML = ''
+
+  // Pick quantum numbers that could plausibly reach target
+  // Give more numbers on harder rounds
+  const numCount = Math.min(4 + G1.round, 8)
+  const nums = []
+
+  // Always include some numbers ≤ target
+  for (let i = 0; i < numCount; i++) {
+    let n
+    if (i < 3) {
+      n = qRandInt(G1.target) + 1
+    } else {
+      n = qRandInt(9) + 1
+    }
+    nums.push(n)
+  }
+
+  // Shuffle nums using quantum entropy
+  const shuffled = latestRandomness
+    ? latestRandomness.shuffled(nums)
+    : nums.sort(() => Math.random() - .5)
+
+  for (const n of shuffled) {
+    palette.appendChild(makeTile(String(n), 'num-tile', false))
+  }
+  for (const op of OPS) {
+    palette.appendChild(makeTile(op, 'op-tile', false))
+  }
+}
+
+function makeTile(val, cls, inZone) {
+  const el = document.createElement('div')
+  el.className = `tile ${cls}${inZone ? ' in-zone' : ''}`
+  el.draggable = true
+  el.dataset.val = val
+  el.dataset.cls = cls
+  el.textContent = val
+
+  if (inZone) {
+    const rb = document.createElement('span')
+    rb.className = 'remove-btn'
+    rb.textContent = '×'
+    rb.onclick = (e) => { e.stopPropagation(); removeTileFromZone(el) }
+    el.appendChild(rb)
+  }
+
+  el.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ val, cls, fromZone: inZone }))
+    if (inZone) el.dataset.removing = '1'
+  })
+  el.addEventListener('dragend', () => { delete el.dataset.removing })
+
+  // Touch support
+  el.addEventListener('click', () => {
+    if (!inZone) addTileToZone(val, cls)
+  })
+
+  return el
+}
+
+window.dzDragOver = function(e) {
+  e.preventDefault()
+  document.getElementById('g1-drop-zone').classList.add('drag-over')
+}
+window.dzDragLeave = function() {
+  document.getElementById('g1-drop-zone').classList.remove('drag-over')
+}
+window.dzDrop = function(e) {
+  e.preventDefault()
+  document.getElementById('g1-drop-zone').classList.remove('drag-over')
+  try {
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+    addTileToZone(data.val, data.cls)
+  } catch {}
+}
+
+function addTileToZone(val, cls) {
+  G1.zone.push({ val, cls })
+  renderZone()
+  validateG1()
+}
+
+function removeTileFromZone(el) {
+  const idx = Array.from(document.getElementById('g1-drop-zone').children)
+    .filter(c => c.classList.contains('tile'))
+    .indexOf(el)
+  if (idx >= 0) G1.zone.splice(idx, 1)
+  renderZone()
+  validateG1()
+}
+
+function clearZone() {
+  G1.zone = []
+  renderZone()
+  document.getElementById('g1-result').textContent = ''
+  document.getElementById('g1-result').className = 'eq-result'
+  document.getElementById('g1-check-btn').disabled = true
+}
+window.clearZone = clearZone
+
+function renderZone() {
+  const dz = document.getElementById('g1-drop-zone')
+  dz.innerHTML = ''
+  const ph = document.getElementById('g1-zone-placeholder')
+  if (G1.zone.length === 0) {
+    const span = document.createElement('span')
+    span.className = 'placeholder-text'
+    span.id = 'g1-zone-placeholder'
+    span.textContent = 'Drop tiles here to build your equation'
+    dz.appendChild(span)
+    return
+  }
+  for (const item of G1.zone) {
+    dz.appendChild(makeTile(item.val, item.cls, true))
+  }
+}
+
+function validateG1() {
+  const hasNum = G1.zone.some(t => t.cls === 'num-tile')
+  document.getElementById('g1-check-btn').disabled = !hasNum
+}
+
+window.checkEquation = function() {
+  if (!G1.active) return
+  const expr = G1.zone.map(t => {
+    if (t.cls === 'op-tile') return OP_MAP[t.val] || t.val
+    return t.val
+  }).join(' ')
+
+  let result
+  try {
+    // safe eval: only allow digits, spaces, +, -, *, /
+    if (!/^[\d\s\+\-\*\/\.]+$/.test(expr)) throw new Error('invalid')
+    result = Function('"use strict"; return (' + expr + ')')()
+  } catch {
+    showG1Result('Invalid expression', 'wrong')
+    return
+  }
+
+  if (Math.abs(result - G1.target) < 0.0001) {
+    const complexity = G1.zone.filter(t => t.cls === 'op-tile').length
+    const timeBonus = Math.floor(G1.timeLeft * 2)
+    const pts = 10 + complexity * 5 + timeBonus
+    G1.score += pts
+    showG1Result(`✓ Correct! +${pts} points`, 'correct')
+    stopG1Timer()
+    setTimeout(nextRoundG1, 1200)
+  } else {
+    showG1Result(`✗ Got ${+result.toFixed(4)}, need ${G1.target}`, 'wrong')
+    G1.lives--
+    updateG1UI()
+    if (G1.lives <= 0) endGame1()
+  }
+}
+
+function showG1Result(msg, cls) {
+  const el = document.getElementById('g1-result')
+  el.textContent = msg
+  el.className = 'eq-result ' + cls
+}
+
+function startG1Timer() {
+  stopG1Timer()
+  const bar = document.getElementById('g1-timer-bar')
+  G1.timerInterval = setInterval(() => {
+    G1.timeLeft -= .1
+    const pct = Math.max(0, (G1.timeLeft / G1.timerSec) * 100)
+    bar.style.width = pct + '%'
+    if (pct < 30) bar.style.background = 'linear-gradient(90deg, var(--danger), #f97316)'
+    else bar.style.background = 'linear-gradient(90deg, var(--accent), var(--accent2))'
+    if (G1.timeLeft <= 0) {
+      stopG1Timer()
+      showG1Result("⏱ Time's up!", 'wrong')
+      G1.lives--
+      updateG1UI()
+      if (G1.lives <= 0) endGame1()
+      else setTimeout(nextRoundG1, 1000)
+    }
+  }, 100)
+}
+
+function stopG1Timer() {
+  clearInterval(G1.timerInterval)
+}
+window.stopGame1 = stopG1Timer
+
+function updateG1UI() {
+  document.getElementById('g1-score').textContent = G1.score
+  document.getElementById('g1-round').textContent = `Round ${G1.round}`
+  const livesEl = document.getElementById('g1-lives')
+  livesEl.innerHTML = Array.from({ length: 3 }, (_, i) =>
+    `<span class="heart">${i < G1.lives ? '❤️' : '🖤'}</span>`
+  ).join('')
+  document.getElementById('g1-target').textContent = G1.target || '?'
+}
+
+function endGame1() {
+  G1.active = false
+  stopG1Timer()
+  document.getElementById('g1-final-score').textContent = G1.score
+  document.getElementById('g1-over').classList.add('show')
+}
+
+window.restartGame = function(n) {
+  document.getElementById(`g${n}-over`).classList.remove('show')
+  if (n === 1) initGame1()
+  if (n === 2) initGame2()
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME 2 — AIM TRAINER
+// ═══════════════════════════════════════════════════════
+const G2 = {
+  score: 0, level: 1, combo: 0,
+  misses: 0, maxMisses: 3,
+  totalClicks: 0, totalHits: 0,
+  active: false, started: false,
+  targets: [],           // { el, timeoutId, spawnTime, lifetime }
+  spawnInterval: null,
+  entropyBuffer: [],     // pre-fetched quantum positions
+}
+
+// Level config
+function g2Config() {
+  const l = G2.level
+  return {
+    targetSize: Math.max(28, 70 - l * 4),       // px
+    lifetime: Math.max(1200, 5000 - l * 300),    // ms
+    spawnRate: Math.max(400, 1800 - l * 120),    // ms between spawns
+    maxTargets: Math.min(2 + Math.floor(l / 3), 6),
+  }
+}
+
+async function initGame2() {
+  G2.score = 0; G2.level = 1; G2.combo = 0; G2.misses = 0
+  G2.totalClicks = 0; G2.totalHits = 0
+  G2.active = false; G2.started = false
+  G2.targets = []; G2.entropyBuffer = []
+  document.getElementById('g2-over').classList.remove('show')
+  document.getElementById('g2-start-msg').style.display = 'flex'
+  document.getElementById('g2-start-btn').style.display = 'inline-flex'
+  // clear old targets
+  document.querySelectorAll('.target-circle').forEach(e => e.remove())
+  updateG2UI()
+}
+
+window.startAimGame = async function(e) {
+  e.stopPropagation()
+  const btn = document.getElementById('g2-start-btn')
+  const loading = document.getElementById('g2-loading')
+  btn.style.display = 'none'
+  loading.style.display = 'flex'
+  await initCurby()
+  await prefillEntropyBuffer()
+  loading.style.display = 'none'
+  document.getElementById('g2-start-msg').style.display = 'none'
+  G2.active = true; G2.started = true
+  scheduleSpawn()
+}
+
+async function prefillEntropyBuffer() {
+  // Pre-generate positions from quantum entropy
+  G2.entropyBuffer = []
+  if (latestRandomness) {
+    const xs = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
+    const ys = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
+    for (let i = 0; i < 200; i++) {
+      G2.entropyBuffer.push({ xFrac: xs[i] / 199, yFrac: ys[i] / 199 })
+    }
+  }
+}
+
+function getQuantumPos() {
+  if (G2.entropyBuffer.length > 0) {
+    return G2.entropyBuffer.splice(
+      qRandInt(G2.entropyBuffer.length), 1
+    )[0]
+  }
+  return { xFrac: Math.random(), yFrac: Math.random() }
+}
+
+function scheduleSpawn() {
+  if (!G2.active) return
+  stopSpawn()
+  const cfg = g2Config()
+  G2.spawnInterval = setInterval(() => {
+    if (!G2.active) return
+    const activeTargets = document.querySelectorAll('.target-circle').length
+    if (activeTargets < cfg.maxTargets) spawnTarget()
+  }, cfg.spawnRate)
+  spawnTarget() // immediate first spawn
+}
+
+function spawnTarget() {
+  if (!G2.active) return
+  const arena = document.getElementById('g2-arena')
+  const rect = arena.getBoundingClientRect()
+  const cfg = g2Config()
+  const size = cfg.targetSize
+
+  const pos = getQuantumPos()
+  const margin = size / 2 + 10
+  const x = margin + pos.xFrac * (rect.width - margin * 2)
+  const y = margin + pos.yFrac * (rect.height - margin * 2)
+
+  // Quantum color hue
+  const hue = qRandInt(360)
+
+  const el = document.createElement('div')
+  el.className = 'target-circle'
+  el.style.cssText = `
+    left:${x}px; top:${y}px;
+    width:${size}px; height:${size}px;
+    background: radial-gradient(circle at 35% 35%,
+      hsl(${hue},90%,70%), hsl(${hue + 40},80%,40%));
+    box-shadow: 0 0 ${size * .6}px hsl(${hue},90%,50%);
+  `
+
+  const ring = document.createElement('div')
+  ring.className = 'target-ring'
+  el.appendChild(ring)
+
+  // Timer shrink ring
+  const timerRing = document.createElement('canvas')
+  timerRing.width = size; timerRing.height = size
+  timerRing.style.cssText = 'position:absolute;inset:0;border-radius:50%;'
+  el.appendChild(timerRing)
+
+  arena.appendChild(el)
+
+  const spawnTime = Date.now()
+  let animFrame
+
+  function drawTimer() {
+    if (!el.isConnected) return
+    const elapsed = Date.now() - spawnTime
+    const pct = Math.max(0, 1 - elapsed / cfg.lifetime)
+    const c = timerRing.getContext('2d')
+    c.clearRect(0, 0, size, size)
+    c.beginPath()
+    c.arc(size / 2, size / 2, size / 2 - 3, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2)
+    c.strokeStyle = `hsla(${hue},90%,70%,0.6)`
+    c.lineWidth = 3
+    c.stroke()
+    animFrame = requestAnimationFrame(drawTimer)
+  }
+  drawTimer()
+
+  el.addEventListener('click', (e) => {
+    e.stopPropagation()
+    cancelAnimationFrame(animFrame)
+    clearTimeout(timeoutId)
+    hitTarget(el, x, y, hue)
+  })
+
+  const timeoutId = setTimeout(() => {
+    cancelAnimationFrame(animFrame)
+    missTarget(el)
+  }, cfg.lifetime)
+
+  G2.targets.push({ el, timeoutId, animFrame })
+}
+
+function hitTarget(el, x, y, hue) {
+  el.remove()
+  G2.totalHits++; G2.combo++
+  const pts = Math.floor(10 * (1 + (G2.combo - 1) * .5) * G2.level)
+  G2.score += pts
+
+  // Combo popup
+  const arena = document.getElementById('g2-arena')
+  const popup = document.createElement('div')
+  popup.className = 'combo-popup'
+  popup.style.cssText = `left:${x}px;top:${y - 20}px;`
+  popup.textContent = G2.combo > 1 ? `×${G2.combo} +${pts}` : `+${pts}`
+  arena.appendChild(popup)
+  setTimeout(() => popup.remove(), 900)
+
+  // Level up every 10 hits
+  if (G2.totalHits % 10 === 0) {
+    G2.level++
+    scheduleSpawn()
+    // Refill entropy buffer on level up
+    if (G2.entropyBuffer.length < 50) prefillEntropyBuffer()
+  }
+  updateG2UI()
+}
+
+function missTarget(el) {
+  if (!el.isConnected) return
+  el.style.transition = 'transform .3s, opacity .3s'
+  el.style.transform = 'translate(-50%,-50%) scale(0)'
+  el.style.opacity = '0'
+  setTimeout(() => el.remove(), 300)
+  G2.combo = 0; G2.misses++
+  updateG2UI()
+  if (G2.misses >= G2.maxMisses) endGame2()
+}
+
+window.arenaMissClick = function(e) {
+  if (!G2.active || !G2.started) return
+  if (e.target.id === 'g2-arena') {
+    G2.totalClicks++
+    // ripple
+    const arena = document.getElementById('g2-arena')
+    const rect = arena.getBoundingClientRect()
+    const rip = document.createElement('div')
+    rip.className = 'ripple'
+    rip.style.left = (e.clientX - rect.left) + 'px'
+    rip.style.top = (e.clientY - rect.top) + 'px'
+    arena.appendChild(rip)
+    setTimeout(() => rip.remove(), 500)
+  }
+}
+
+function stopSpawn() {
+  clearInterval(G2.spawnInterval)
+}
+window.stopGame2 = stopSpawn
+
+function updateG2UI() {
+  document.getElementById('g2-score').textContent = G2.score
+  document.getElementById('g2-level').textContent = G2.level
+  document.getElementById('g2-combo').textContent = `×${G2.combo || 1}`
+  const totalShots = G2.totalHits + G2.totalClicks
+  document.getElementById('g2-acc').textContent =
+    totalShots > 0 ? Math.round(G2.totalHits / totalShots * 100) + '%' : '—'
+  // miss dots
+  const dots = document.getElementById('g2-miss-dots')
+  dots.innerHTML = Array.from({ length: G2.maxMisses }, (_, i) =>
+    `<div class="miss-dot${i < G2.misses ? ' filled' : ''}"></div>`
+  ).join('')
+}
+
+function endGame2() {
+  G2.active = false
+  stopSpawn()
+  document.querySelectorAll('.target-circle').forEach(e => e.remove())
+  document.getElementById('g2-final-score').textContent = G2.score
+  document.getElementById('g2-over-stats').textContent =
+    `Level ${G2.level} · ${G2.totalHits} hits · ${G2.totalClicks} total clicks`
+  document.getElementById('g2-over').classList.add('show')
+}
+
+// ── Auto-init CURBy on page load (no-op if already done) ──
+initCurby()
+</script>
+</body>
+</html>
