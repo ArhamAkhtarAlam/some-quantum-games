@@ -500,26 +500,31 @@
   </div>
 </section>
 
-<script type="module">
+<script>
 // ═══════════════════════════════════════════════════════
-//  CURBy quantum entropy client (via esm.sh)
+//  CURBy quantum entropy client (dynamic import)
 // ═══════════════════════════════════════════════════════
-import { Client } from 'https://esm.sh/@buff-beacon-project/curby-client@1.2.0'
-
 let curbyClient = null
 let latestRandomness = null
-let entropyPool = []   // pool of shuffled ints we drain as needed
+let entropyPool = []
 let poolIndex = 0
+let curbyInitPromise = null
 
 async function initCurby() {
-  try {
-    curbyClient = await Client.create()
-    await refreshEntropy()
-    return true
-  } catch (e) {
-    console.warn('CURBy init failed, using fallback PRNG:', e)
-    return false
-  }
+  if (curbyInitPromise) return curbyInitPromise
+  curbyInitPromise = (async () => {
+    try {
+      const mod = await import('https://esm.sh/@buff-beacon-project/curby-client@1.2.0')
+      curbyClient = await mod.Client.create()
+      await refreshEntropy()
+      return true
+    } catch (e) {
+      console.warn('CURBy init failed, using fallback PRNG:', e)
+      setEntropyLive(false)
+      return false
+    }
+  })()
+  return curbyInitPromise
 }
 
 async function refreshEntropy() {
