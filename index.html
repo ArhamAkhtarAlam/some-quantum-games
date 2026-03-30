@@ -355,6 +355,68 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Leaderboard ── */
+    .leaderboard-section {
+      width: 100%; max-width: 700px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.25rem; padding: 1.5rem;
+    }
+    .lb-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .lb-header h3 { font-size: 1rem; font-weight: 700; }
+    .lb-tabs {
+      display: flex; gap: .4rem;
+    }
+    .lb-tab {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); padding: .25rem .7rem; border-radius: 6px;
+      cursor: pointer; font-size: .8rem; transition: all .15s;
+    }
+    .lb-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .lb-tab.active.cyan { background: var(--accent2); border-color: var(--accent2); }
+    .lb-list { display: flex; flex-direction: column; gap: .4rem; }
+    .lb-row {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .5rem .75rem; border-radius: 8px;
+      background: rgba(255,255,255,.03);
+      font-size: .875rem;
+    }
+    .lb-rank { width: 24px; text-align: center; color: var(--muted); font-weight: 700; font-size: .8rem; }
+    .lb-rank.gold { color: #f59e0b; }
+    .lb-rank.silver { color: #94a3b8; }
+    .lb-rank.bronze { color: #cd7c3a; }
+    .lb-name { flex: 1; font-weight: 600; }
+    .lb-score { color: var(--accent); font-weight: 700; }
+    .lb-score.cyan { color: var(--accent2); }
+    .lb-empty { color: var(--muted); font-size: .875rem; text-align: center; padding: 1rem 0; }
+    .lb-loading { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .8rem; justify-content: center; padding: .5rem 0; }
+
+    /* ── Submit score modal ── */
+    .submit-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    .submit-overlay.show { display: flex; }
+    .submit-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 2rem; text-align: center;
+      max-width: 340px; width: 90%; display: flex; flex-direction: column; gap: .75rem;
+    }
+    .submit-card h3 { font-size: 1.25rem; font-weight: 700; }
+    .submit-card .sub-score { font-size: 2.5rem; font-weight: 900; color: var(--accent); }
+    .submit-card input {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: .65rem 1rem; border-radius: 10px;
+      font-size: 1rem; outline: none; text-align: center;
+      transition: border-color .15s;
+    }
+    .submit-card input:focus { border-color: var(--accent); }
+    .submit-card .sub-row { display: flex; gap: .5rem; }
+    .submit-card .sub-row button { flex: 1; }
+
     /* responsive */
     @media (max-width: 500px) {
       .game-cards { flex-direction: column; align-items: center; }
@@ -389,7 +451,40 @@
       <span class="card-tag">Quantum Position</span>
     </div>
   </div>
+
+  <!-- Leaderboard -->
+  <div class="leaderboard-section">
+    <div class="lb-header">
+      <h3>🏆 Leaderboard</h3>
+      <div class="lb-tabs">
+        <button class="lb-tab active" id="lb-tab-1" onclick="switchLbTab('equation')">Equation</button>
+        <button class="lb-tab cyan" id="lb-tab-2" onclick="switchLbTab('aim')">Aim Trainer</button>
+      </div>
+    </div>
+    <div class="lb-list" id="lb-list">
+      <div class="lb-loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
 </section>
+
+<!-- Submit score modal (shared) -->
+<div class="submit-overlay" id="submit-overlay">
+  <div class="submit-card">
+    <h3>Submit Your Score</h3>
+    <div class="sub-score" id="sub-score-display">0</div>
+    <p style="color:var(--muted);font-size:.875rem">Enter your name for the leaderboard</p>
+    <div id="sub-pb-info" style="font-size:.8rem;min-height:1rem;"></div>
+    <input type="text" id="sub-name-input" placeholder="Your name" maxlength="20" autocomplete="off" />
+    <div id="admin-pw-row" style="display:none;flex-direction:column;gap:.4rem;">
+      <input type="password" id="sub-admin-pw" placeholder="Admin password" maxlength="40" autocomplete="off" />
+    </div>
+    <div class="sub-row">
+      <button class="btn-primary" id="sub-submit-btn" onclick="submitScore()">Submit</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="skipSubmit()">Skip</button>
+    </div>
+    <div id="sub-status" style="font-size:.8rem;color:var(--muted);min-height:1rem;"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════
      GAME 1 — EQUATION BUILDER
@@ -447,9 +542,10 @@
       <h2>Game Over</h2>
       <div class="final-score" id="g1-final-score">0</div>
       <p>quantum equations solved</p>
-      <button class="btn-primary" onclick="restartGame(1)">Play Again</button>
+      <button class="btn-primary" onclick="openSubmit('equation')">Submit Score</button>
       <br><br>
-      <button class="btn-back" onclick="goHome()">← Home</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(1)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
     </div>
   </div>
 </section>
@@ -493,9 +589,10 @@
       <h2>Game Over 🎯</h2>
       <div class="final-score" id="g2-final-score" style="color:var(--accent2)">0</div>
       <p id="g2-over-stats">—</p>
-      <button class="btn-primary cyan" onclick="restartGame(2)">Play Again</button>
+      <button class="btn-primary cyan" onclick="openSubmit('aim')">Submit Score</button>
       <br><br>
-      <button class="btn-back" onclick="goHome()">← Home</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(2)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
     </div>
   </div>
 </section>
@@ -1133,6 +1230,240 @@ function endGame2() {
 
 // ── Auto-init CURBy on page load (no-op if already done) ──
 initCurby()
+
+// ═══════════════════════════════════════════════════════
+//  COOKIES / LOCAL STORAGE — saved name & personal bests
+// ═══════════════════════════════════════════════════════
+function cookieSet(key, val, days = 365) {
+  const d = new Date(); d.setTime(d.getTime() + days * 864e5)
+  document.cookie = `${key}=${encodeURIComponent(val)};expires=${d.toUTCString()};path=/;SameSite=Lax`
+}
+function cookieGet(key) {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + key + '=([^;]*)'))
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+// Personal bests stored in localStorage (more space than cookies)
+function getPB(game) { return parseInt(localStorage.getItem('pb_' + game) || '0', 10) }
+function setPB(game, score) {
+  if (score > getPB(game)) { localStorage.setItem('pb_' + game, score); return true }
+  return false
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADMIN AUTH — password stored as SHA-256 hash only
+// ═══════════════════════════════════════════════════════
+const ADMIN_NAME = 'ARHAM'
+// SHA-256 of "ich_bin_arham_XD" — password never stored in plaintext
+const ADMIN_HASH = 'd4c39c00879d9caf8fdee691d3cfe371b48767334f2c8c49313b439f31f46455'
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Returns true if currently verified as admin this session
+function isAdminVerified() { return sessionStorage.getItem('admin_verified') === '1' }
+function setAdminVerified() { sessionStorage.setItem('admin_verified', '1') }
+
+// ═══════════════════════════════════════════════════════
+//  SUPABASE LEADERBOARD
+// ═══════════════════════════════════════════════════════
+const SB_URL = 'https://kuvpxhuvednptyfqccea.supabase.co'
+const SB_KEY = 'sb_publishable_gKmvBHgqjV9cbQvoo_48tA_zKQKDPbw'
+
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SB_URL + path, {
+    ...options,
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': options.prefer || '',
+      ...(options.headers || {}),
+    },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  const text = await res.text()
+  return text ? JSON.parse(text) : null
+}
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+
+let lbCurrentGame = 'equation'
+
+window.switchLbTab = function(game) {
+  lbCurrentGame = game
+  document.getElementById('lb-tab-1').className = 'lb-tab' + (game === 'equation' ? ' active' : '')
+  document.getElementById('lb-tab-2').className = 'lb-tab cyan' + (game === 'aim' ? ' active' : '')
+  loadLeaderboard(game)
+}
+
+async function loadLeaderboard(game) {
+  const list = document.getElementById('lb-list')
+  list.innerHTML = '<div class="lb-loading"><div class="spinner"></div> Loading…</div>'
+  try {
+    const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=score.desc&limit=10`)
+    if (!rows || rows.length === 0) {
+      list.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'
+      return
+    }
+    const rankLabels = ['🥇', '🥈', '🥉']
+    const myName = cookieGet('player_name') || ''
+    const pb = getPB(game)
+    list.innerHTML = rows.map((r, i) => {
+      const isAdmin = r.name.toUpperCase() === ADMIN_NAME
+      const isMe = myName && r.name === myName
+      const crown = isAdmin ? ' <span title="Creator" style="font-size:.9rem">👑</span>' : ''
+      const youBadge = isMe ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
+      return `
+        <div class="lb-row" style="${isMe ? 'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);' : ''}">
+          <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
+          <span class="lb-name">${escHtml(r.name)}${crown}${youBadge}</span>
+          <span class="lb-score ${game==='aim'?'cyan':''}">${r.score.toLocaleString()}</span>
+        </div>`
+    }).join('')
+
+    // Personal best row below leaderboard if not already in top 10
+    if (pb > 0 && myName && !rows.find(r => r.name === myName)) {
+      list.innerHTML += `
+        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
+          <div class="lb-row" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);">
+            <span class="lb-rank">—</span>
+            <span class="lb-name">${escHtml(myName)} <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;">you</span></span>
+            <span class="lb-score ${game==='aim'?'cyan':''}">PB: ${pb.toLocaleString()}</span>
+          </div>
+        </div>`
+    }
+  } catch (e) {
+    list.innerHTML = '<div class="lb-empty">Could not load scores.</div>'
+    console.warn('Leaderboard load failed:', e)
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SUBMIT SCORE — with saved name, admin gate, PB tracking
+// ═══════════════════════════════════════════════════════
+let pendingSubmit = null
+
+window.openSubmit = function(game) {
+  const score = game === 'equation' ? G1.score : G2.score
+  pendingSubmit = { game, score }
+  document.getElementById('sub-score-display').textContent = score.toLocaleString()
+  document.getElementById('sub-score-display').style.color = game === 'aim' ? 'var(--accent2)' : 'var(--accent)'
+
+  // Show PB comparison
+  const pb = getPB(game)
+  const pbEl = document.getElementById('sub-pb-info')
+  if (pb > 0) {
+    const improved = score > pb
+    pbEl.textContent = improved
+      ? `New personal best! (was ${pb.toLocaleString()})`
+      : `Your best: ${pb.toLocaleString()}`
+    pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
+  } else {
+    pbEl.textContent = 'First time playing!'
+    pbEl.style.color = 'var(--muted)'
+  }
+
+  // Pre-fill saved name
+  const saved = cookieGet('player_name') || ''
+  document.getElementById('sub-name-input').value = saved
+  document.getElementById('sub-status').textContent = ''
+  document.getElementById('sub-submit-btn').disabled = false
+  document.getElementById('admin-pw-row').style.display = 'none'
+  document.getElementById('sub-admin-pw').value = ''
+  document.getElementById('submit-overlay').classList.add('show')
+  setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
+}
+
+// Show/hide admin password field when name = ARHAM
+document.getElementById('sub-name-input').addEventListener('input', () => {
+  const val = document.getElementById('sub-name-input').value.trim().toUpperCase()
+  const pwRow = document.getElementById('admin-pw-row')
+  if (val === ADMIN_NAME) {
+    pwRow.style.display = 'flex'
+    document.getElementById('sub-admin-pw').focus()
+  } else {
+    pwRow.style.display = 'none'
+  }
+})
+
+document.getElementById('sub-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitScore()
+})
+document.getElementById('sub-admin-pw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitScore()
+})
+
+window.submitScore = async function() {
+  const nameRaw = document.getElementById('sub-name-input').value.trim()
+  if (!nameRaw) {
+    document.getElementById('sub-status').textContent = 'Please enter your name.'
+    return
+  }
+
+  // Admin gate
+  if (nameRaw.toUpperCase() === ADMIN_NAME) {
+    if (!isAdminVerified()) {
+      const pw = document.getElementById('sub-admin-pw').value
+      if (!pw) {
+        document.getElementById('sub-status').textContent = 'Enter the admin password to use this name.'
+        document.getElementById('sub-admin-pw').focus()
+        return
+      }
+      const hashed = await sha256(pw)
+      if (hashed !== ADMIN_HASH) {
+        document.getElementById('sub-status').textContent = 'Wrong password.'
+        document.getElementById('sub-admin-pw').value = ''
+        return
+      }
+      setAdminVerified()
+    }
+  }
+
+  const name = nameRaw.toUpperCase() === ADMIN_NAME ? ADMIN_NAME : nameRaw
+
+  const btn = document.getElementById('sub-submit-btn')
+  btn.disabled = true
+  document.getElementById('sub-status').textContent = 'Submitting…'
+
+  try {
+    await sbFetch('/rest/v1/leaderboard', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body: JSON.stringify({ name, game: pendingSubmit.game, score: pendingSubmit.score }),
+    })
+
+    // Save name cookie + update personal best
+    cookieSet('player_name', name)
+    const newPB = setPB(pendingSubmit.game, pendingSubmit.score)
+    document.getElementById('sub-status').textContent = newPB ? '✓ New personal best saved!' : '✓ Score submitted!'
+
+    setTimeout(() => {
+      document.getElementById('submit-overlay').classList.remove('show')
+      document.getElementById(pendingSubmit.game === 'equation' ? 'g1-over' : 'g2-over').classList.remove('show')
+      goHome()
+      loadLeaderboard(pendingSubmit.game)
+      switchLbTab(pendingSubmit.game)
+    }, 1000)
+  } catch (e) {
+    document.getElementById('sub-status').textContent = 'Failed to submit. Try again.'
+    btn.disabled = false
+    console.warn('Submit failed:', e)
+  }
+}
+
+window.skipSubmit = function() {
+  // Still save PB locally even if skipping submission
+  if (pendingSubmit) setPB(pendingSubmit.game, pendingSubmit.score)
+  document.getElementById('submit-overlay').classList.remove('show')
+}
+
+// Load default leaderboard on page load
+loadLeaderboard('equation')
 </script>
 </body>
 </html>
