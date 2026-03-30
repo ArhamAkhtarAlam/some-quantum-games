@@ -1395,11 +1395,19 @@ async function loadLeaderboard(game) {
   const list = document.getElementById('lb-list')
   list.innerHTML = '<div class="lb-loading"><div class="spinner"></div> Loading…</div>'
   try {
-    const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=score.desc&limit=10`)
-    if (!rows || rows.length === 0) {
+    const rawRows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=score.desc&limit=100`)
+    if (!rawRows || rawRows.length === 0) {
       list.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'
       return
     }
+    // Deduplicate: keep only best score per player name
+    const seen = new Map()
+    for (const r of rawRows) {
+      const key = r.name.toLowerCase()
+      if (!seen.has(key) || r.score > seen.get(key).score) seen.set(key, r)
+    }
+    const rows = Array.from(seen.values()).sort((a, b) => b.score - a.score).slice(0, 10)
+
     const rankLabels = ['🥇', '🥈', '🥉']
     const myName = cookieGet('player_name') || ''
     const pb = getPB(game)
@@ -1410,7 +1418,8 @@ async function loadLeaderboard(game) {
         ? ' <span class="medal medal-author-badge">AUTHOR</span>' : ''
       const youBadge = isMe
         ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
-      const medalBadge = medalBadgeHtml(game, r.score)
+      // ARHAM always gets author medal badge, others get normal medal
+      const medalBadge = isAdmin ? ' <span class="medal medal-earned medal-author"><span class="medal-icon">👾</span><span class="medal-label">Author</span></span>' : medalBadgeHtml(game, r.score)
       return `
         <div class="lb-row" style="${isMe ? 'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);' : ''}">
           <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
