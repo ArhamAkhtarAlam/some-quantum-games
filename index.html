@@ -393,6 +393,33 @@
     .lb-empty { color: var(--muted); font-size: .875rem; text-align: center; padding: 1rem 0; }
     .lb-loading { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .8rem; justify-content: center; padding: .5rem 0; }
 
+    /* ── Trackmania-style medals ── */
+    .medal {
+      display: inline-flex; align-items: center; gap: .25rem;
+      font-size: .7rem; font-weight: 700; padding: .15rem .45rem;
+      border-radius: 4px; vertical-align: middle; letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .medal-bronze  { background: rgba(180,100,40,.25);  color: #cd7c3a; border: 1px solid rgba(180,100,40,.4); }
+    .medal-silver  { background: rgba(148,163,184,.2);  color: #94a3b8; border: 1px solid rgba(148,163,184,.4); }
+    .medal-gold    { background: rgba(245,158,11,.2);   color: #f59e0b; border: 1px solid rgba(245,158,11,.4); }
+    .medal-author  { background: rgba(124,58,237,.25);  color: #a78bfa; border: 1px solid rgba(124,58,237,.5);
+                     box-shadow: 0 0 8px rgba(124,58,237,.3); }
+    .medal-author-badge {
+      background: linear-gradient(135deg,rgba(124,58,237,.3),rgba(6,182,212,.2));
+      color: #c4b5fd; border: 1px solid rgba(124,58,237,.6);
+      box-shadow: 0 0 10px rgba(124,58,237,.4);
+    }
+
+    /* game-over medal display */
+    .medal-earned {
+      display: flex; flex-direction: column; align-items: center; gap: .3rem;
+      padding: .75rem 1.25rem; border-radius: 1rem; margin: .5rem auto;
+      width: fit-content;
+    }
+    .medal-earned .medal-icon { font-size: 2.5rem; line-height: 1; }
+    .medal-earned .medal-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
     /* ── Submit score modal ── */
     .submit-overlay {
       display: none; position: fixed; inset: 0; z-index: 200;
@@ -541,6 +568,7 @@
     <div class="game-over-card">
       <h2>Game Over</h2>
       <div class="final-score" id="g1-final-score">0</div>
+      <div id="g1-medal-display"></div>
       <p>quantum equations solved</p>
       <button class="btn-primary" onclick="openSubmit('equation')">Submit Score</button>
       <br><br>
@@ -588,6 +616,7 @@
     <div class="game-over-card">
       <h2>Game Over 🎯</h2>
       <div class="final-score" id="g2-final-score" style="color:var(--accent2)">0</div>
+      <div id="g2-medal-display"></div>
       <p id="g2-over-stats">—</p>
       <button class="btn-primary cyan" onclick="openSubmit('aim')">Submit Score</button>
       <br><br>
@@ -980,10 +1009,70 @@ function updateG1UI() {
   document.getElementById('g1-target').textContent = G1.target || '?'
 }
 
+// ═══════════════════════════════════════════════════════
+//  TRACKMANIA-STYLE MEDALS
+//  Bronze → Silver → Gold → Author (beat ARHAM's score)
+// ═══════════════════════════════════════════════════════
+const MEDALS = {
+  equation: { bronze: 50,  silver: 150, gold: 300  },
+  aim:      { bronze: 100, silver: 300, gold: 600  },
+}
+
+// Author threshold = ARHAM's personal best fetched from leaderboard
+let authorScores = { equation: null, aim: null }
+
+async function fetchAuthorScores() {
+  for (const game of ['equation', 'aim']) {
+    try {
+      const rows = await sbFetch(
+        `/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`
+      )
+      if (rows && rows.length > 0) authorScores[game] = rows[0].score
+    } catch {}
+  }
+}
+
+function getMedal(game, score) {
+  const t = MEDALS[game]
+  const author = authorScores[game]
+  if (author !== null && score > author) return 'author'
+  if (score >= t.gold)   return 'gold'
+  if (score >= t.silver) return 'silver'
+  if (score >= t.bronze) return 'bronze'
+  return null
+}
+
+const MEDAL_META = {
+  bronze: { icon: '🥉', label: 'Bronze Medal',  cls: 'medal-bronze',  bg: 'rgba(180,100,40,.12)'  },
+  silver: { icon: '🥈', label: 'Silver Medal',  cls: 'medal-silver',  bg: 'rgba(148,163,184,.12)' },
+  gold:   { icon: '🥇', label: 'Gold Medal',    cls: 'medal-gold',    bg: 'rgba(245,158,11,.12)'  },
+  author: { icon: '👾', label: 'Author Medal',  cls: 'medal-author',  bg: 'rgba(124,58,237,.15)'  },
+}
+
+function renderMedalDisplay(elId, game, score) {
+  const el = document.getElementById(elId)
+  const medal = getMedal(game, score)
+  if (!medal) { el.innerHTML = ''; return }
+  const m = MEDAL_META[medal]
+  el.innerHTML = `
+    <div class="medal-earned" style="background:${m.bg};">
+      <div class="medal-icon">${m.icon}</div>
+      <div class="medal-label ${m.cls}">${m.label}${medal === 'author' ? ' — You beat ARHAM!' : ''}</div>
+    </div>`
+}
+
+function medalBadgeHtml(game, score) {
+  const medal = getMedal(game, score)
+  if (!medal) return ''
+  const m = MEDAL_META[medal]
+  return ` <span class="medal ${m.cls}">${m.icon} ${medal}</span>`
+}
+
 function endGame1() {
   G1.active = false
   stopG1Timer()
   document.getElementById('g1-final-score').textContent = G1.score
+  renderMedalDisplay('g1-medal-display', 'equation', G1.score)
   document.getElementById('g1-over').classList.add('show')
 }
 
@@ -1225,6 +1314,7 @@ function endGame2() {
   document.getElementById('g2-final-score').textContent = G2.score
   document.getElementById('g2-over-stats').textContent =
     `Level ${G2.level} · ${G2.totalHits} hits · ${G2.totalClicks} total clicks`
+  renderMedalDisplay('g2-medal-display', 'aim', G2.score)
   document.getElementById('g2-over').classList.add('show')
 }
 
@@ -1316,12 +1406,15 @@ async function loadLeaderboard(game) {
     list.innerHTML = rows.map((r, i) => {
       const isAdmin = r.name.toUpperCase() === ADMIN_NAME
       const isMe = myName && r.name === myName
-      const crown = isAdmin ? ' <span title="Creator" style="font-size:.9rem">👑</span>' : ''
-      const youBadge = isMe ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
+      const authorBadge = isAdmin
+        ? ' <span class="medal medal-author-badge">AUTHOR</span>' : ''
+      const youBadge = isMe
+        ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
+      const medalBadge = medalBadgeHtml(game, r.score)
       return `
         <div class="lb-row" style="${isMe ? 'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);' : ''}">
           <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
-          <span class="lb-name">${escHtml(r.name)}${crown}${youBadge}</span>
+          <span class="lb-name">${escHtml(r.name)}${authorBadge}${youBadge}${medalBadge}</span>
           <span class="lb-score ${game==='aim'?'cyan':''}">${r.score.toLocaleString()}</span>
         </div>`
     }).join('')
@@ -1332,7 +1425,7 @@ async function loadLeaderboard(game) {
         <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
           <div class="lb-row" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);">
             <span class="lb-rank">—</span>
-            <span class="lb-name">${escHtml(myName)} <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;">you</span></span>
+            <span class="lb-name">${escHtml(myName)} <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;">you</span>${medalBadgeHtml(game, pb)}</span>
             <span class="lb-score ${game==='aim'?'cyan':''}">PB: ${pb.toLocaleString()}</span>
           </div>
         </div>`
@@ -1462,8 +1555,8 @@ window.skipSubmit = function() {
   document.getElementById('submit-overlay').classList.remove('show')
 }
 
-// Load default leaderboard on page load
-loadLeaderboard('equation')
+// Load author scores then leaderboard on page load
+fetchAuthorScores().then(() => loadLeaderboard('equation'))
 </script>
 </body>
 </html>
