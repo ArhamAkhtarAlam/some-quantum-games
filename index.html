@@ -103,6 +103,10 @@
       font-size: .75rem; padding: .2rem .6rem; border-radius: 4px;
     }
     .game2 .card-tag { background: rgba(6,182,212,.2); color: var(--accent2); }
+    .game3:hover { border-color: var(--success); box-shadow: 0 0 20px rgba(34,197,94,.4); }
+    .game3 .card-tag { background: rgba(34,197,94,.2); color: var(--success); }
+    .game4:hover { border-color: var(--danger); box-shadow: 0 0 20px rgba(239,68,68,.4); }
+    .game4 .card-tag { background: rgba(239,68,68,.2); color: var(--danger); }
 
     /* ══════════════════════════════════════
        SHARED GAME UI
@@ -444,6 +448,89 @@
     .submit-card .sub-row { display: flex; gap: .5rem; }
     .submit-card .sub-row button { flex: 1; }
 
+    /* ══════════════════════════════════════
+       GAME 3 — REACTION TEST
+    ══════════════════════════════════════ */
+    #game3 .arena {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1.5rem;
+      border-radius: 1.25rem; overflow: hidden; min-height: 400px;
+      cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    #game3 .arena.state-wait   { background: radial-gradient(ellipse at center, #0d0d22, #050510); }
+    #game3 .arena.state-ready  { background: radial-gradient(ellipse at center, #14290f, #050510); }
+    #game3 .arena.state-flash  { background: radial-gradient(ellipse at center, #22c55e 0%, #166534 60%, #050510 100%); }
+    #game3 .arena.state-result { background: radial-gradient(ellipse at center, #0d0d22, #050510); }
+    #game3 .arena.state-early  { background: radial-gradient(ellipse at center, #450a0a, #050510); }
+
+    .react-msg {
+      font-size: clamp(1.5rem, 5vw, 2.5rem); font-weight: 800;
+      text-align: center; pointer-events: none; line-height: 1.3;
+    }
+    .react-sub {
+      color: var(--muted); font-size: 1rem; text-align: center; pointer-events: none;
+    }
+    .react-time {
+      font-size: clamp(3rem, 10vw, 6rem); font-weight: 900;
+      background: linear-gradient(135deg, var(--success), #86efac);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1; pointer-events: none;
+    }
+    .react-rounds {
+      display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center;
+    }
+    .react-round-dot {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--border); display: flex; align-items: center;
+      justify-content: center; font-size: .7rem; font-weight: 700; color: var(--muted);
+    }
+    .react-round-dot.done { background: rgba(34,197,94,.2); border-color: var(--success); color: var(--success); }
+    .react-round-dot.early { background: rgba(239,68,68,.2); border-color: var(--danger); color: var(--danger); }
+    .react-round-dot.active { border-color: var(--accent2); animation: pulse 1s infinite; }
+
+    /* ══════════════════════════════════════
+       GAME 4 — QUANTUM DODGE
+    ══════════════════════════════════════ */
+    #game4 .arena {
+      flex: 1; position: relative;
+      background: radial-gradient(ellipse at center, #0d0d22 0%, #050510 100%);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem; overflow: hidden;
+      min-height: 450px;
+    }
+    #dodge-player {
+      position: absolute;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed);
+      box-shadow: 0 0 16px rgba(124,58,237,.8);
+      left: 0; top: 0;
+      pointer-events: none; z-index: 5;
+      will-change: transform;
+    }
+    .dodge-obstacle {
+      position: absolute;
+      border-radius: 50%;
+      transform: translateY(-50%);
+      pointer-events: none; z-index: 3;
+    }
+    #dodge-overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem;
+      background: rgba(0,0,0,.7); z-index: 10; border-radius: 1.25rem;
+    }
+    #dodge-overlay h3 { font-size: 1.5rem; font-weight: 800; }
+    .dodge-survive-time {
+      font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900;
+      background: linear-gradient(135deg, var(--danger), #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1;
+    }
+    #dodge-timer-display {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      font-size: .8rem; color: var(--muted); pointer-events: none; z-index: 6;
+    }
+
     /* responsive */
     @media (max-width: 500px) {
       .game-cards { flex-direction: column; align-items: center; }
@@ -477,6 +564,18 @@
       <div class="card-desc">Targets appear at quantum-random positions. Click them before they vanish. Gets faster. Gets smaller. How long can you last?</div>
       <span class="card-tag">Quantum Position</span>
     </div>
+    <div class="game-card game3" onclick="showGame(3)">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">Reaction Test</div>
+      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click as fast as you can. 5 rounds, best average wins.</div>
+      <span class="card-tag">Quantum Delay</span>
+    </div>
+    <div class="game-card game4" onclick="showGame(4)">
+      <div class="card-icon">🚀</div>
+      <div class="card-title">Quantum Dodge</div>
+      <div class="card-desc">Move your cursor to dodge quantum-spawned obstacles flying at you. They get faster and more frequent. Survive as long as possible.</div>
+      <span class="card-tag">Quantum Spawn</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -485,7 +584,9 @@
       <h3>🏆 Leaderboard</h3>
       <div class="lb-tabs">
         <button class="lb-tab active" id="lb-tab-1" onclick="switchLbTab('equation')">Equation</button>
-        <button class="lb-tab cyan" id="lb-tab-2" onclick="switchLbTab('aim')">Aim Trainer</button>
+        <button class="lb-tab cyan" id="lb-tab-2" onclick="switchLbTab('aim')">Aim</button>
+        <button class="lb-tab" style="border-color:var(--success);color:var(--success);" id="lb-tab-3" onclick="switchLbTab('reaction')">Reaction</button>
+        <button class="lb-tab" style="border-color:var(--danger);color:var(--danger);" id="lb-tab-4" onclick="switchLbTab('dodge')">Dodge</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -626,6 +727,79 @@
   </div>
 </section>
 
+<!-- ══════════════════════════════════
+     GAME 3 — REACTION TEST
+══════════════════════════════════ -->
+<section id="game3" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">⚡ Quantum Reaction Test</span>
+    <div class="score-badge">Best <span id="g3-best">—</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g3-dot"></div>
+      <span id="g3-entropy-label">connecting…</span>
+    </div>
+  </div>
+
+  <div class="arena state-wait" id="g3-arena" onclick="reactClick()">
+    <div class="react-rounds" id="g3-rounds"></div>
+    <div class="react-msg" id="g3-msg">Click to Start</div>
+    <div class="react-sub" id="g3-sub">5 rounds · quantum-random delay each time</div>
+    <div class="react-time" id="g3-time" style="display:none"></div>
+  </div>
+
+  <div class="game-over-overlay" id="g3-over">
+    <div class="game-over-card">
+      <h2>Results ⚡</h2>
+      <div class="final-score" id="g3-final-score" style="color:var(--success)">0</div>
+      <div id="g3-medal-display"></div>
+      <p id="g3-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="openSubmit('reaction')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(3)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 4 — QUANTUM DODGE
+══════════════════════════════════ -->
+<section id="game4" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🚀 Quantum Dodge</span>
+    <div class="score-badge">Time <span id="g4-score" style="color:var(--danger)">0.0s</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g4-dot"></div>
+      <span id="g4-entropy-label">connecting…</span>
+    </div>
+  </div>
+
+  <div class="arena" id="g4-arena">
+    <div id="dodge-timer-display"></div>
+    <div id="dodge-player"></div>
+    <div id="dodge-overlay">
+      <h3>🚀 Quantum Dodge</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Move your cursor (or finger) to dodge incoming obstacles. Quantum-spawned — truly unpredictable.</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--danger),#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,.4);" id="g4-start-btn" onclick="startDodge(event)">Start Dodging</button>
+    </div>
+  </div>
+
+  <div class="game-over-overlay" id="g4-over">
+    <div class="game-over-card">
+      <h2>You Got Hit! 💥</h2>
+      <div class="final-score" id="g4-final-score" style="color:var(--danger)">0.0s</div>
+      <div id="g4-medal-display"></div>
+      <p id="g4-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--danger),#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,.4);" onclick="openSubmit('dodge')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(4)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
 <script>
 // ═══════════════════════════════════════════════════════
 //  CURBy quantum entropy client (dynamic import)
@@ -672,13 +846,15 @@ async function refreshEntropy() {
 setInterval(refreshEntropy, 60_000)
 
 function setEntropyLive(live) {
-  for (const id of ['g1-dot', 'g2-dot']) {
+  for (const id of ['g1-dot', 'g2-dot', 'g3-dot', 'g4-dot']) {
     const el = document.getElementById(id)
     if (el) el.className = 'entropy-dot' + (live ? ' live' : '')
   }
   const label = live ? 'quantum live' : 'local fallback'
-  document.getElementById('g1-entropy-label').textContent = label
-  document.getElementById('g2-entropy-label').textContent = label
+  for (const id of ['g1-entropy-label','g2-entropy-label','g3-entropy-label','g4-entropy-label']) {
+    const el = document.getElementById(id)
+    if (el) el.textContent = label
+  }
 }
 
 /**
@@ -760,9 +936,11 @@ window.showGame = function(n) {
   document.getElementById(`game${n}`).classList.add('active')
   if (n === 1) initGame1()
   if (n === 2) initGame2()
+  if (n === 3) initGame3()
+  if (n === 4) initGame4()
 }
 window.goHome = function() {
-  stopG1Timer(); stopSpawn()
+  stopG1Timer(); stopSpawn(); stopReact(); stopDodge()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
 }
@@ -1014,15 +1192,17 @@ function updateG1UI() {
 //  Bronze → Silver → Gold → Author (beat ARHAM's score)
 // ═══════════════════════════════════════════════════════
 const MEDALS = {
-  equation: { bronze: 50,  silver: 150, gold: 300  },
-  aim:      { bronze: 100, silver: 300, gold: 600  },
+  equation: { bronze: 50,   silver: 150, gold: 300  },
+  aim:      { bronze: 100,  silver: 300, gold: 600  },
+  reaction: { bronze: 300,  silver: 230, gold: 180  }, // lower ms = better
+  dodge:    { bronze: 100,  silver: 250, gold: 450  }, // deciseconds survived (÷10 = seconds)
 }
 
 // Author threshold = ARHAM's personal best fetched from leaderboard
-let authorScores = { equation: null, aim: null }
+let authorScores = { equation: null, aim: null, reaction: null, dodge: null }
 
 async function fetchAuthorScores() {
-  for (const game of ['equation', 'aim']) {
+  for (const game of ['equation', 'aim', 'reaction', 'dodge']) {
     try {
       const rows = await sbFetch(
         `/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`
@@ -1032,9 +1212,19 @@ async function fetchAuthorScores() {
   }
 }
 
+const LOWER_IS_BETTER = new Set(['reaction'])
+
 function getMedal(game, score) {
   const t = MEDALS[game]
   const author = authorScores[game]
+  if (LOWER_IS_BETTER.has(game)) {
+    // reaction: lower ms = better
+    if (author !== null && score < author) return 'author'
+    if (score <= t.gold)   return 'gold'
+    if (score <= t.silver) return 'silver'
+    if (score <= t.bronze) return 'bronze'
+    return null
+  }
   if (author !== null && score > author) return 'author'
   if (score >= t.gold)   return 'gold'
   if (score >= t.silver) return 'silver'
@@ -1080,6 +1270,8 @@ window.restartGame = function(n) {
   document.getElementById(`g${n}-over`).classList.remove('show')
   if (n === 1) initGame1()
   if (n === 2) initGame2()
+  if (n === 3) initGame3()
+  if (n === 4) initGame4()
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1334,9 +1526,14 @@ function cookieGet(key) {
 }
 
 // Personal bests stored in localStorage (more space than cookies)
-function getPB(game) { return parseInt(localStorage.getItem('pb_' + game) || '0', 10) }
+function getPB(game) {
+  const v = localStorage.getItem('pb_' + game)
+  if (v === null) return LOWER_IS_BETTER.has(game) ? 99999 : 0
+  return parseFloat(v)
+}
 function setPB(game, score) {
-  if (score > getPB(game)) { localStorage.setItem('pb_' + game, score); return true }
+  const better = LOWER_IS_BETTER.has(game) ? score < getPB(game) : score > getPB(game)
+  if (better) { localStorage.setItem('pb_' + game, score); return true }
   return false
 }
 
@@ -1388,6 +1585,14 @@ window.switchLbTab = function(game) {
   lbCurrentGame = game
   document.getElementById('lb-tab-1').className = 'lb-tab' + (game === 'equation' ? ' active' : '')
   document.getElementById('lb-tab-2').className = 'lb-tab cyan' + (game === 'aim' ? ' active' : '')
+  document.getElementById('lb-tab-3').className = 'lb-tab' + (game === 'reaction' ? ' active' : '')
+  document.getElementById('lb-tab-3').style.cssText = game === 'reaction'
+    ? 'background:var(--success);border-color:var(--success);color:#fff;'
+    : 'border-color:var(--success);color:var(--success);'
+  document.getElementById('lb-tab-4').className = 'lb-tab' + (game === 'dodge' ? ' active' : '')
+  document.getElementById('lb-tab-4').style.cssText = game === 'dodge'
+    ? 'background:var(--danger);border-color:var(--danger);color:#fff;'
+    : 'border-color:var(--danger);color:var(--danger);'
   loadLeaderboard(game)
 }
 
@@ -1395,7 +1600,8 @@ async function loadLeaderboard(game) {
   const list = document.getElementById('lb-list')
   list.innerHTML = '<div class="lb-loading"><div class="spinner"></div> Loading…</div>'
   try {
-    const rawRows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=score.desc&limit=100`)
+    const order = LOWER_IS_BETTER.has(game) ? 'score.asc' : 'score.desc'
+    const rawRows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=${order}&limit=100`)
     if (!rawRows || rawRows.length === 0) {
       list.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'
       return
@@ -1406,7 +1612,9 @@ async function loadLeaderboard(game) {
       const key = r.name.toLowerCase()
       if (!seen.has(key) || r.score > seen.get(key).score) seen.set(key, r)
     }
-    const rows = Array.from(seen.values()).sort((a, b) => b.score - a.score).slice(0, 10)
+    const rows = Array.from(seen.values())
+      .sort((a, b) => LOWER_IS_BETTER.has(game) ? a.score - b.score : b.score - a.score)
+      .slice(0, 10)
 
     const rankLabels = ['🥇', '🥈', '🥉']
     const myName = cookieGet('player_name') || ''
@@ -1420,22 +1628,26 @@ async function loadLeaderboard(game) {
         ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
       // ARHAM always gets author medal badge, others get normal medal
       const medalBadge = isAdmin ? ' <span class="medal medal-earned medal-author"><span class="medal-icon">👾</span><span class="medal-label">Author</span></span>' : medalBadgeHtml(game, r.score)
+      const scoreDisplay = game === 'reaction' ? r.score + ' ms' : game === 'dodge' ? (r.score / 10).toFixed(1) + 's' : r.score.toLocaleString()
+      const scoreColor = game === 'aim' ? 'cyan' : game === 'reaction' ? '' : game === 'dodge' ? 'style="color:var(--danger)"' : ''
       return `
         <div class="lb-row" style="${isMe ? 'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);' : ''}">
           <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
           <span class="lb-name">${escHtml(r.name)}${authorBadge}${youBadge}${medalBadge}</span>
-          <span class="lb-score ${game==='aim'?'cyan':''}">${r.score.toLocaleString()}</span>
+          <span class="lb-score ${game==='aim'?'cyan':''}" ${game==='dodge'?'style="color:var(--danger)"':game==='reaction'?'style="color:var(--success)"':''}>${scoreDisplay}</span>
         </div>`
     }).join('')
 
     // Personal best row below leaderboard if not already in top 10
-    if (pb > 0 && myName && !rows.find(r => r.name === myName)) {
+    const pbValid = LOWER_IS_BETTER.has(game) ? pb < 99999 : pb > 0
+    if (pbValid && myName && !rows.find(r => r.name === myName)) {
+      const pbDisplay = game === 'reaction' ? pb + ' ms' : game === 'dodge' ? (pb / 10).toFixed(1) + 's' : pb.toLocaleString()
       list.innerHTML += `
         <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
           <div class="lb-row" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);">
             <span class="lb-rank">—</span>
             <span class="lb-name">${escHtml(myName)} <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;">you</span>${medalBadgeHtml(game, pb)}</span>
-            <span class="lb-score ${game==='aim'?'cyan':''}">PB: ${pb.toLocaleString()}</span>
+            <span class="lb-score ${game==='aim'?'cyan':''}">PB: ${pbDisplay}</span>
           </div>
         </div>`
     }
@@ -1546,7 +1758,8 @@ window.submitScore = async function() {
 
     setTimeout(() => {
       document.getElementById('submit-overlay').classList.remove('show')
-      document.getElementById(pendingSubmit.game === 'equation' ? 'g1-over' : 'g2-over').classList.remove('show')
+      const overMap = { equation: 'g1-over', aim: 'g2-over', reaction: 'g3-over', dodge: 'g4-over' }
+      document.getElementById(overMap[pendingSubmit.game] || 'g1-over').classList.remove('show')
       goHome()
       loadLeaderboard(pendingSubmit.game)
       switchLbTab(pendingSubmit.game)
@@ -1566,6 +1779,352 @@ window.skipSubmit = function() {
 
 // Load author scores then leaderboard on page load
 fetchAuthorScores().then(() => loadLeaderboard('equation'))
+
+// ═══════════════════════════════════════════════════════
+//  GAME 3 — QUANTUM REACTION TEST
+//  5 rounds, quantum-random delay (1–4s), measure click time
+//  Score = average reaction time (ms), lower = better
+// ═══════════════════════════════════════════════════════
+const G3 = {
+  round: 0, totalRounds: 5,
+  state: 'idle',   // idle | waiting | flash | result | done
+  results: [],     // ms per round
+  flashTime: null,
+  waitTimeout: null,
+}
+
+function stopReact() {
+  clearTimeout(G3.waitTimeout)
+  G3.waitTimeout = null
+}
+
+async function initGame3() {
+  stopReact()
+  G3.round = 0; G3.results = []; G3.state = 'idle'
+  document.getElementById('g3-over').classList.remove('show')
+  const arena = document.getElementById('g3-arena')
+  arena.className = 'arena state-wait'
+  document.getElementById('g3-msg').textContent = 'Click to Start'
+  document.getElementById('g3-sub').textContent = `5 rounds · quantum-random delay each time`
+  document.getElementById('g3-sub').style.display = ''
+  document.getElementById('g3-time').style.display = 'none'
+  renderReactRounds()
+  await initCurby()
+}
+
+function renderReactRounds() {
+  const el = document.getElementById('g3-rounds')
+  el.innerHTML = Array.from({ length: G3.totalRounds }, (_, i) => {
+    let cls = 'react-round-dot'
+    if (i < G3.results.length) cls += G3.results[i] === null ? ' early' : ' done'
+    else if (i === G3.round && G3.state !== 'idle') cls += ' active'
+    const label = i < G3.results.length
+      ? (G3.results[i] === null ? '✗' : G3.results[i] + 'ms')
+      : (i + 1)
+    return `<div class="${cls}">${label}</div>`
+  }).join('')
+}
+
+window.reactClick = function() {
+  const arena = document.getElementById('g3-arena')
+  if (G3.state === 'idle') {
+    G3.round = 0; G3.results = []
+    G3.state = 'waiting'
+    renderReactRounds()
+    scheduleFlash()
+    return
+  }
+  if (G3.state === 'waiting') {
+    // Clicked too early!
+    clearTimeout(G3.waitTimeout)
+    arena.className = 'arena state-early'
+    document.getElementById('g3-msg').textContent = 'Too early! ✗'
+    document.getElementById('g3-sub').textContent = 'Wait for the green flash...'
+    document.getElementById('g3-time').style.display = 'none'
+    G3.results.push(null)
+    G3.round++
+    G3.state = 'result'
+    renderReactRounds()
+    G3.waitTimeout = setTimeout(() => nextReactRound(), 1200)
+    return
+  }
+  if (G3.state === 'flash') {
+    const ms = Date.now() - G3.flashTime
+    G3.results.push(ms)
+    G3.round++
+    G3.state = 'result'
+    arena.className = 'arena state-result'
+    document.getElementById('g3-msg').textContent = ms + ' ms'
+    document.getElementById('g3-sub').textContent = ms < 200 ? 'Incredible!' : ms < 280 ? 'Great!' : ms < 350 ? 'Good' : 'Keep practicing'
+    document.getElementById('g3-time').style.display = 'none'
+    renderReactRounds()
+    if (G3.round >= G3.totalRounds) {
+      G3.waitTimeout = setTimeout(() => endGame3(), 1200)
+    } else {
+      G3.waitTimeout = setTimeout(() => nextReactRound(), 1400)
+    }
+    return
+  }
+}
+
+function scheduleFlash() {
+  const arena = document.getElementById('g3-arena')
+  arena.className = 'arena state-ready'
+  document.getElementById('g3-msg').textContent = 'Get ready…'
+  document.getElementById('g3-sub').textContent = `Round ${G3.round + 1} of ${G3.totalRounds}`
+  document.getElementById('g3-time').style.display = 'none'
+  G3.state = 'waiting'
+  // Quantum delay: 1000–4000ms
+  const delay = 1000 + qRandInt(3000)
+  G3.waitTimeout = setTimeout(() => {
+    arena.className = 'arena state-flash'
+    document.getElementById('g3-msg').textContent = 'CLICK NOW!'
+    document.getElementById('g3-sub').style.display = 'none'
+    G3.flashTime = Date.now()
+    G3.state = 'flash'
+  }, delay)
+}
+
+function nextReactRound() {
+  if (G3.round >= G3.totalRounds) { endGame3(); return }
+  document.getElementById('g3-sub').style.display = ''
+  scheduleFlash()
+}
+
+function endGame3() {
+  stopReact()
+  G3.state = 'done'
+  // Average of valid rounds only
+  const valid = G3.results.filter(r => r !== null)
+  const avg = valid.length > 0 ? Math.round(valid.reduce((a,b) => a+b, 0) / valid.length) : 9999
+  const earlyCount = G3.results.filter(r => r === null).length
+
+  document.getElementById('g3-final-score').textContent = avg + ' ms avg'
+  document.getElementById('g3-over-stats').textContent =
+    `${valid.length}/${G3.totalRounds} valid · ${earlyCount} early clicks · Best: ${valid.length ? Math.min(...valid) : '—'} ms`
+
+  // Store score as integer ms for leaderboard (lower = better)
+  const G3score = avg
+  renderMedalDisplay('g3-medal-display', 'reaction', G3score)
+
+  // Stash score for submit modal
+  window._g3Score = G3score
+  document.getElementById('g3-over').classList.add('show')
+}
+
+// Override openSubmit for reaction/dodge scores
+const _origOpenSubmit = window.openSubmit
+window.openSubmit = function(game) {
+  if (game === 'reaction') {
+    pendingSubmit = { game, score: window._g3Score || 9999 }
+    document.getElementById('sub-score-display').textContent = (window._g3Score || 9999) + ' ms'
+    document.getElementById('sub-score-display').style.color = 'var(--success)'
+    const pb = getPB(game)
+    const pbEl = document.getElementById('sub-pb-info')
+    if (pb < 99999) {
+      const improved = (window._g3Score || 9999) < pb
+      pbEl.textContent = improved ? `New personal best! (was ${pb} ms)` : `Your best: ${pb} ms`
+      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
+    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
+    const saved = cookieGet('player_name') || ''
+    document.getElementById('sub-name-input').value = saved
+    document.getElementById('sub-status').textContent = ''
+    document.getElementById('sub-submit-btn').disabled = false
+    document.getElementById('admin-pw-row').style.display = 'none'
+    document.getElementById('sub-admin-pw').value = ''
+    document.getElementById('submit-overlay').classList.add('show')
+    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
+  } else if (game === 'dodge') {
+    pendingSubmit = { game, score: window._g4Score || 0 }
+    const ds = window._g4Score || 0
+    document.getElementById('sub-score-display').textContent = (ds / 10).toFixed(1) + 's'
+    document.getElementById('sub-score-display').style.color = 'var(--danger)'
+    const pb = getPB(game)
+    const pbEl = document.getElementById('sub-pb-info')
+    if (pb > 0 && pb < 99999) {
+      const improved = ds > pb
+      pbEl.textContent = improved ? `New personal best! (was ${(pb/10).toFixed(1)}s)` : `Your best: ${(pb/10).toFixed(1)}s`
+      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
+    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
+    const saved = cookieGet('player_name') || ''
+    document.getElementById('sub-name-input').value = saved
+    document.getElementById('sub-status').textContent = ''
+    document.getElementById('sub-submit-btn').disabled = false
+    document.getElementById('admin-pw-row').style.display = 'none'
+    document.getElementById('sub-admin-pw').value = ''
+    document.getElementById('submit-overlay').classList.add('show')
+    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
+  } else {
+    _origOpenSubmit(game)
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME 4 — QUANTUM DODGE
+//  Mouse/touch controls player dot, quantum obstacles fly from right→left
+//  Survive as long as possible. Score = seconds alive.
+// ═══════════════════════════════════════════════════════
+const G4 = {
+  active: false,
+  startTime: null,
+  elapsed: 0,
+  spawnInterval: null,
+  tickInterval: null,
+  obstacles: [],
+  playerX: 120, playerY: 0,
+  arenaRect: null,
+}
+
+function stopDodge() {
+  clearInterval(G4.spawnInterval)
+  clearInterval(G4.tickInterval)
+  G4.spawnInterval = null; G4.tickInterval = null
+}
+
+async function initGame4() {
+  stopDodge()
+  G4.active = false; G4.elapsed = 0; G4.obstacles = []
+  document.getElementById('g4-over').classList.remove('show')
+  document.getElementById('dodge-overlay').style.display = 'flex'
+  document.querySelectorAll('.dodge-obstacle').forEach(e => e.remove())
+  document.getElementById('g4-score').textContent = '0.0s'
+  document.getElementById('dodge-timer-display').textContent = ''
+  const arena = document.getElementById('g4-arena')
+  const rect = arena.getBoundingClientRect()
+  G4.playerY = rect.height / 2
+  G4.playerX = 120
+  updateDodgePlayer()
+  await initCurby()
+}
+
+window.startDodge = function(e) {
+  e.stopPropagation()
+  document.getElementById('dodge-overlay').style.display = 'none'
+  const arena = document.getElementById('g4-arena')
+  G4.arenaRect = arena.getBoundingClientRect()
+  G4.playerX = 120
+  G4.playerY = G4.arenaRect.height / 2
+  updateDodgePlayer()
+  G4.active = true
+  G4.startTime = Date.now()
+
+  arena.addEventListener('mousemove', dodgeMouseMove)
+  arena.addEventListener('touchmove', dodgeTouchMove, { passive: false })
+
+  G4.tickInterval = setInterval(dodgeTick, 16)
+  scheduleDodgeSpawn()
+}
+
+function dodgeMouseMove(e) {
+  if (!G4.active) return
+  const rect = document.getElementById('g4-arena').getBoundingClientRect()
+  G4.playerX = e.clientX - rect.left
+  G4.playerY = e.clientY - rect.top
+  updateDodgePlayer()
+}
+
+function dodgeTouchMove(e) {
+  if (!G4.active) return
+  e.preventDefault()
+  const rect = document.getElementById('g4-arena').getBoundingClientRect()
+  G4.playerX = e.touches[0].clientX - rect.left
+  G4.playerY = e.touches[0].clientY - rect.top
+  updateDodgePlayer()
+}
+
+function updateDodgePlayer() {
+  const p = document.getElementById('dodge-player')
+  p.style.transform = `translate(${G4.playerX - 11}px, ${G4.playerY - 11}px)`
+}
+
+function scheduleDodgeSpawn() {
+  const rate = Math.max(400, 1600 - G4.elapsed * 20)
+  G4.spawnInterval = setTimeout(() => {
+    if (!G4.active) return
+    spawnObstacle()
+    scheduleDodgeSpawn()
+  }, rate)
+}
+
+function spawnObstacle() {
+  const arena = document.getElementById('g4-arena')
+  const rect = arena.getBoundingClientRect()
+  const size = 18 + qRandInt(28)
+  const yFrac = qRandInt(100) / 99
+  const y = size/2 + yFrac * (rect.height - size)
+  const speed = 180 + G4.elapsed * 8 + qRandInt(80) // px/sec, speeds up over time
+  const hue = qRandInt(360)
+
+  const el = document.createElement('div')
+  el.className = 'dodge-obstacle'
+  const startX = rect.width + size + 10
+  el.style.cssText = `
+    width:${size}px; height:${size}px;
+    left:${startX}px; top:${y}px;
+    background: radial-gradient(circle at 35% 35%, hsl(${hue},90%,70%), hsl(${hue+40},80%,40%));
+    box-shadow: 0 0 ${size*.5}px hsl(${hue},90%,55%);
+  `
+  arena.appendChild(el)
+
+  const spawnedAt = Date.now()
+  const endX = -(size + 10)
+  const travelDist = startX - endX
+  const duration = (travelDist / speed) * 1000
+
+  el.animate(
+    [{ left: `${startX}px` }, { left: `${endX}px` }],
+    { duration, easing: 'linear', fill: 'forwards' }
+  )
+
+  // obsX = center x; startX is left edge, so center = startX + size/2
+  G4.obstacles.push({ el, size, y, spawnedAt, speed, startX: startX + size / 2 })
+
+  setTimeout(() => {
+    el.remove()
+    G4.obstacles = G4.obstacles.filter(o => o.el !== el)
+  }, duration + 100)
+}
+
+function dodgeTick() {
+  if (!G4.active) return
+  G4.elapsed = (Date.now() - G4.startTime) / 1000
+
+  document.getElementById('g4-score').textContent = G4.elapsed.toFixed(1) + 's'
+  document.getElementById('dodge-timer-display').textContent = G4.elapsed.toFixed(1) + 's'
+
+  // Collision check
+  for (const obs of G4.obstacles) {
+    const elapsed = (Date.now() - obs.spawnedAt) / 1000
+    const obsX = obs.startX - obs.speed * elapsed
+    const obsY = obs.y
+    const dx = G4.playerX - obsX
+    const dy = G4.playerY - obsY
+    const dist = Math.sqrt(dx*dx + dy*dy)
+    if (dist < 11 + obs.size / 2) {
+      endGame4()
+      return
+    }
+  }
+}
+
+function endGame4() {
+  G4.active = false
+  stopDodge()
+  const arena = document.getElementById('g4-arena')
+  arena.removeEventListener('mousemove', dodgeMouseMove)
+  arena.removeEventListener('touchmove', dodgeTouchMove)
+  document.querySelectorAll('.dodge-obstacle').forEach(e => e.remove())
+
+  const survived = parseFloat(G4.elapsed.toFixed(1))
+  const survivedDs = Math.round(survived * 10) // deciseconds integer for leaderboard
+  window._g4Score = survivedDs
+
+  document.getElementById('g4-final-score').textContent = survived.toFixed(1) + 's'
+  document.getElementById('g4-over-stats').textContent =
+    `Survived ${survived.toFixed(1)} seconds`
+  renderMedalDisplay('g4-medal-display', 'dodge', survivedDs)
+  document.getElementById('g4-over').classList.add('show')
+}
 </script>
 </body>
 </html>
