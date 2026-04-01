@@ -4,643 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum Games — Powered by CURBy</title>
-  <style>
-    :root {
-      --bg: #0a0a14;
-      --surface: #10101e;
-      --card: #16162a;
-      --border: #2a2a4a;
-      --accent: #7c3aed;
-      --accent2: #06b6d4;
-      --accent3: #f59e0b;
-      --danger: #ef4444;
-      --success: #22c55e;
-      --text: #e2e8f0;
-      --muted: #64748b;
-      --glow: 0 0 20px rgba(124,58,237,0.4);
-      --glow2: 0 0 20px rgba(6,182,212,0.4);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* ── Particle canvas background ── */
-    #bg-canvas {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.4;
-    }
-
-    /* ── Layout shells ── */
-    .screen { display: none; position: relative; z-index: 1; }
-    .screen.active { display: flex; flex-direction: column; min-height: 100vh; }
-
-    /* ══════════════════════════════════════
-       HOME SCREEN
-    ══════════════════════════════════════ */
-    #home {
-      align-items: center; justify-content: center; gap: 3rem; padding: 2rem;
-      text-align: center;
-    }
-    .home-header h1 {
-      font-size: clamp(2rem, 6vw, 4rem);
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: none;
-      letter-spacing: -1px;
-    }
-    .home-header p {
-      color: var(--muted); margin-top: .5rem; font-size: 1rem;
-    }
-    .quantum-badge {
-      display: inline-flex; align-items: center; gap: .4rem;
-      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.4);
-      border-radius: 999px; padding: .25rem .75rem;
-      font-size: .75rem; color: var(--accent2); margin-top: .75rem;
-    }
-    .quantum-badge::before {
-      content: ''; width: 8px; height: 8px; border-radius: 50%;
-      background: var(--accent2); animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50% { opacity: .4; transform: scale(1.5); }
-    }
-
-    .game-cards {
-      display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center;
-    }
-    .game-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 1.5rem;
-      padding: 2rem;
-      width: 300px;
-      cursor: pointer;
-      transition: transform .2s, border-color .2s, box-shadow .2s;
-      text-align: left;
-    }
-    .game-card:hover {
-      transform: translateY(-6px);
-      border-color: var(--accent);
-      box-shadow: var(--glow);
-    }
-    .game-card.game2:hover {
-      border-color: var(--accent2);
-      box-shadow: var(--glow2);
-    }
-    .card-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-    .card-title { font-size: 1.25rem; font-weight: 700; margin-bottom: .5rem; }
-    .card-desc { color: var(--muted); font-size: .9rem; line-height: 1.5; }
-    .card-tag {
-      display: inline-block; margin-top: 1rem;
-      background: rgba(124,58,237,.2); color: var(--accent);
-      font-size: .75rem; padding: .2rem .6rem; border-radius: 4px;
-    }
-    .game2 .card-tag { background: rgba(6,182,212,.2); color: var(--accent2); }
-    .game3:hover { border-color: var(--success); box-shadow: 0 0 20px rgba(34,197,94,.4); }
-    .game3 .card-tag { background: rgba(34,197,94,.2); color: var(--success); }
-    .game4:hover { border-color: var(--danger); box-shadow: 0 0 20px rgba(239,68,68,.4); }
-    .game4 .card-tag { background: rgba(239,68,68,.2); color: var(--danger); }
-    .game5:hover { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245,158,11,.4); }
-    .game5 .card-tag { background: rgba(245,158,11,.2); color: #f59e0b; }
-    .game6:hover { border-color: #ec4899; box-shadow: 0 0 20px rgba(236,72,153,.4); }
-    .game6 .card-tag { background: rgba(236,72,153,.2); color: #ec4899; }
-
-    /* ── Delta E / JND game ── */
-    #g6-arena {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 1.2rem; position: relative; min-height: 400px;
-      background: var(--surface); border-radius: 1.5rem;
-    }
-    #g6-color-strip {
-      width: 100%; height: 220px; border-radius: 1rem; overflow: hidden;
-      position: relative; cursor: crosshair; flex-shrink: 0;
-      box-shadow: 0 4px 24px rgba(0,0,0,.4);
-    }
-    #g6-left-half, #g6-right-half {
-      position: absolute; top: 0; bottom: 0;
-    }
-    #g6-marker {
-      position: absolute; top: 0; bottom: 0; width: 3px;
-      background: rgba(255,255,255,.9); pointer-events: none;
-      display: none; transform: translateX(-1.5px);
-    }
-    #g6-answer-line {
-      position: absolute; top: 0; bottom: 0; width: 3px;
-      background: rgba(255,255,255,.3); pointer-events: none;
-      display: none; transform: translateX(-1.5px);
-    }
-    #g6-info {
-      font-size: .9rem; color: var(--muted); text-align: center;
-    }
-    #g6-round-info {
-      font-size: .85rem; color: var(--muted); text-align: center;
-    }
-    #g6-feedback {
-      font-size: 1.1rem; font-weight: 700; min-height: 1.5rem; text-align: center;
-    }
-    .g6-start-overlay {
-      position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1rem;
-      background: var(--surface); border-radius: 1.5rem; text-align: center; padding: 2rem;
-      z-index: 5;
-    }
-    .g6-score-bar {
-      display: flex; gap: .4rem; justify-content: center;
-    }
-    .g6-pip {
-      width: 6px; height: 12px; border-radius: 2px;
-      background: var(--border); transition: background .15s;
-      flex-shrink: 0;
-    }
-    .g6-pip.hit    { background: var(--success); }
-    .g6-pip.miss   { background: var(--danger); }
-    .g6-pip.active { background: #ec4899; }
-
-    /* ── Flash Number game ── */
-    #g5-arena {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 1.5rem; position: relative; overflow: hidden;
-      min-height: 400px;
-      background: var(--surface); border-radius: 1.5rem;
-    }
-    #g5-flash-number {
-      font-size: clamp(4rem, 18vw, 10rem);
-      font-weight: 900;
-      color: #f59e0b;
-      text-shadow: 0 0 40px rgba(245,158,11,.6);
-      letter-spacing: -2px;
-      user-select: none;
-      transition: opacity .05s;
-    }
-    #g5-input {
-      font-size: 2rem; font-weight: 700; text-align: center;
-      background: var(--card); border: 2px solid var(--border);
-      color: var(--text); border-radius: 12px; padding: .5rem 1.2rem;
-      width: 200px; outline: none;
-      transition: border-color .15s;
-    }
-    #g5-input:focus { border-color: #f59e0b; }
-    #g5-input.correct { border-color: var(--success); background: rgba(34,197,94,.1); }
-    #g5-input.wrong   { border-color: var(--danger);  background: rgba(239,68,68,.1); }
-    #g5-feedback {
-      font-size: 1.1rem; font-weight: 700; min-height: 1.5rem; text-align: center;
-    }
-    #g5-round-info {
-      font-size: .9rem; color: var(--muted); text-align: center;
-    }
-    .g5-start-overlay {
-      position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1rem;
-      background: var(--surface); border-radius: 1.5rem;
-      text-align: center; padding: 2rem;
-    }
-    .g5-progress {
-      display: flex; gap: .4rem; justify-content: center;
-    }
-    .g5-pip {
-      width: 12px; height: 12px; border-radius: 50%;
-      background: var(--border); transition: background .2s;
-    }
-    .g5-pip.correct { background: var(--success); }
-    .g5-pip.wrong   { background: var(--danger); }
-    .g5-pip.active  { background: #f59e0b; }
-
-    /* ══════════════════════════════════════
-       SHARED GAME UI
-    ══════════════════════════════════════ */
-    .game-screen { padding: 1.5rem; align-items: stretch; gap: 1rem; }
-    .top-bar {
-      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    }
-    .btn-back {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--muted); padding: .4rem .9rem; border-radius: 8px;
-      cursor: pointer; font-size: .875rem; transition: all .15s;
-    }
-    .btn-back:hover { border-color: var(--text); color: var(--text); }
-    .game-title { font-weight: 700; font-size: 1.1rem; flex: 1; }
-    .score-badge {
-      background: var(--card); border: 1px solid var(--border);
-      padding: .3rem .8rem; border-radius: 8px; font-size: .875rem;
-    }
-    .score-badge span { color: var(--accent); font-weight: 700; }
-
-    .entropy-indicator {
-      display: flex; align-items: center; gap: .4rem;
-      font-size: .7rem; color: var(--muted); margin-left: auto;
-    }
-    .entropy-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--muted); transition: background .3s;
-    }
-    .entropy-dot.live { background: var(--success); animation: pulse 1.5s infinite; }
-
-    /* ══════════════════════════════════════
-       GAME 1 — EQUATION BUILDER
-    ══════════════════════════════════════ */
-    #game1 .arena {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; gap: 1.5rem; padding: 1rem 0;
-    }
-    .target-display {
-      text-align: center;
-    }
-    .target-label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; }
-    .target-number {
-      font-size: clamp(3rem, 10vw, 6rem); font-weight: 900;
-      background: linear-gradient(135deg, var(--accent3), #f97316);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1;
-    }
-
-    .eq-drop-zone {
-      display: flex; align-items: center; flex-wrap: wrap;
-      gap: .5rem; justify-content: center;
-      min-height: 70px; min-width: 280px;
-      background: rgba(255,255,255,.03);
-      border: 2px dashed var(--border);
-      border-radius: 1rem; padding: 1rem 1.5rem;
-      transition: border-color .2s;
-    }
-    .eq-drop-zone.drag-over { border-color: var(--accent); }
-    .eq-drop-zone .placeholder-text {
-      color: var(--muted); font-size: .875rem; pointer-events: none;
-    }
-    .tile {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 52px; height: 52px; border-radius: 10px;
-      font-size: 1.25rem; font-weight: 700;
-      cursor: grab; user-select: none;
-      transition: transform .1s, box-shadow .1s;
-      position: relative;
-    }
-    .tile:active { cursor: grabbing; transform: scale(1.1); }
-    .tile.num-tile {
-      background: var(--card); border: 2px solid var(--accent);
-      color: var(--text); box-shadow: 0 0 8px rgba(124,58,237,.3);
-    }
-    .tile.op-tile {
-      background: var(--card); border: 2px solid var(--accent2);
-      color: var(--accent2); box-shadow: 0 0 8px rgba(6,182,212,.3);
-    }
-    .tile.in-zone {
-      position: relative;
-    }
-    .tile .remove-btn {
-      display: none; position: absolute; top: -6px; right: -6px;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: var(--danger); color: #fff;
-      font-size: 10px; align-items: center; justify-content: center;
-      cursor: pointer; line-height: 1;
-    }
-    .tile.in-zone:hover .remove-btn { display: flex; }
-
-    .tile-palette {
-      display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center;
-      max-width: 500px;
-    }
-
-    .eq-result {
-      font-size: 1.1rem; min-height: 1.5rem; font-weight: 600;
-    }
-    .eq-result.correct { color: var(--success); }
-    .eq-result.wrong { color: var(--danger); }
-    .eq-result.info { color: var(--accent2); }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent), #6d28d9);
-      color: #fff; border: none; padding: .65rem 2rem;
-      border-radius: 10px; font-size: 1rem; font-weight: 600;
-      cursor: pointer; transition: opacity .15s, transform .1s;
-      box-shadow: 0 4px 15px rgba(124,58,237,.4);
-    }
-    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
-    .btn-primary.cyan {
-      background: linear-gradient(135deg, var(--accent2), #0284c7);
-      box-shadow: 0 4px 15px rgba(6,182,212,.4);
-    }
-
-    .game-over-overlay {
-      display: none; position: fixed; inset: 0; z-index: 100;
-      background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
-      align-items: center; justify-content: center;
-    }
-    .game-over-overlay.show { display: flex; }
-    .game-over-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 1.5rem; padding: 2.5rem; text-align: center;
-      max-width: 380px; width: 90%;
-    }
-    .game-over-card h2 { font-size: 2rem; margin-bottom: .5rem; }
-    .game-over-card .final-score { font-size: 3rem; font-weight: 900; color: var(--accent); margin: 1rem 0; }
-    .game-over-card p { color: var(--muted); margin-bottom: 1.5rem; }
-
-    /* rounds */
-    .round-info {
-      display: flex; gap: 1.5rem; align-items: center;
-    }
-    .round-badge {
-      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3);
-      border-radius: 8px; padding: .3rem .8rem; font-size: .8rem;
-    }
-    .lives {
-      display: flex; gap: 4px;
-    }
-    .heart { font-size: 1.1rem; }
-
-    /* timer bar */
-    .timer-bar-wrap {
-      width: 100%; max-width: 400px;
-      height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
-    }
-    .timer-bar {
-      height: 100%; border-radius: 3px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      transition: width .1s linear, background .3s;
-    }
-
-    /* ══════════════════════════════════════
-       GAME 2 — AIM TRAINER
-    ══════════════════════════════════════ */
-    #game2 .arena {
-      flex: 1; position: relative;
-      background: radial-gradient(ellipse at center, #0d0d22 0%, #050510 100%);
-      border: 1px solid var(--border);
-      border-radius: 1.25rem; overflow: hidden;
-      min-height: 400px; cursor: crosshair;
-    }
-    .aim-start-msg {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1rem;
-      font-size: 1.1rem; color: var(--muted);
-    }
-    .target-circle {
-      position: absolute;
-      border-radius: 50%;
-      cursor: crosshair;
-      transform: translate(-50%, -50%);
-      display: flex; align-items: center; justify-content: center;
-      animation: targetPop .15s ease-out;
-      transition: box-shadow .1s;
-    }
-    @keyframes targetPop {
-      from { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-      to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    }
-    .target-circle:hover { box-shadow: 0 0 20px 4px rgba(255,255,255,.3); }
-    .target-ring {
-      position: absolute; inset: 0; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,.2);
-      animation: ringPulse 1s ease-out infinite;
-    }
-    @keyframes ringPulse {
-      from { transform: scale(1); opacity: .6; }
-      to   { transform: scale(1.3); opacity: 0; }
-    }
-
-    .aim-stats {
-      display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
-    }
-    .stat-pill {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 8px; padding: .3rem .8rem;
-      font-size: .8rem; color: var(--muted);
-    }
-    .stat-pill strong { color: var(--text); }
-    .miss-dots { display: flex; gap: 4px; align-items: center; }
-    .miss-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--border); transition: background .2s;
-    }
-    .miss-dot.filled { background: var(--danger); }
-
-    /* ripple on click miss */
-    .ripple {
-      position: absolute; border-radius: 50%;
-      width: 30px; height: 30px;
-      border: 2px solid var(--danger);
-      transform: translate(-50%, -50%) scale(0);
-      animation: rippleAnim .5s ease-out forwards;
-      pointer-events: none; z-index: 10;
-    }
-    @keyframes rippleAnim {
-      to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
-    }
-
-    /* combo popup */
-    .combo-popup {
-      position: absolute; pointer-events: none;
-      font-weight: 900; font-size: 1.5rem;
-      color: var(--accent3);
-      text-shadow: 0 0 10px rgba(245,158,11,.6);
-      animation: floatUp .8s ease-out forwards;
-      z-index: 20;
-    }
-    @keyframes floatUp {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to   { opacity: 0; transform: translateY(-60px) scale(1.4); }
-    }
-
-    /* loading */
-    .loading-msg {
-      display: flex; align-items: center; gap: .5rem;
-      color: var(--muted); font-size: .875rem;
-    }
-    .spinner {
-      width: 16px; height: 16px; border: 2px solid var(--border);
-      border-top-color: var(--accent); border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Leaderboard ── */
-    .leaderboard-section {
-      width: 100%; max-width: 700px;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 1.25rem; padding: 1.5rem;
-    }
-    .lb-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 1rem;
-    }
-    .lb-header h3 { font-size: 1rem; font-weight: 700; }
-    .lb-tabs {
-      display: flex; gap: .4rem;
-    }
-    .lb-tab {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--muted); padding: .25rem .7rem; border-radius: 6px;
-      cursor: pointer; font-size: .8rem; transition: all .15s;
-    }
-    .lb-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .lb-tab.active.cyan { background: var(--accent2); border-color: var(--accent2); }
-    .lb-list { display: flex; flex-direction: column; gap: .4rem; }
-    .lb-row {
-      display: flex; align-items: center; gap: .75rem;
-      padding: .5rem .75rem; border-radius: 8px;
-      background: rgba(255,255,255,.03);
-      font-size: .875rem;
-    }
-    .lb-rank { width: 24px; text-align: center; color: var(--muted); font-weight: 700; font-size: .8rem; }
-    .lb-rank.gold { color: #f59e0b; }
-    .lb-rank.silver { color: #94a3b8; }
-    .lb-rank.bronze { color: #cd7c3a; }
-    .lb-name { flex: 1; font-weight: 600; }
-    .lb-score { color: var(--accent); font-weight: 700; }
-    .lb-score.cyan { color: var(--accent2); }
-    .lb-empty { color: var(--muted); font-size: .875rem; text-align: center; padding: 1rem 0; }
-    .lb-loading { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .8rem; justify-content: center; padding: .5rem 0; }
-
-    /* ── Trackmania-style medals ── */
-    .medal {
-      display: inline-flex; align-items: center; gap: .25rem;
-      font-size: .7rem; font-weight: 700; padding: .15rem .45rem;
-      border-radius: 4px; vertical-align: middle; letter-spacing: .3px;
-      text-transform: uppercase;
-    }
-    .medal-bronze  { background: rgba(180,100,40,.25);  color: #cd7c3a; border: 1px solid rgba(180,100,40,.4); }
-    .medal-silver  { background: rgba(148,163,184,.2);  color: #94a3b8; border: 1px solid rgba(148,163,184,.4); }
-    .medal-gold    { background: rgba(245,158,11,.2);   color: #f59e0b; border: 1px solid rgba(245,158,11,.4); }
-    .medal-author  { background: rgba(124,58,237,.25);  color: #a78bfa; border: 1px solid rgba(124,58,237,.5);
-                     box-shadow: 0 0 8px rgba(124,58,237,.3); }
-    .medal-author-badge {
-      background: linear-gradient(135deg,rgba(124,58,237,.3),rgba(6,182,212,.2));
-      color: #c4b5fd; border: 1px solid rgba(124,58,237,.6);
-      box-shadow: 0 0 10px rgba(124,58,237,.4);
-    }
-
-    /* game-over medal display */
-    .medal-earned {
-      display: flex; flex-direction: column; align-items: center; gap: .3rem;
-      padding: .75rem 1.25rem; border-radius: 1rem; margin: .5rem auto;
-      width: fit-content;
-    }
-    .medal-earned .medal-icon { font-size: 2.5rem; line-height: 1; }
-    .medal-earned .medal-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-
-    /* ── Submit score modal ── */
-    .submit-overlay {
-      display: none; position: fixed; inset: 0; z-index: 200;
-      background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
-      align-items: center; justify-content: center;
-    }
-    .submit-overlay.show { display: flex; }
-    .submit-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 1.5rem; padding: 2rem; text-align: center;
-      max-width: 340px; width: 90%; display: flex; flex-direction: column; gap: .75rem;
-    }
-    .submit-card h3 { font-size: 1.25rem; font-weight: 700; }
-    .submit-card .sub-score { font-size: 2.5rem; font-weight: 900; color: var(--accent); }
-    .submit-card input {
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--text); padding: .65rem 1rem; border-radius: 10px;
-      font-size: 1rem; outline: none; text-align: center;
-      transition: border-color .15s;
-    }
-    .submit-card input:focus { border-color: var(--accent); }
-    .submit-card .sub-row { display: flex; gap: .5rem; }
-    .submit-card .sub-row button { flex: 1; }
-
-    /* ══════════════════════════════════════
-       GAME 3 — REACTION TEST
-    ══════════════════════════════════════ */
-    #game3 .arena {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1.5rem;
-      border-radius: 1.25rem; overflow: hidden; min-height: 400px;
-      cursor: pointer; user-select: none;
-      transition: background .1s;
-    }
-    #game3 .arena.state-wait   { background: radial-gradient(ellipse at center, #0d0d22, #050510); }
-    #game3 .arena.state-ready  { background: radial-gradient(ellipse at center, #14290f, #050510); }
-    #game3 .arena.state-flash  { background: radial-gradient(ellipse at center, #22c55e 0%, #166534 60%, #050510 100%); }
-    #game3 .arena.state-result { background: radial-gradient(ellipse at center, #0d0d22, #050510); }
-    #game3 .arena.state-early  { background: radial-gradient(ellipse at center, #450a0a, #050510); }
-
-    .react-msg {
-      font-size: clamp(1.5rem, 5vw, 2.5rem); font-weight: 800;
-      text-align: center; pointer-events: none; line-height: 1.3;
-    }
-    .react-sub {
-      color: var(--muted); font-size: 1rem; text-align: center; pointer-events: none;
-    }
-    .react-time {
-      font-size: clamp(3rem, 10vw, 6rem); font-weight: 900;
-      background: linear-gradient(135deg, var(--success), #86efac);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text; line-height: 1; pointer-events: none;
-    }
-    .react-rounds {
-      display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center;
-    }
-    .react-round-dot {
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 2px solid var(--border); display: flex; align-items: center;
-      justify-content: center; font-size: .7rem; font-weight: 700; color: var(--muted);
-    }
-    .react-round-dot.done { background: rgba(34,197,94,.2); border-color: var(--success); color: var(--success); }
-    .react-round-dot.early { background: rgba(239,68,68,.2); border-color: var(--danger); color: var(--danger); }
-    .react-round-dot.active { border-color: var(--accent2); animation: pulse 1s infinite; }
-
-    /* ══════════════════════════════════════
-       GAME 4 — QUANTUM DODGE
-    ══════════════════════════════════════ */
-    #game4 .arena {
-      flex: 1; position: relative;
-      background: radial-gradient(ellipse at center, #0d0d22 0%, #050510 100%);
-      border: 1px solid var(--border);
-      border-radius: 1.25rem; overflow: hidden;
-      min-height: 450px;
-    }
-    #dodge-player {
-      position: absolute;
-      width: 22px; height: 22px; border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed);
-      box-shadow: 0 0 16px rgba(124,58,237,.8);
-      left: 0; top: 0;
-      pointer-events: none; z-index: 5;
-      will-change: transform;
-    }
-    .dodge-obstacle {
-      position: absolute;
-      border-radius: 50%;
-      transform: translateY(-50%);
-      pointer-events: none; z-index: 3;
-    }
-    #dodge-overlay {
-      position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1rem;
-      background: rgba(0,0,0,.7); z-index: 10; border-radius: 1.25rem;
-    }
-    #dodge-overlay h3 { font-size: 1.5rem; font-weight: 800; }
-    .dodge-survive-time {
-      font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900;
-      background: linear-gradient(135deg, var(--danger), #f97316);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text; line-height: 1;
-    }
-    #dodge-timer-display {
-      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      font-size: .8rem; color: var(--muted); pointer-events: none; z-index: 6;
-    }
-
-    /* responsive */
-    @media (max-width: 500px) {
-      .game-cards { flex-direction: column; align-items: center; }
-      .game-card { width: 100%; max-width: 360px; }
-    }
-  </style>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
@@ -671,26 +35,50 @@
     <div class="game-card game3" onclick="showGame(3)">
       <div class="card-icon">⚡</div>
       <div class="card-title">Reaction Test</div>
-      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click as fast as you can. 5 rounds, best average wins.</div>
+      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click as fast as you can. 5 rounds.</div>
       <span class="card-tag">Quantum Delay</span>
     </div>
     <div class="game-card game4" onclick="showGame(4)">
       <div class="card-icon">🚀</div>
       <div class="card-title">Quantum Dodge</div>
-      <div class="card-desc">Move your cursor to dodge quantum-spawned obstacles flying at you. They get faster and more frequent. Survive as long as possible.</div>
+      <div class="card-desc">Move your cursor, finger, or WASD/arrows to dodge quantum-spawned obstacles flying at you. Survive as long as possible.</div>
       <span class="card-tag">Quantum Spawn</span>
     </div>
     <div class="game-card game5" onclick="showGame(5)">
       <div class="card-icon">🔢</div>
       <div class="card-title">Flash Number</div>
-      <div class="card-desc">A quantum-chosen number flashes on screen for a split second. Type what you saw. Numbers get bigger and flash time gets shorter. 10 rounds.</div>
+      <div class="card-desc">A quantum-chosen number flashes on screen for a split second. Type what you saw. Numbers get bigger and flash time gets shorter.</div>
       <span class="card-tag">Quantum Number</span>
     </div>
     <div class="game-card game6" onclick="showGame(6)">
       <div class="card-icon">🎨</div>
       <div class="card-title">Delta E</div>
-      <div class="card-desc">Two similar colours — find the hidden boundary. 40 rounds. Starts easy (~15° hue diff), ends near-impossible (~0.3°). Only top colour perceivers survive.</div>
+      <div class="card-desc">Two similar colours — find the hidden boundary. 40 rounds. Starts easy, ends near-impossible. Only top colour perceivers survive.</div>
       <span class="card-tag">Quantum Colour</span>
+    </div>
+    <div class="game-card game7" onclick="showGame(7)">
+      <div class="card-icon">🖱️</div>
+      <div class="card-title">Cursor Betrayal</div>
+      <div class="card-desc">Your cursor is mirrored — it moves opposite to what you expect! Click quantum-placed targets using the betrayed cursor. 30 seconds.</div>
+      <span class="card-tag">Quantum Targets</span>
+    </div>
+    <div class="game-card game8" onclick="showGame(8)">
+      <div class="card-icon">🟦</div>
+      <div class="card-title">Tile Collapse</div>
+      <div class="card-desc">Quantum tiles appear with countdown bars. Click them before they collapse! 3 lives. Speed and count increase each level.</div>
+      <span class="card-tag">Quantum Timing</span>
+    </div>
+    <div class="game-card game9" onclick="showGame(9)">
+      <div class="card-icon">🐝</div>
+      <div class="card-title">Swarm Leader</div>
+      <div class="card-desc">Guide your swarm leader with mouse or WASD. Collect quantum-placed energy orbs before they fade. How many can you gather in 60s?</div>
+      <span class="card-tag">Quantum Orbs</span>
+    </div>
+    <div class="game-card game10" onclick="showGame(10)">
+      <div class="card-icon">🌌</div>
+      <div class="card-title">Gravity Wells</div>
+      <div class="card-desc">Navigate through quantum-placed gravitational anomalies. The wells pull you in — use mouse or WASD/arrows to resist. Survive!</div>
+      <span class="card-tag">Quantum Gravity</span>
     </div>
   </div>
 
@@ -705,6 +93,10 @@
         <button class="lb-tab" style="border-color:var(--danger);color:var(--danger);" id="lb-tab-4" onclick="switchLbTab('dodge')">Dodge</button>
         <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-5" onclick="switchLbTab('flash')">Flash</button>
         <button class="lb-tab" style="border-color:#ec4899;color:#ec4899;" id="lb-tab-6" onclick="switchLbTab('deltae')">Delta E</button>
+        <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-7" onclick="switchLbTab('cursor')">Cursor</button>
+        <button class="lb-tab" style="border-color:var(--accent2);color:var(--accent2);" id="lb-tab-8" onclick="switchLbTab('tiles')">Tiles</button>
+        <button class="lb-tab" style="border-color:var(--success);color:var(--success);" id="lb-tab-9" onclick="switchLbTab('swarm')">Swarm</button>
+        <button class="lb-tab" style="border-color:var(--accent);color:var(--accent);" id="lb-tab-10" onclick="switchLbTab('gravity')">Gravity</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -745,44 +137,29 @@
       <span id="g1-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="arena" id="g1-arena">
     <div class="round-info">
       <div class="round-badge" id="g1-round">Round 1</div>
       <div class="lives" id="g1-lives"></div>
     </div>
-
     <div class="target-display">
       <div class="target-label">Make this number</div>
       <div class="target-number" id="g1-target">?</div>
     </div>
-
     <div class="timer-bar-wrap"><div class="timer-bar" id="g1-timer-bar"></div></div>
-
-    <div
-      class="eq-drop-zone"
-      id="g1-drop-zone"
-      ondragover="dzDragOver(event)"
-      ondragleave="dzDragLeave(event)"
-      ondrop="dzDrop(event)"
-    >
+    <div class="eq-drop-zone" id="g1-drop-zone" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
       <span class="placeholder-text" id="g1-zone-placeholder">Drop tiles here to build your equation</span>
     </div>
-
     <div class="eq-result" id="g1-result"></div>
-
     <div class="tile-palette" id="g1-palette"></div>
-
     <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;justify-content:center;">
       <button class="btn-primary" id="g1-check-btn" onclick="checkEquation()" disabled>Check ✓</button>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="clearZone()">Clear</button>
     </div>
-
     <div class="loading-msg" id="g1-loading">
       <div class="spinner"></div> Fetching quantum entropy…
     </div>
   </div>
-
   <div class="game-over-overlay" id="g1-over">
     <div class="game-over-card">
       <h2>Game Over</h2>
@@ -810,17 +187,14 @@
       <span id="g2-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="aim-stats">
     <div class="stat-pill">Level <strong id="g2-level">1</strong></div>
     <div class="stat-pill">Combo <strong id="g2-combo">×1</strong></div>
     <div class="stat-pill">Accuracy <strong id="g2-acc">—</strong></div>
     <div class="stat-pill" style="display:flex;align-items:center;gap:.4rem;">
-      Misses
-      <span class="miss-dots" id="g2-miss-dots"></span>
+      Misses <span class="miss-dots" id="g2-miss-dots"></span>
     </div>
   </div>
-
   <div class="arena" id="g2-arena" onclick="arenaMissClick(event)">
     <div class="aim-start-msg" id="g2-start-msg">
       <div class="loading-msg" id="g2-loading" style="display:none">
@@ -830,7 +204,6 @@
       <span style="font-size:.8rem">Click targets before they disappear</span>
     </div>
   </div>
-
   <div class="game-over-overlay" id="g2-over">
     <div class="game-over-card">
       <h2>Game Over 🎯</h2>
@@ -858,14 +231,12 @@
       <span id="g3-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="arena state-wait" id="g3-arena" onclick="reactClick()">
     <div class="react-rounds" id="g3-rounds"></div>
     <div class="react-msg" id="g3-msg">Click to Start</div>
     <div class="react-sub" id="g3-sub">5 rounds · quantum-random delay each time</div>
     <div class="react-time" id="g3-time" style="display:none"></div>
   </div>
-
   <div class="game-over-overlay" id="g3-over">
     <div class="game-over-card">
       <h2>Results ⚡</h2>
@@ -893,17 +264,15 @@
       <span id="g4-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="arena" id="g4-arena">
     <div id="dodge-timer-display"></div>
     <div id="dodge-player"></div>
     <div id="dodge-overlay">
       <h3>🚀 Quantum Dodge</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Move your cursor (or finger) to dodge incoming obstacles. Quantum-spawned — truly unpredictable.</p>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Move your cursor, finger, or use WASD / arrow keys to dodge incoming obstacles. Quantum-spawned — truly unpredictable.</p>
       <button class="btn-primary" style="background:linear-gradient(135deg,var(--danger),#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,.4);" id="g4-start-btn" onclick="startDodge(event)">Start Dodging</button>
     </div>
   </div>
-
   <div class="game-over-overlay" id="g4-over">
     <div class="game-over-card">
       <h2>You Got Hit! 💥</h2>
@@ -931,7 +300,6 @@
       <span id="g5-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="arena" id="g5-arena">
     <div class="g5-start-overlay" id="g5-start-overlay">
       <div style="font-size:3rem">🔢</div>
@@ -948,7 +316,6 @@
     <input type="number" id="g5-input" placeholder="?" style="display:none" oninput="checkFlashInput()" autocomplete="off" />
     <div id="g5-feedback" style="display:none"></div>
   </div>
-
   <div class="game-over-overlay" id="g5-over">
     <div class="game-over-card">
       <h2>Round Up! 🔢</h2>
@@ -976,7 +343,6 @@
       <span id="g6-entropy-label">connecting…</span>
     </div>
   </div>
-
   <div class="arena" id="g6-arena">
     <div class="g6-start-overlay" id="g6-start-overlay">
       <div style="font-size:3rem">🎨</div>
@@ -984,25 +350,21 @@
       <p style="color:var(--muted);font-size:.9rem;max-width:300px;line-height:1.6">
         Two similar colours fill the strip. Somewhere in the middle the colour subtly changes.<br><br>
         <strong style="color:var(--text)">Tap exactly where the colour changes.</strong><br>
-        The closer you are, the more points. 40 rounds · starts at ΔHue≈15°, ends near-invisible at ΔHue≈0.3°.
+        40 rounds · starts at ΔHue≈15°, ends near-invisible at ΔHue≈0.3°.
       </p>
       <button class="btn-primary" style="background:linear-gradient(135deg,#ec4899,#be185d);box-shadow:0 4px 15px rgba(236,72,153,.4);" onclick="startDeltaE()">Start Game</button>
     </div>
-
     <div id="g6-round-info" style="display:none;font-weight:600"></div>
     <div class="g6-score-bar" id="g6-progress" style="display:none"></div>
-
     <div id="g6-color-strip" style="display:none" onclick="deltaEClick(event)">
       <div id="g6-left-half"></div>
       <div id="g6-right-half"></div>
       <div id="g6-marker"></div>
       <div id="g6-answer-line"></div>
     </div>
-
     <div id="g6-info" style="display:none">Click anywhere on the strip where you think the colour changes</div>
     <div id="g6-feedback" style="display:none"></div>
   </div>
-
   <div class="game-over-overlay" id="g6-over">
     <div class="game-over-card">
       <h2>Colour Test Done! 🎨</h2>
@@ -1017,1699 +379,165 @@
   </div>
 </section>
 
-<script>
-// ═══════════════════════════════════════════════════════
-//  CURBy quantum entropy client (dynamic import)
-// ═══════════════════════════════════════════════════════
-let curbyClient = null
-let latestRandomness = null
-let entropyPool = []
-let poolIndex = 0
-let curbyInitPromise = null
-
-async function initCurby() {
-  if (curbyInitPromise) return curbyInitPromise
-  curbyInitPromise = (async () => {
-    try {
-      const mod = await import('https://esm.sh/@buff-beacon-project/curby-client@1.2.0')
-      curbyClient = await mod.Client.create()
-      await refreshEntropy()
-      return true
-    } catch (e) {
-      console.warn('CURBy init failed, using fallback PRNG:', e)
-      setEntropyLive(false)
-      return false
-    }
-  })()
-  return curbyInitPromise
-}
-
-async function refreshEntropy() {
-  if (!curbyClient) return
-  try {
-    latestRandomness = await curbyClient.randomness()
-    // Build a fresh pool: shuffle 0..4095 to give us ~4096 unique quantum numbers
-    const base = Array.from({ length: 4096 }, (_, i) => i)
-    entropyPool = latestRandomness.shuffled(base)
-    poolIndex = 0
-    setEntropyLive(true)
-  } catch (e) {
-    setEntropyLive(false)
-    console.warn('Entropy refresh failed:', e)
-  }
-}
-
-// Refresh entropy once per minute (CURBy updates every minute)
-setInterval(refreshEntropy, 60_000)
-
-function setEntropyLive(live) {
-  for (const id of ['g1-dot', 'g2-dot', 'g3-dot', 'g4-dot']) {
-    const el = document.getElementById(id)
-    if (el) el.className = 'entropy-dot' + (live ? ' live' : '')
-  }
-  const label = live ? 'quantum live' : 'local fallback'
-  for (const id of ['g1-entropy-label','g2-entropy-label','g3-entropy-label','g4-entropy-label']) {
-    const el = document.getElementById(id)
-    if (el) el.textContent = label
-  }
-}
-
-/**
- * Returns a quantum random integer in [0, max)
- * Drains the pool; falls back to Math.random if pool exhausted
- */
-function qRandInt(max) {
-  if (entropyPool.length > 0) {
-    const raw = entropyPool[poolIndex % entropyPool.length]
-    poolIndex++
-    // If pool exhausted, trigger background refresh
-    if (poolIndex >= entropyPool.length) {
-      poolIndex = 0
-      refreshEntropy()
-    }
-    return raw % max
-  }
-  return Math.floor(Math.random() * max)
-}
-
-/** Pick n unique ints from [0, max) using quantum entropy */
-function qPickUnique(n, max) {
-  if (n > max) n = max
-  const arr = Array.from({ length: max }, (_, i) => i)
-  if (latestRandomness) {
-    const shuffled = latestRandomness.shuffled(arr)
-    return shuffled.slice(0, n)
-  }
-  // fallback Fisher-Yates
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr.slice(0, n)
-}
-
-// ═══════════════════════════════════════════════════════
-//  BACKGROUND PARTICLE CANVAS
-// ═══════════════════════════════════════════════════════
-const canvas = document.getElementById('bg-canvas')
-const ctx = canvas.getContext('2d')
-let particles = []
-
-function initCanvas() {
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-  particles = Array.from({ length: 80 }, () => ({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    r: Math.random() * 1.5 + .3,
-    vx: (Math.random() - .5) * .3,
-    vy: (Math.random() - .5) * .3,
-    alpha: Math.random() * .6 + .2,
-  }))
-}
-function animCanvas() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  for (const p of particles) {
-    ctx.beginPath()
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(124,58,237,${p.alpha})`
-    ctx.fill()
-    p.x += p.vx; p.y += p.vy
-    if (p.x < 0) p.x = canvas.width
-    if (p.x > canvas.width) p.x = 0
-    if (p.y < 0) p.y = canvas.height
-    if (p.y > canvas.height) p.y = 0
-  }
-  requestAnimationFrame(animCanvas)
-}
-window.addEventListener('resize', initCanvas)
-initCanvas(); animCanvas()
-
-// ═══════════════════════════════════════════════════════
-//  NAVIGATION
-// ═══════════════════════════════════════════════════════
-window.showGame = function(n) {
-  document.getElementById('home').classList.remove('active')
-  document.getElementById(`game${n}`).classList.add('active')
-  if (n === 1) initGame1()
-  if (n === 2) initGame2()
-  if (n === 3) initGame3()
-  if (n === 4) initGame4()
-  if (n === 5) initGame5()
-  if (n === 6) initGame6()
-}
-window.goHome = function() {
-  stopG1Timer(); stopSpawn(); stopReact(); stopDodge(); stopFlash(); stopDeltaE()
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
-  document.getElementById('home').classList.add('active')
-}
-
-// ═══════════════════════════════════════════════════════
-//  GAME 1 — EQUATION BUILDER
-// ═══════════════════════════════════════════════════════
-const G1 = {
-  score: 0, round: 0, lives: 3,
-  target: 0, zone: [],
-  timerSec: 30, timerInterval: null,
-  timeLeft: 30, active: false,
-}
-const OPS = ['+', '−', '×', '÷']
-const OP_MAP = { '+': '+', '−': '-', '×': '*', '÷': '/' }
-
-async function initGame1() {
-  G1.score = 0; G1.round = 0; G1.lives = 3; G1.active = true
-  document.getElementById('g1-over').classList.remove('show')
-  document.getElementById('g1-loading').style.display = 'flex'
-  document.getElementById('g1-check-btn').disabled = true
-  setEntropyLive(false)
-  await initCurby()
-  document.getElementById('g1-loading').style.display = 'none'
-  updateG1UI()
-  nextRoundG1()
-}
-
-function nextRoundG1() {
-  if (!G1.active) return
-  G1.round++
-  clearZone()
-
-  // Quantum-chosen target: harder each round
-  const maxTarget = Math.min(20 + G1.round * 5, 100)
-  G1.target = qRandInt(maxTarget - 2) + 2   // at least 2
-
-  // Timer decreases as rounds progress (30s → 15s)
-  G1.timerSec = Math.max(15, 30 - G1.round * 2)
-  G1.timeLeft = G1.timerSec
-
-  // Build palette: quantum-chosen numbers + operators
-  buildPalette()
-  updateG1UI()
-  startG1Timer()
-}
-
-function buildPalette() {
-  const palette = document.getElementById('g1-palette')
-  palette.innerHTML = ''
-
-  // Pick quantum numbers that could plausibly reach target
-  // Give more numbers on harder rounds
-  const numCount = Math.min(4 + G1.round, 8)
-  const nums = []
-
-  // Always include some numbers ≤ target
-  for (let i = 0; i < numCount; i++) {
-    let n
-    if (i < 3) {
-      n = qRandInt(G1.target) + 1
-    } else {
-      n = qRandInt(9) + 1
-    }
-    nums.push(n)
-  }
-
-  // Shuffle nums using quantum entropy
-  const shuffled = latestRandomness
-    ? latestRandomness.shuffled(nums)
-    : nums.sort(() => Math.random() - .5)
-
-  for (const n of shuffled) {
-    palette.appendChild(makeTile(String(n), 'num-tile', false))
-  }
-  for (const op of OPS) {
-    palette.appendChild(makeTile(op, 'op-tile', false))
-  }
-}
-
-function makeTile(val, cls, inZone) {
-  const el = document.createElement('div')
-  el.className = `tile ${cls}${inZone ? ' in-zone' : ''}`
-  el.draggable = true
-  el.dataset.val = val
-  el.dataset.cls = cls
-  el.textContent = val
-
-  if (inZone) {
-    const rb = document.createElement('span')
-    rb.className = 'remove-btn'
-    rb.textContent = '×'
-    rb.onclick = (e) => { e.stopPropagation(); removeTileFromZone(el) }
-    el.appendChild(rb)
-  }
-
-  el.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ val, cls, fromZone: inZone }))
-    if (inZone) el.dataset.removing = '1'
-  })
-  el.addEventListener('dragend', () => { delete el.dataset.removing })
-
-  // Touch support
-  el.addEventListener('click', () => {
-    if (!inZone) addTileToZone(val, cls)
-  })
-
-  return el
-}
-
-window.dzDragOver = function(e) {
-  e.preventDefault()
-  document.getElementById('g1-drop-zone').classList.add('drag-over')
-}
-window.dzDragLeave = function() {
-  document.getElementById('g1-drop-zone').classList.remove('drag-over')
-}
-window.dzDrop = function(e) {
-  e.preventDefault()
-  document.getElementById('g1-drop-zone').classList.remove('drag-over')
-  try {
-    const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-    addTileToZone(data.val, data.cls)
-  } catch {}
-}
-
-function addTileToZone(val, cls) {
-  G1.zone.push({ val, cls })
-  renderZone()
-  validateG1()
-}
-
-function removeTileFromZone(el) {
-  const idx = Array.from(document.getElementById('g1-drop-zone').children)
-    .filter(c => c.classList.contains('tile'))
-    .indexOf(el)
-  if (idx >= 0) G1.zone.splice(idx, 1)
-  renderZone()
-  validateG1()
-}
-
-function clearZone() {
-  G1.zone = []
-  renderZone()
-  document.getElementById('g1-result').textContent = ''
-  document.getElementById('g1-result').className = 'eq-result'
-  document.getElementById('g1-check-btn').disabled = true
-}
-window.clearZone = clearZone
-
-function renderZone() {
-  const dz = document.getElementById('g1-drop-zone')
-  dz.innerHTML = ''
-  const ph = document.getElementById('g1-zone-placeholder')
-  if (G1.zone.length === 0) {
-    const span = document.createElement('span')
-    span.className = 'placeholder-text'
-    span.id = 'g1-zone-placeholder'
-    span.textContent = 'Drop tiles here to build your equation'
-    dz.appendChild(span)
-    return
-  }
-  for (const item of G1.zone) {
-    dz.appendChild(makeTile(item.val, item.cls, true))
-  }
-}
-
-function validateG1() {
-  const hasNum = G1.zone.some(t => t.cls === 'num-tile')
-  document.getElementById('g1-check-btn').disabled = !hasNum
-}
-
-window.checkEquation = function() {
-  if (!G1.active) return
-  const expr = G1.zone.map(t => {
-    if (t.cls === 'op-tile') return OP_MAP[t.val] || t.val
-    return t.val
-  }).join(' ')
-
-  let result
-  try {
-    // safe eval: only allow digits, spaces, +, -, *, /
-    if (!/^[\d\s\+\-\*\/\.]+$/.test(expr)) throw new Error('invalid')
-    result = Function('"use strict"; return (' + expr + ')')()
-  } catch {
-    showG1Result('Invalid expression', 'wrong')
-    return
-  }
-
-  if (Math.abs(result - G1.target) < 0.0001) {
-    const complexity = G1.zone.filter(t => t.cls === 'op-tile').length
-    const timeBonus = Math.floor(G1.timeLeft * 2)
-    const pts = 10 + complexity * 5 + timeBonus
-    G1.score += pts
-    showG1Result(`✓ Correct! +${pts} points`, 'correct')
-    stopG1Timer()
-    setTimeout(nextRoundG1, 1200)
-  } else {
-    showG1Result(`✗ Got ${+result.toFixed(4)}, need ${G1.target}`, 'wrong')
-    G1.lives--
-    updateG1UI()
-    if (G1.lives <= 0) endGame1()
-  }
-}
-
-function showG1Result(msg, cls) {
-  const el = document.getElementById('g1-result')
-  el.textContent = msg
-  el.className = 'eq-result ' + cls
-}
-
-function startG1Timer() {
-  stopG1Timer()
-  const bar = document.getElementById('g1-timer-bar')
-  G1.timerInterval = setInterval(() => {
-    G1.timeLeft -= .1
-    const pct = Math.max(0, (G1.timeLeft / G1.timerSec) * 100)
-    bar.style.width = pct + '%'
-    if (pct < 30) bar.style.background = 'linear-gradient(90deg, var(--danger), #f97316)'
-    else bar.style.background = 'linear-gradient(90deg, var(--accent), var(--accent2))'
-    if (G1.timeLeft <= 0) {
-      stopG1Timer()
-      showG1Result("⏱ Time's up!", 'wrong')
-      G1.lives--
-      updateG1UI()
-      if (G1.lives <= 0) endGame1()
-      else setTimeout(nextRoundG1, 1000)
-    }
-  }, 100)
-}
-
-function stopG1Timer() {
-  clearInterval(G1.timerInterval)
-}
-window.stopGame1 = stopG1Timer
-
-function updateG1UI() {
-  document.getElementById('g1-score').textContent = G1.score
-  document.getElementById('g1-round').textContent = `Round ${G1.round}`
-  const livesEl = document.getElementById('g1-lives')
-  livesEl.innerHTML = Array.from({ length: 3 }, (_, i) =>
-    `<span class="heart">${i < G1.lives ? '❤️' : '🖤'}</span>`
-  ).join('')
-  document.getElementById('g1-target').textContent = G1.target || '?'
-}
-
-// ═══════════════════════════════════════════════════════
-//  TRACKMANIA-STYLE MEDALS
-//  Bronze → Silver → Gold → Author (beat ARHAM's score)
-// ═══════════════════════════════════════════════════════
-const MEDALS = {
-  equation: { bronze: 50,   silver: 150, gold: 300  },
-  aim:      { bronze: 100,  silver: 300, gold: 600  },
-  reaction: { bronze: 300,  silver: 230, gold: 180  }, // lower ms = better
-  dodge:    { bronze: 100,  silver: 250, gold: 450  }, // deciseconds survived (÷10 = seconds)
-  flash:    { bronze: 4,   silver: 6,   gold: 8    }, // correct answers out of 10
-  deltae:   { bronze: 1200, silver: 2400, gold: 3400 }, // total score out of 4000 (40 rounds × 100)
-}
-
-// Author threshold = ARHAM's personal best fetched from leaderboard
-let authorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null }
-
-async function fetchAuthorScores() {
-  for (const game of ['equation', 'aim', 'reaction', 'dodge', 'flash', 'deltae']) {
-    try {
-      const rows = await sbFetch(
-        `/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`
-      )
-      if (rows && rows.length > 0) authorScores[game] = rows[0].score
-    } catch {}
-  }
-}
-
-const LOWER_IS_BETTER = new Set(['reaction'])
-
-function getMedal(game, score) {
-  const t = MEDALS[game]
-  const author = authorScores[game]
-  if (LOWER_IS_BETTER.has(game)) {
-    // reaction: lower ms = better
-    if (author !== null && score < author) return 'author'
-    if (score <= t.gold)   return 'gold'
-    if (score <= t.silver) return 'silver'
-    if (score <= t.bronze) return 'bronze'
-    return null
-  }
-  if (author !== null && score > author) return 'author'
-  if (score >= t.gold)   return 'gold'
-  if (score >= t.silver) return 'silver'
-  if (score >= t.bronze) return 'bronze'
-  return null
-}
-
-const MEDAL_META = {
-  bronze: { icon: '🥉', label: 'Bronze Medal',  cls: 'medal-bronze',  bg: 'rgba(180,100,40,.12)'  },
-  silver: { icon: '🥈', label: 'Silver Medal',  cls: 'medal-silver',  bg: 'rgba(148,163,184,.12)' },
-  gold:   { icon: '🥇', label: 'Gold Medal',    cls: 'medal-gold',    bg: 'rgba(245,158,11,.12)'  },
-  author: { icon: '👾', label: 'Author Medal',  cls: 'medal-author',  bg: 'rgba(124,58,237,.15)'  },
-}
-
-function renderMedalDisplay(elId, game, score) {
-  const el = document.getElementById(elId)
-  const medal = getMedal(game, score)
-  if (!medal) { el.innerHTML = ''; return }
-  const m = MEDAL_META[medal]
-  el.innerHTML = `
-    <div class="medal-earned" style="background:${m.bg};">
-      <div class="medal-icon">${m.icon}</div>
-      <div class="medal-label ${m.cls}">${m.label}${medal === 'author' ? ' — You beat ARHAM!' : ''}</div>
-    </div>`
-}
-
-function medalBadgeHtml(game, score) {
-  const medal = getMedal(game, score)
-  if (!medal) return ''
-  const m = MEDAL_META[medal]
-  return ` <span class="medal ${m.cls}">${m.icon} ${medal}</span>`
-}
-
-function endGame1() {
-  G1.active = false
-  stopG1Timer()
-  document.getElementById('g1-final-score').textContent = G1.score
-  renderMedalDisplay('g1-medal-display', 'equation', G1.score)
-  document.getElementById('g1-over').classList.add('show')
-}
-
-window.restartGame = function(n) {
-  document.getElementById(`g${n}-over`).classList.remove('show')
-  if (n === 1) initGame1()
-  if (n === 2) initGame2()
-  if (n === 3) initGame3()
-  if (n === 4) initGame4()
-  if (n === 5) initGame5()
-  if (n === 6) initGame6()
-}
-
-// ═══════════════════════════════════════════════════════
-//  GAME 2 — AIM TRAINER
-// ═══════════════════════════════════════════════════════
-const G2 = {
-  score: 0, level: 1, combo: 0,
-  misses: 0, maxMisses: 3,
-  totalClicks: 0, totalHits: 0,
-  active: false, started: false,
-  targets: [],           // { el, timeoutId, spawnTime, lifetime }
-  spawnInterval: null,
-  entropyBuffer: [],     // pre-fetched quantum positions
-}
-
-// Level config
-function g2Config() {
-  const l = G2.level
-  return {
-    targetSize: Math.max(28, 70 - l * 4),       // px
-    lifetime: Math.max(1200, 5000 - l * 300),    // ms
-    spawnRate: Math.max(400, 1800 - l * 120),    // ms between spawns
-    maxTargets: Math.min(2 + Math.floor(l / 3), 6),
-  }
-}
-
-async function initGame2() {
-  G2.score = 0; G2.level = 1; G2.combo = 0; G2.misses = 0
-  G2.totalClicks = 0; G2.totalHits = 0
-  G2.active = false; G2.started = false
-  G2.targets = []; G2.entropyBuffer = []
-  document.getElementById('g2-over').classList.remove('show')
-  document.getElementById('g2-start-msg').style.display = 'flex'
-  document.getElementById('g2-start-btn').style.display = 'inline-flex'
-  // clear old targets
-  document.querySelectorAll('.target-circle').forEach(e => e.remove())
-  updateG2UI()
-}
-
-window.startAimGame = async function(e) {
-  e.stopPropagation()
-  const btn = document.getElementById('g2-start-btn')
-  const loading = document.getElementById('g2-loading')
-  btn.style.display = 'none'
-  loading.style.display = 'flex'
-  await initCurby()
-  await prefillEntropyBuffer()
-  loading.style.display = 'none'
-  document.getElementById('g2-start-msg').style.display = 'none'
-  G2.active = true; G2.started = true
-  scheduleSpawn()
-}
-
-async function prefillEntropyBuffer() {
-  // Pre-generate positions from quantum entropy
-  G2.entropyBuffer = []
-  if (latestRandomness) {
-    const xs = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
-    const ys = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
-    for (let i = 0; i < 200; i++) {
-      G2.entropyBuffer.push({ xFrac: xs[i] / 199, yFrac: ys[i] / 199 })
-    }
-  }
-}
-
-function getQuantumPos() {
-  if (G2.entropyBuffer.length > 0) {
-    return G2.entropyBuffer.splice(
-      qRandInt(G2.entropyBuffer.length), 1
-    )[0]
-  }
-  return { xFrac: Math.random(), yFrac: Math.random() }
-}
-
-function scheduleSpawn() {
-  if (!G2.active) return
-  stopSpawn()
-  const cfg = g2Config()
-  G2.spawnInterval = setInterval(() => {
-    if (!G2.active) return
-    const activeTargets = document.querySelectorAll('.target-circle').length
-    if (activeTargets < cfg.maxTargets) spawnTarget()
-  }, cfg.spawnRate)
-  spawnTarget() // immediate first spawn
-}
-
-function spawnTarget() {
-  if (!G2.active) return
-  const arena = document.getElementById('g2-arena')
-  const rect = arena.getBoundingClientRect()
-  const cfg = g2Config()
-  const size = cfg.targetSize
-
-  const pos = getQuantumPos()
-  const margin = size / 2 + 10
-  const x = margin + pos.xFrac * (rect.width - margin * 2)
-  const y = margin + pos.yFrac * (rect.height - margin * 2)
-
-  // Quantum color hue
-  const hue = qRandInt(360)
-
-  const el = document.createElement('div')
-  el.className = 'target-circle'
-  el.style.cssText = `
-    left:${x}px; top:${y}px;
-    width:${size}px; height:${size}px;
-    background: radial-gradient(circle at 35% 35%,
-      hsl(${hue},90%,70%), hsl(${hue + 40},80%,40%));
-    box-shadow: 0 0 ${size * .6}px hsl(${hue},90%,50%);
-  `
-
-  const ring = document.createElement('div')
-  ring.className = 'target-ring'
-  el.appendChild(ring)
-
-  // Timer shrink ring
-  const timerRing = document.createElement('canvas')
-  timerRing.width = size; timerRing.height = size
-  timerRing.style.cssText = 'position:absolute;inset:0;border-radius:50%;'
-  el.appendChild(timerRing)
-
-  arena.appendChild(el)
-
-  const spawnTime = Date.now()
-  let animFrame
-
-  function drawTimer() {
-    if (!el.isConnected) return
-    const elapsed = Date.now() - spawnTime
-    const pct = Math.max(0, 1 - elapsed / cfg.lifetime)
-    const c = timerRing.getContext('2d')
-    c.clearRect(0, 0, size, size)
-    c.beginPath()
-    c.arc(size / 2, size / 2, size / 2 - 3, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2)
-    c.strokeStyle = `hsla(${hue},90%,70%,0.6)`
-    c.lineWidth = 3
-    c.stroke()
-    animFrame = requestAnimationFrame(drawTimer)
-  }
-  drawTimer()
-
-  el.addEventListener('click', (e) => {
-    e.stopPropagation()
-    cancelAnimationFrame(animFrame)
-    clearTimeout(timeoutId)
-    hitTarget(el, x, y, hue)
-  })
-
-  const timeoutId = setTimeout(() => {
-    cancelAnimationFrame(animFrame)
-    missTarget(el)
-  }, cfg.lifetime)
-
-  G2.targets.push({ el, timeoutId, animFrame })
-}
-
-function hitTarget(el, x, y, hue) {
-  el.remove()
-  G2.totalHits++; G2.combo++
-  const pts = Math.floor(10 * (1 + (G2.combo - 1) * .5) * G2.level)
-  G2.score += pts
-
-  // Combo popup
-  const arena = document.getElementById('g2-arena')
-  const popup = document.createElement('div')
-  popup.className = 'combo-popup'
-  popup.style.cssText = `left:${x}px;top:${y - 20}px;`
-  popup.textContent = G2.combo > 1 ? `×${G2.combo} +${pts}` : `+${pts}`
-  arena.appendChild(popup)
-  setTimeout(() => popup.remove(), 900)
-
-  // Level up every 10 hits
-  if (G2.totalHits % 10 === 0) {
-    G2.level++
-    scheduleSpawn()
-    // Refill entropy buffer on level up
-    if (G2.entropyBuffer.length < 50) prefillEntropyBuffer()
-  }
-  updateG2UI()
-}
-
-function missTarget(el) {
-  if (!el.isConnected) return
-  el.style.transition = 'transform .3s, opacity .3s'
-  el.style.transform = 'translate(-50%,-50%) scale(0)'
-  el.style.opacity = '0'
-  setTimeout(() => el.remove(), 300)
-  G2.combo = 0; G2.misses++
-  updateG2UI()
-  if (G2.misses >= G2.maxMisses) endGame2()
-}
-
-window.arenaMissClick = function(e) {
-  if (!G2.active || !G2.started) return
-  if (e.target.id === 'g2-arena') {
-    G2.totalClicks++
-    // ripple
-    const arena = document.getElementById('g2-arena')
-    const rect = arena.getBoundingClientRect()
-    const rip = document.createElement('div')
-    rip.className = 'ripple'
-    rip.style.left = (e.clientX - rect.left) + 'px'
-    rip.style.top = (e.clientY - rect.top) + 'px'
-    arena.appendChild(rip)
-    setTimeout(() => rip.remove(), 500)
-  }
-}
-
-function stopSpawn() {
-  clearInterval(G2.spawnInterval)
-}
-window.stopGame2 = stopSpawn
-
-function updateG2UI() {
-  document.getElementById('g2-score').textContent = G2.score
-  document.getElementById('g2-level').textContent = G2.level
-  document.getElementById('g2-combo').textContent = `×${G2.combo || 1}`
-  const totalShots = G2.totalHits + G2.totalClicks
-  document.getElementById('g2-acc').textContent =
-    totalShots > 0 ? Math.round(G2.totalHits / totalShots * 100) + '%' : '—'
-  // miss dots
-  const dots = document.getElementById('g2-miss-dots')
-  dots.innerHTML = Array.from({ length: G2.maxMisses }, (_, i) =>
-    `<div class="miss-dot${i < G2.misses ? ' filled' : ''}"></div>`
-  ).join('')
-}
-
-function endGame2() {
-  G2.active = false
-  stopSpawn()
-  document.querySelectorAll('.target-circle').forEach(e => e.remove())
-  document.getElementById('g2-final-score').textContent = G2.score
-  document.getElementById('g2-over-stats').textContent =
-    `Level ${G2.level} · ${G2.totalHits} hits · ${G2.totalClicks} total clicks`
-  renderMedalDisplay('g2-medal-display', 'aim', G2.score)
-  document.getElementById('g2-over').classList.add('show')
-}
-
-// ── Auto-init CURBy on page load (no-op if already done) ──
-initCurby()
-
-// ═══════════════════════════════════════════════════════
-//  COOKIES / LOCAL STORAGE — saved name & personal bests
-// ═══════════════════════════════════════════════════════
-function cookieSet(key, val, days = 365) {
-  const d = new Date(); d.setTime(d.getTime() + days * 864e5)
-  document.cookie = `${key}=${encodeURIComponent(val)};expires=${d.toUTCString()};path=/;SameSite=Lax`
-}
-function cookieGet(key) {
-  const m = document.cookie.match(new RegExp('(?:^|; )' + key + '=([^;]*)'))
-  return m ? decodeURIComponent(m[1]) : null
-}
-
-// Personal bests stored in localStorage (more space than cookies)
-function getPB(game) {
-  const v = localStorage.getItem('pb_' + game)
-  if (v === null) return LOWER_IS_BETTER.has(game) ? 99999 : 0
-  return parseFloat(v)
-}
-function setPB(game, score) {
-  const better = LOWER_IS_BETTER.has(game) ? score < getPB(game) : score > getPB(game)
-  if (better) { localStorage.setItem('pb_' + game, score); return true }
-  return false
-}
-
-// ═══════════════════════════════════════════════════════
-//  ADMIN AUTH — password stored as SHA-256 hash only
-// ═══════════════════════════════════════════════════════
-const ADMIN_NAME = 'ARHAM'
-// SHA-256 of "ich_bin_arham_XD" — password never stored in plaintext
-const ADMIN_HASH = 'd4c39c00879d9caf8fdee691d3cfe371b48767334f2c8c49313b439f31f46455'
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-// Returns true if currently verified as admin this session
-function isAdminVerified() { return sessionStorage.getItem('admin_verified') === '1' }
-function setAdminVerified() { sessionStorage.setItem('admin_verified', '1') }
-
-// ═══════════════════════════════════════════════════════
-//  SUPABASE LEADERBOARD
-// ═══════════════════════════════════════════════════════
-const SB_URL = 'https://kuvpxhuvednptyfqccea.supabase.co'
-const SB_KEY = 'sb_publishable_gKmvBHgqjV9cbQvoo_48tA_zKQKDPbw'
-
-async function sbFetch(path, options = {}) {
-  const res = await fetch(SB_URL + path, {
-    ...options,
-    headers: {
-      'apikey': SB_KEY,
-      'Authorization': 'Bearer ' + SB_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': options.prefer || '',
-      ...(options.headers || {}),
-    },
-  })
-  if (!res.ok) throw new Error(await res.text())
-  const text = await res.text()
-  return text ? JSON.parse(text) : null
-}
-
-function escHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-}
-
-let lbCurrentGame = 'equation'
-
-window.switchLbTab = function(game) {
-  lbCurrentGame = game
-  document.getElementById('lb-tab-1').className = 'lb-tab' + (game === 'equation' ? ' active' : '')
-  document.getElementById('lb-tab-2').className = 'lb-tab cyan' + (game === 'aim' ? ' active' : '')
-  document.getElementById('lb-tab-3').className = 'lb-tab' + (game === 'reaction' ? ' active' : '')
-  document.getElementById('lb-tab-3').style.cssText = game === 'reaction'
-    ? 'background:var(--success);border-color:var(--success);color:#fff;'
-    : 'border-color:var(--success);color:var(--success);'
-  document.getElementById('lb-tab-4').className = 'lb-tab' + (game === 'dodge' ? ' active' : '')
-  document.getElementById('lb-tab-4').style.cssText = game === 'dodge'
-    ? 'background:var(--danger);border-color:var(--danger);color:#fff;'
-    : 'border-color:var(--danger);color:var(--danger);'
-  document.getElementById('lb-tab-5').className = 'lb-tab' + (game === 'flash' ? ' active' : '')
-  document.getElementById('lb-tab-5').style.cssText = game === 'flash'
-    ? 'background:#f59e0b;border-color:#f59e0b;color:#fff;'
-    : 'border-color:#f59e0b;color:#f59e0b;'
-  document.getElementById('lb-tab-6').className = 'lb-tab' + (game === 'deltae' ? ' active' : '')
-  document.getElementById('lb-tab-6').style.cssText = game === 'deltae'
-    ? 'background:#ec4899;border-color:#ec4899;color:#fff;'
-    : 'border-color:#ec4899;color:#ec4899;'
-  loadLeaderboard(game)
-}
-
-async function loadLeaderboard(game) {
-  const list = document.getElementById('lb-list')
-  list.innerHTML = '<div class="lb-loading"><div class="spinner"></div> Loading…</div>'
-  try {
-    const order = LOWER_IS_BETTER.has(game) ? 'score.asc' : 'score.desc'
-    const rawRows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&order=${order}&limit=100`)
-    if (!rawRows || rawRows.length === 0) {
-      list.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'
-      return
-    }
-    // Deduplicate: keep only best score per player name
-    const seen = new Map()
-    for (const r of rawRows) {
-      const key = r.name.toLowerCase()
-      if (!seen.has(key) || r.score > seen.get(key).score) seen.set(key, r)
-    }
-    const rows = Array.from(seen.values())
-      .sort((a, b) => LOWER_IS_BETTER.has(game) ? a.score - b.score : b.score - a.score)
-      .slice(0, 10)
-
-    const rankLabels = ['🥇', '🥈', '🥉']
-    const myName = cookieGet('player_name') || ''
-    const pb = getPB(game)
-    list.innerHTML = rows.map((r, i) => {
-      const isAdmin = r.name.toUpperCase() === ADMIN_NAME
-      const isMe = myName && r.name === myName
-      const authorBadge = isAdmin
-        ? ' <span class="medal medal-author-badge">AUTHOR</span>' : ''
-      const youBadge = isMe
-        ? ' <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;vertical-align:middle">you</span>' : ''
-      // ARHAM always gets author medal badge, others get normal medal
-      const medalBadge = isAdmin ? ' <span class="medal medal-earned medal-author"><span class="medal-icon">👾</span><span class="medal-label">Author</span></span>' : medalBadgeHtml(game, r.score)
-      const scoreDisplay = game === 'reaction' ? r.score + ' ms' : game === 'dodge' ? (r.score / 10).toFixed(1) + 's' : game === 'flash' ? r.score + '/10' : game === 'deltae' ? r.score + ' pts' : r.score.toLocaleString()
-      const scoreColor = game === 'aim' ? 'cyan' : game === 'reaction' ? '' : game === 'dodge' ? 'style="color:var(--danger)"' : ''
-      return `
-        <div class="lb-row" style="${isMe ? 'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);' : ''}">
-          <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
-          <span class="lb-name">${escHtml(r.name)}${authorBadge}${youBadge}${medalBadge}</span>
-          <span class="lb-score ${game==='aim'?'cyan':''}" ${game==='dodge'?'style="color:var(--danger)"':game==='reaction'?'style="color:var(--success)"':''}>${scoreDisplay}</span>
-        </div>`
-    }).join('')
-
-    // Personal best row below leaderboard if not already in top 10
-    const pbValid = LOWER_IS_BETTER.has(game) ? pb < 99999 : pb > 0
-    if (pbValid && myName && !rows.find(r => r.name === myName)) {
-      const pbDisplay = game === 'reaction' ? pb + ' ms' : game === 'dodge' ? (pb / 10).toFixed(1) + 's' : game === 'flash' ? pb + '/10' : game === 'deltae' ? pb + ' pts' : pb.toLocaleString()
-      list.innerHTML += `
-        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border);">
-          <div class="lb-row" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);">
-            <span class="lb-rank">—</span>
-            <span class="lb-name">${escHtml(myName)} <span style="font-size:.7rem;background:rgba(124,58,237,.25);color:var(--accent);padding:.1rem .4rem;border-radius:4px;">you</span>${medalBadgeHtml(game, pb)}</span>
-            <span class="lb-score ${game==='aim'?'cyan':''}">PB: ${pbDisplay}</span>
-          </div>
-        </div>`
-    }
-  } catch (e) {
-    list.innerHTML = '<div class="lb-empty">Could not load scores.</div>'
-    console.warn('Leaderboard load failed:', e)
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  SUBMIT SCORE — with saved name, admin gate, PB tracking
-// ═══════════════════════════════════════════════════════
-let pendingSubmit = null
-
-window.openSubmit = function(game) {
-  const score = game === 'equation' ? G1.score : G2.score
-  pendingSubmit = { game, score }
-  document.getElementById('sub-score-display').textContent = score.toLocaleString()
-  document.getElementById('sub-score-display').style.color = game === 'aim' ? 'var(--accent2)' : 'var(--accent)'
-
-  // Show PB comparison
-  const pb = getPB(game)
-  const pbEl = document.getElementById('sub-pb-info')
-  if (pb > 0) {
-    const improved = score > pb
-    pbEl.textContent = improved
-      ? `New personal best! (was ${pb.toLocaleString()})`
-      : `Your best: ${pb.toLocaleString()}`
-    pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
-  } else {
-    pbEl.textContent = 'First time playing!'
-    pbEl.style.color = 'var(--muted)'
-  }
-
-  // Pre-fill saved name
-  const saved = cookieGet('player_name') || ''
-  document.getElementById('sub-name-input').value = saved
-  document.getElementById('sub-status').textContent = ''
-  document.getElementById('sub-submit-btn').disabled = false
-  document.getElementById('admin-pw-row').style.display = 'none'
-  document.getElementById('sub-admin-pw').value = ''
-  document.getElementById('submit-overlay').classList.add('show')
-  setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
-}
-
-// Show/hide admin password field when name = ARHAM
-document.getElementById('sub-name-input').addEventListener('input', () => {
-  const val = document.getElementById('sub-name-input').value.trim().toUpperCase()
-  const pwRow = document.getElementById('admin-pw-row')
-  if (val === ADMIN_NAME) {
-    pwRow.style.display = 'flex'
-    document.getElementById('sub-admin-pw').focus()
-  } else {
-    pwRow.style.display = 'none'
-  }
-})
-
-document.getElementById('g5-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitFlashAnswer()
-})
-document.getElementById('sub-name-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitScore()
-})
-document.getElementById('sub-admin-pw').addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitScore()
-})
-
-window.submitScore = async function() {
-  const nameRaw = document.getElementById('sub-name-input').value.trim()
-  if (!nameRaw) {
-    document.getElementById('sub-status').textContent = 'Please enter your name.'
-    return
-  }
-
-  // Admin gate
-  if (nameRaw.toUpperCase() === ADMIN_NAME) {
-    if (!isAdminVerified()) {
-      const pw = document.getElementById('sub-admin-pw').value
-      if (!pw) {
-        document.getElementById('sub-status').textContent = 'Enter the admin password to use this name.'
-        document.getElementById('sub-admin-pw').focus()
-        return
-      }
-      const hashed = await sha256(pw)
-      if (hashed !== ADMIN_HASH) {
-        document.getElementById('sub-status').textContent = 'Wrong password.'
-        document.getElementById('sub-admin-pw').value = ''
-        return
-      }
-      setAdminVerified()
-    }
-  }
-
-  const name = nameRaw.toUpperCase() === ADMIN_NAME ? ADMIN_NAME : nameRaw
-
-  const btn = document.getElementById('sub-submit-btn')
-  btn.disabled = true
-  document.getElementById('sub-status').textContent = 'Submitting…'
-
-  try {
-    await sbFetch('/rest/v1/leaderboard', {
-      method: 'POST',
-      prefer: 'return=minimal',
-      body: JSON.stringify({ name, game: pendingSubmit.game, score: pendingSubmit.score }),
-    })
-
-    // Save name cookie + update personal best
-    cookieSet('player_name', name)
-    const newPB = setPB(pendingSubmit.game, pendingSubmit.score)
-    document.getElementById('sub-status').textContent = newPB ? '✓ New personal best saved!' : '✓ Score submitted!'
-
-    setTimeout(() => {
-      document.getElementById('submit-overlay').classList.remove('show')
-      const overMap = { equation: 'g1-over', aim: 'g2-over', reaction: 'g3-over', dodge: 'g4-over', flash: 'g5-over', deltae: 'g6-over' }
-      document.getElementById(overMap[pendingSubmit.game] || 'g1-over').classList.remove('show')
-      goHome()
-      loadLeaderboard(pendingSubmit.game)
-      switchLbTab(pendingSubmit.game)
-    }, 1000)
-  } catch (e) {
-    document.getElementById('sub-status').textContent = 'Failed to submit. Try again.'
-    btn.disabled = false
-    console.warn('Submit failed:', e)
-  }
-}
-
-window.skipSubmit = function() {
-  // Still save PB locally even if skipping submission
-  if (pendingSubmit) setPB(pendingSubmit.game, pendingSubmit.score)
-  document.getElementById('submit-overlay').classList.remove('show')
-}
-
-// Load author scores then leaderboard on page load
-fetchAuthorScores().then(() => loadLeaderboard('equation'))
-
-// ═══════════════════════════════════════════════════════
-//  GAME 3 — QUANTUM REACTION TEST
-//  5 rounds, quantum-random delay (1–4s), measure click time
-//  Score = average reaction time (ms), lower = better
-// ═══════════════════════════════════════════════════════
-const G3 = {
-  round: 0, totalRounds: 5,
-  state: 'idle',   // idle | waiting | flash | result | done
-  results: [],     // ms per round
-  flashTime: null,
-  waitTimeout: null,
-}
-
-function stopReact() {
-  clearTimeout(G3.waitTimeout)
-  G3.waitTimeout = null
-}
-
-async function initGame3() {
-  stopReact()
-  G3.round = 0; G3.results = []; G3.state = 'idle'
-  document.getElementById('g3-over').classList.remove('show')
-  const arena = document.getElementById('g3-arena')
-  arena.className = 'arena state-wait'
-  document.getElementById('g3-msg').textContent = 'Click to Start'
-  document.getElementById('g3-sub').textContent = `5 rounds · quantum-random delay each time`
-  document.getElementById('g3-sub').style.display = ''
-  document.getElementById('g3-time').style.display = 'none'
-  renderReactRounds()
-  await initCurby()
-}
-
-function renderReactRounds() {
-  const el = document.getElementById('g3-rounds')
-  el.innerHTML = Array.from({ length: G3.totalRounds }, (_, i) => {
-    let cls = 'react-round-dot'
-    if (i < G3.results.length) cls += G3.results[i] === null ? ' early' : ' done'
-    else if (i === G3.round && G3.state !== 'idle') cls += ' active'
-    const label = i < G3.results.length
-      ? (G3.results[i] === null ? '✗' : G3.results[i] + 'ms')
-      : (i + 1)
-    return `<div class="${cls}">${label}</div>`
-  }).join('')
-}
-
-window.reactClick = function() {
-  const arena = document.getElementById('g3-arena')
-  if (G3.state === 'idle') {
-    G3.round = 0; G3.results = []
-    G3.state = 'waiting'
-    renderReactRounds()
-    scheduleFlash()
-    return
-  }
-  if (G3.state === 'waiting') {
-    // Clicked too early!
-    clearTimeout(G3.waitTimeout)
-    arena.className = 'arena state-early'
-    document.getElementById('g3-msg').textContent = 'Too early! ✗'
-    document.getElementById('g3-sub').textContent = 'Wait for the green flash...'
-    document.getElementById('g3-time').style.display = 'none'
-    G3.results.push(null)
-    G3.round++
-    G3.state = 'result'
-    renderReactRounds()
-    G3.waitTimeout = setTimeout(() => nextReactRound(), 1200)
-    return
-  }
-  if (G3.state === 'flash') {
-    const ms = Date.now() - G3.flashTime
-    G3.results.push(ms)
-    G3.round++
-    G3.state = 'result'
-    arena.className = 'arena state-result'
-    document.getElementById('g3-msg').textContent = ms + ' ms'
-    document.getElementById('g3-sub').textContent = ms < 200 ? 'Incredible!' : ms < 280 ? 'Great!' : ms < 350 ? 'Good' : 'Keep practicing'
-    document.getElementById('g3-time').style.display = 'none'
-    renderReactRounds()
-    if (G3.round >= G3.totalRounds) {
-      G3.waitTimeout = setTimeout(() => endGame3(), 1200)
-    } else {
-      G3.waitTimeout = setTimeout(() => nextReactRound(), 1400)
-    }
-    return
-  }
-}
-
-function scheduleFlash() {
-  const arena = document.getElementById('g3-arena')
-  arena.className = 'arena state-ready'
-  document.getElementById('g3-msg').textContent = 'Get ready…'
-  document.getElementById('g3-sub').textContent = `Round ${G3.round + 1} of ${G3.totalRounds}`
-  document.getElementById('g3-time').style.display = 'none'
-  G3.state = 'waiting'
-  // Quantum delay: 1000–4000ms
-  const delay = 1000 + qRandInt(3000)
-  G3.waitTimeout = setTimeout(() => {
-    arena.className = 'arena state-flash'
-    document.getElementById('g3-msg').textContent = 'CLICK NOW!'
-    document.getElementById('g3-sub').style.display = 'none'
-    G3.flashTime = Date.now()
-    G3.state = 'flash'
-  }, delay)
-}
-
-function nextReactRound() {
-  if (G3.round >= G3.totalRounds) { endGame3(); return }
-  document.getElementById('g3-sub').style.display = ''
-  scheduleFlash()
-}
-
-function endGame3() {
-  stopReact()
-  G3.state = 'done'
-  // Average of valid rounds only
-  const valid = G3.results.filter(r => r !== null)
-  const avg = valid.length > 0 ? Math.round(valid.reduce((a,b) => a+b, 0) / valid.length) : 9999
-  const earlyCount = G3.results.filter(r => r === null).length
-
-  document.getElementById('g3-final-score').textContent = avg + ' ms avg'
-  document.getElementById('g3-over-stats').textContent =
-    `${valid.length}/${G3.totalRounds} valid · ${earlyCount} early clicks · Best: ${valid.length ? Math.min(...valid) : '—'} ms`
-
-  // Store score as integer ms for leaderboard (lower = better)
-  const G3score = avg
-  renderMedalDisplay('g3-medal-display', 'reaction', G3score)
-
-  // Stash score for submit modal
-  window._g3Score = G3score
-  document.getElementById('g3-over').classList.add('show')
-}
-
-// Override openSubmit for reaction/dodge scores
-const _origOpenSubmit = window.openSubmit
-window.openSubmit = function(game) {
-  if (game === 'reaction') {
-    pendingSubmit = { game, score: window._g3Score || 9999 }
-    document.getElementById('sub-score-display').textContent = (window._g3Score || 9999) + ' ms'
-    document.getElementById('sub-score-display').style.color = 'var(--success)'
-    const pb = getPB(game)
-    const pbEl = document.getElementById('sub-pb-info')
-    if (pb < 99999) {
-      const improved = (window._g3Score || 9999) < pb
-      pbEl.textContent = improved ? `New personal best! (was ${pb} ms)` : `Your best: ${pb} ms`
-      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
-    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
-    const saved = cookieGet('player_name') || ''
-    document.getElementById('sub-name-input').value = saved
-    document.getElementById('sub-status').textContent = ''
-    document.getElementById('sub-submit-btn').disabled = false
-    document.getElementById('admin-pw-row').style.display = 'none'
-    document.getElementById('sub-admin-pw').value = ''
-    document.getElementById('submit-overlay').classList.add('show')
-    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
-  } else if (game === 'dodge') {
-    pendingSubmit = { game, score: window._g4Score || 0 }
-    const ds = window._g4Score || 0
-    document.getElementById('sub-score-display').textContent = (ds / 10).toFixed(1) + 's'
-    document.getElementById('sub-score-display').style.color = 'var(--danger)'
-    const pb = getPB(game)
-    const pbEl = document.getElementById('sub-pb-info')
-    if (pb > 0 && pb < 99999) {
-      const improved = ds > pb
-      pbEl.textContent = improved ? `New personal best! (was ${(pb/10).toFixed(1)}s)` : `Your best: ${(pb/10).toFixed(1)}s`
-      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
-    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
-    const saved = cookieGet('player_name') || ''
-    document.getElementById('sub-name-input').value = saved
-    document.getElementById('sub-status').textContent = ''
-    document.getElementById('sub-submit-btn').disabled = false
-    document.getElementById('admin-pw-row').style.display = 'none'
-    document.getElementById('sub-admin-pw').value = ''
-    document.getElementById('submit-overlay').classList.add('show')
-    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
-  } else if (game === 'flash') {
-    pendingSubmit = { game, score: window._g5Score || 0 }
-    document.getElementById('sub-score-display').textContent = (window._g5Score || 0) + '/10'
-    document.getElementById('sub-score-display').style.color = '#f59e0b'
-    const pb = getPB(game)
-    const pbEl = document.getElementById('sub-pb-info')
-    if (pb > 0) {
-      const improved = (window._g5Score || 0) > pb
-      pbEl.textContent = improved ? `New personal best! (was ${pb}/10)` : `Your best: ${pb}/10`
-      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
-    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
-    const saved = cookieGet('player_name') || ''
-    document.getElementById('sub-name-input').value = saved
-    document.getElementById('sub-status').textContent = ''
-    document.getElementById('sub-submit-btn').disabled = false
-    document.getElementById('admin-pw-row').style.display = 'none'
-    document.getElementById('sub-admin-pw').value = ''
-    document.getElementById('submit-overlay').classList.add('show')
-    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
-  } else if (game === 'deltae') {
-    pendingSubmit = { game, score: window._g6Score || 0 }
-    document.getElementById('sub-score-display').textContent = (window._g6Score || 0) + ' pts'
-    document.getElementById('sub-score-display').style.color = '#ec4899'
-    const pb = getPB(game)
-    const pbEl = document.getElementById('sub-pb-info')
-    if (pb > 0) {
-      const improved = (window._g6Score || 0) > pb
-      pbEl.textContent = improved ? `New personal best! (was ${pb} pts)` : `Your best: ${pb} pts`
-      pbEl.style.color = improved ? 'var(--success)' : 'var(--muted)'
-    } else { pbEl.textContent = 'First time!'; pbEl.style.color = 'var(--muted)' }
-    const saved = cookieGet('player_name') || ''
-    document.getElementById('sub-name-input').value = saved
-    document.getElementById('sub-status').textContent = ''
-    document.getElementById('sub-submit-btn').disabled = false
-    document.getElementById('admin-pw-row').style.display = 'none'
-    document.getElementById('sub-admin-pw').value = ''
-    document.getElementById('submit-overlay').classList.add('show')
-    setTimeout(() => document.getElementById('sub-name-input').focus(), 100)
-  } else {
-    _origOpenSubmit(game)
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  GAME 4 — QUANTUM DODGE
-//  Mouse/touch controls player dot, quantum obstacles fly from right→left
-//  Survive as long as possible. Score = seconds alive.
-// ═══════════════════════════════════════════════════════
-const G4 = {
-  active: false,
-  startTime: null,
-  elapsed: 0,
-  spawnInterval: null,
-  tickInterval: null,
-  obstacles: [],
-  playerX: 120, playerY: 0,
-  arenaRect: null,
-}
-
-function stopDodge() {
-  clearInterval(G4.spawnInterval)
-  clearInterval(G4.tickInterval)
-  G4.spawnInterval = null; G4.tickInterval = null
-}
-
-async function initGame4() {
-  stopDodge()
-  G4.active = false; G4.elapsed = 0; G4.obstacles = []
-  document.getElementById('g4-over').classList.remove('show')
-  document.getElementById('dodge-overlay').style.display = 'flex'
-  document.querySelectorAll('.dodge-obstacle').forEach(e => e.remove())
-  document.getElementById('g4-score').textContent = '0.0s'
-  document.getElementById('dodge-timer-display').textContent = ''
-  const arena = document.getElementById('g4-arena')
-  const rect = arena.getBoundingClientRect()
-  G4.playerY = rect.height / 2
-  G4.playerX = 120
-  updateDodgePlayer()
-  await initCurby()
-}
-
-window.startDodge = function(e) {
-  e.stopPropagation()
-  document.getElementById('dodge-overlay').style.display = 'none'
-  const arena = document.getElementById('g4-arena')
-  G4.arenaRect = arena.getBoundingClientRect()
-  G4.playerX = 120
-  G4.playerY = G4.arenaRect.height / 2
-  updateDodgePlayer()
-  G4.active = true
-  G4.startTime = Date.now()
-
-  arena.addEventListener('mousemove', dodgeMouseMove)
-  arena.addEventListener('touchmove', dodgeTouchMove, { passive: false })
-
-  G4.tickInterval = setInterval(dodgeTick, 16)
-  scheduleDodgeSpawn()
-}
-
-function dodgeMouseMove(e) {
-  if (!G4.active) return
-  const rect = document.getElementById('g4-arena').getBoundingClientRect()
-  G4.playerX = e.clientX - rect.left
-  G4.playerY = e.clientY - rect.top
-  updateDodgePlayer()
-}
-
-function dodgeTouchMove(e) {
-  if (!G4.active) return
-  e.preventDefault()
-  const rect = document.getElementById('g4-arena').getBoundingClientRect()
-  G4.playerX = e.touches[0].clientX - rect.left
-  G4.playerY = e.touches[0].clientY - rect.top
-  updateDodgePlayer()
-}
-
-function updateDodgePlayer() {
-  const p = document.getElementById('dodge-player')
-  p.style.transform = `translate(${G4.playerX - 11}px, ${G4.playerY - 11}px)`
-}
-
-function scheduleDodgeSpawn() {
-  const rate = Math.max(400, 1600 - G4.elapsed * 20)
-  G4.spawnInterval = setTimeout(() => {
-    if (!G4.active) return
-    spawnObstacle()
-    scheduleDodgeSpawn()
-  }, rate)
-}
-
-function spawnObstacle() {
-  const arena = document.getElementById('g4-arena')
-  const rect = arena.getBoundingClientRect()
-  const size = 18 + qRandInt(28)
-  const yFrac = qRandInt(100) / 99
-  const y = size/2 + yFrac * (rect.height - size)
-  const speed = 180 + G4.elapsed * 8 + qRandInt(80) // px/sec, speeds up over time
-  const hue = qRandInt(360)
-
-  const el = document.createElement('div')
-  el.className = 'dodge-obstacle'
-  const startX = rect.width + size + 10
-  el.style.cssText = `
-    width:${size}px; height:${size}px;
-    left:${startX}px; top:${y}px;
-    background: radial-gradient(circle at 35% 35%, hsl(${hue},90%,70%), hsl(${hue+40},80%,40%));
-    box-shadow: 0 0 ${size*.5}px hsl(${hue},90%,55%);
-  `
-  arena.appendChild(el)
-
-  const spawnedAt = Date.now()
-  const endX = -(size + 10)
-  const travelDist = startX - endX
-  const duration = (travelDist / speed) * 1000
-
-  el.animate(
-    [{ left: `${startX}px` }, { left: `${endX}px` }],
-    { duration, easing: 'linear', fill: 'forwards' }
-  )
-
-  // obsX = center x; startX is left edge, so center = startX + size/2
-  G4.obstacles.push({ el, size, y, spawnedAt, speed, startX: startX + size / 2 })
-
-  setTimeout(() => {
-    el.remove()
-    G4.obstacles = G4.obstacles.filter(o => o.el !== el)
-  }, duration + 100)
-}
-
-function dodgeTick() {
-  if (!G4.active) return
-  G4.elapsed = (Date.now() - G4.startTime) / 1000
-
-  document.getElementById('g4-score').textContent = G4.elapsed.toFixed(1) + 's'
-  document.getElementById('dodge-timer-display').textContent = G4.elapsed.toFixed(1) + 's'
-
-  // Collision check
-  for (const obs of G4.obstacles) {
-    const elapsed = (Date.now() - obs.spawnedAt) / 1000
-    const obsX = obs.startX - obs.speed * elapsed
-    const obsY = obs.y
-    const dx = G4.playerX - obsX
-    const dy = G4.playerY - obsY
-    const dist = Math.sqrt(dx*dx + dy*dy)
-    if (dist < 11 + obs.size / 2) {
-      endGame4()
-      return
-    }
-  }
-}
-
-function endGame4() {
-  G4.active = false
-  stopDodge()
-  const arena = document.getElementById('g4-arena')
-  arena.removeEventListener('mousemove', dodgeMouseMove)
-  arena.removeEventListener('touchmove', dodgeTouchMove)
-  document.querySelectorAll('.dodge-obstacle').forEach(e => e.remove())
-
-  const survived = parseFloat(G4.elapsed.toFixed(1))
-  const survivedDs = Math.round(survived * 10) // deciseconds integer for leaderboard
-  window._g4Score = survivedDs
-
-  document.getElementById('g4-final-score').textContent = survived.toFixed(1) + 's'
-  document.getElementById('g4-over-stats').textContent =
-    `Survived ${survived.toFixed(1)} seconds`
-  renderMedalDisplay('g4-medal-display', 'dodge', survivedDs)
-  document.getElementById('g4-over').classList.add('show')
-}
-
-// ═══════════════════════════════════════════════════════
-//  GAME 6 — DELTA E / JND
-//  Two similar colours fill a strip. The split is at a
-//  quantum-random horizontal position. Click the boundary.
-//  40 rounds. Score per round = max(0, 100 - errorPercent*4)
-//  Difficulty ramps brutally: ΔHue 15° → 0.3° by round 40.
-// ═══════════════════════════════════════════════════════
-const G6 = {
-  round: 0, totalRounds: 40,
-  score: 0,
-  splitPct: 0,
-  state: 'idle',
-  feedbackTimeout: null,
-  currentColors: null,
-}
-
-function stopDeltaE() {
-  clearTimeout(G6.feedbackTimeout)
-  G6.state = 'idle'
-}
-
-// Difficulty curve: exponential decay so early rounds feel doable,
-// late rounds are near-impossible even for top colour sorters.
-// Round 1: ΔHue≈15°  Round 10: ΔHue≈6°  Round 25: ΔHue≈1.5°  Round 40: ΔHue≈0.3°
-// Round 1: ΔHue≈12°  Round 10: ΔHue≈3°  Round 25: ΔHue≈0.5°  Round 40: ΔHue≈0.08°
-// Identical sat & lightness — no extra cues.
-function g6Colors(round) {
-  const t = (round - 1) / 39  // 0→1
-  const delta = 12 * Math.pow(0.08 / 12, t)  // 12° → 0.08°
-  const hue  = qRandInt(360)
-  const sat  = 65 + qRandInt(15)
-  const lig  = 44 + qRandInt(12)
-  const hue2 = (hue + delta + 360) % 360
-  return {
-    left:  `hsl(${hue},${sat}%,${lig}%)`,
-    right: `hsl(${hue2.toFixed(3)},${sat}%,${lig}%)`,
-    delta: delta.toFixed(2),
-  }
-}
-
-async function initGame6() {
-  stopDeltaE()
-  G6.round = 0; G6.score = 0; G6.state = 'idle'
-  document.getElementById('g6-over').classList.remove('show')
-  document.getElementById('g6-score').textContent = '0'
-  document.getElementById('g6-start-overlay').style.display = 'flex'
-  document.getElementById('g6-round-info').style.display = 'none'
-  document.getElementById('g6-progress').style.display = 'none'
-  document.getElementById('g6-color-strip').style.display = 'none'
-  document.getElementById('g6-info').style.display = 'none'
-  document.getElementById('g6-feedback').style.display = 'none'
-  await initCurby()
-}
-
-window.startDeltaE = function() {
-  document.getElementById('g6-start-overlay').style.display = 'none'
-  document.getElementById('g6-round-info').style.display = 'block'
-  document.getElementById('g6-progress').style.display = 'flex'
-  document.getElementById('g6-color-strip').style.display = 'block'
-  document.getElementById('g6-info').style.display = 'block'
-  document.getElementById('g6-feedback').style.display = 'block'
-  // build pips
-  const prog = document.getElementById('g6-progress')
-  prog.innerHTML = Array.from({ length: G6.totalRounds }, (_, i) =>
-    `<div class="g6-pip" id="g6-pip-${i}"></div>`).join('')
-  nextRoundG6()
-}
-
-function nextRoundG6() {
-  G6.round++
-  if (G6.round > G6.totalRounds) { endGame6(); return }
-
-  const pip = document.getElementById(`g6-pip-${G6.round - 1}`)
-  if (pip) pip.classList.add('active')
-
-  // Quantum split position: keep it away from edges (15%–85%)
-  G6.splitPct = 15 + qRandInt(71) // 15–85
-
-  const colors = g6Colors(G6.round)
-  G6.currentColors = colors
-
-  const strip = document.getElementById('g6-color-strip')
-  const left  = document.getElementById('g6-left-half')
-  const right = document.getElementById('g6-right-half')
-  const marker = document.getElementById('g6-marker')
-  const answerLine = document.getElementById('g6-answer-line')
-
-  left.style.left  = '0'
-  left.style.width = G6.splitPct + '%'
-  left.style.background = colors.left
-
-  right.style.left  = G6.splitPct + '%'
-  right.style.width = (100 - G6.splitPct) + '%'
-  right.style.background = colors.right
-
-  marker.style.display = 'none'
-  answerLine.style.display = 'none'
-
-  const difficulty = G6.round <= 5 ? 'Easy' : G6.round <= 12 ? 'Medium' : G6.round <= 22 ? 'Hard' : G6.round <= 32 ? 'Brutal' : '💀 Impossible'
-  document.getElementById('g6-round-info').textContent =
-    `Round ${G6.round} of ${G6.totalRounds} · ΔHue ${colors.delta}° · ${difficulty}`
-  document.getElementById('g6-feedback').textContent = ''
-  document.getElementById('g6-feedback').style.color = 'var(--muted)'
-  document.getElementById('g6-info').textContent = 'Click where the colour changes ↓'
-  strip.style.cursor = 'crosshair'
-  G6.state = 'waiting'
-}
-
-window.deltaEClick = function(e) {
-  if (G6.state !== 'waiting') return
-  G6.state = 'result'
-
-  const strip = document.getElementById('g6-color-strip')
-  const rect = strip.getBoundingClientRect()
-  const clickPct = ((e.clientX - rect.left) / rect.width) * 100
-  const errorPct = Math.abs(clickPct - G6.splitPct)
-
-  // Tolerance tightens with rounds: early=lenient (÷4), late=brutal (÷8)
-  const t = (G6.round - 1) / 39
-  const multiplier = 4 + t * 4  // 4 at round 1 → 8 at round 40
-  const pts = Math.max(0, Math.round(100 - errorPct * multiplier))
-  G6.score += pts
-  document.getElementById('g6-score').textContent = G6.score
-
-  // Show where they clicked (white line) and the true answer (faded)
-  const marker = document.getElementById('g6-marker')
-  const answerLine = document.getElementById('g6-answer-line')
-  marker.style.left = clickPct + '%'
-  marker.style.display = 'block'
-  answerLine.style.left = G6.splitPct + '%'
-  answerLine.style.display = 'block'
-  strip.style.cursor = 'default'
-
-  const pip = document.getElementById(`g6-pip-${G6.round - 1}`)
-  const fbEl = document.getElementById('g6-feedback')
-
-  if (errorPct < 2) {
-    fbEl.textContent = `🎯 Perfect! +${pts} pts`
-    fbEl.style.color = 'var(--success)'
-    if (pip) { pip.classList.remove('active'); pip.classList.add('hit') }
-  } else if (pts > 0) {
-    fbEl.textContent = `+${pts} pts · ${errorPct.toFixed(1)}% off`
-    fbEl.style.color = '#f59e0b'
-    if (pip) { pip.classList.remove('active'); pip.classList.add('hit') }
-  } else {
-    fbEl.textContent = `Miss · ${errorPct.toFixed(1)}% off`
-    fbEl.style.color = 'var(--danger)'
-    if (pip) { pip.classList.remove('active'); pip.classList.add('miss') }
-  }
-  document.getElementById('g6-info').textContent = `True boundary: ${G6.splitPct.toFixed(0)}% · You clicked: ${clickPct.toFixed(0)}%`
-
-  const pause = Math.max(900, 1800 - G6.round * 20)
-  G6.feedbackTimeout = setTimeout(() => nextRoundG6(), pause)
-}
-
-function endGame6() {
-  stopDeltaE()
-  window._g6Score = G6.score
-  document.getElementById('g6-final-score').textContent = G6.score + ' pts'
-  document.getElementById('g6-over-stats').textContent =
-    `${G6.score} points across ${G6.totalRounds} rounds`
-  renderMedalDisplay('g6-medal-display', 'deltae', G6.score)
-  document.getElementById('g6-over').classList.add('show')
-}
-
-// ═══════════════════════════════════════════════════════
-//  GAME 5 — FLASH NUMBER
-//  A quantum number flashes briefly; type it correctly.
-//  10 rounds. Score = correct answers.
-// ═══════════════════════════════════════════════════════
-const G5 = {
-  round: 0, totalRounds: 10,
-  score: 0,
-  currentNumber: null,
-  state: 'idle', // idle | showing | typing | feedback
-  flashTimeout: null,
-  feedbackTimeout: null,
-  results: [], // true/false per round
-}
-
-function stopFlash() {
-  clearTimeout(G5.flashTimeout)
-  clearTimeout(G5.feedbackTimeout)
-  G5.state = 'idle'
-}
-
-async function initGame5() {
-  stopFlash()
-  G5.round = 0; G5.score = 0; G5.results = []; G5.state = 'idle'
-  document.getElementById('g5-over').classList.remove('show')
-  document.getElementById('g5-score').textContent = '0'
-  document.getElementById('g5-start-overlay').style.display = 'flex'
-  document.getElementById('g5-round-info').style.display = 'none'
-  document.getElementById('g5-progress').style.display = 'none'
-  document.getElementById('g5-flash-number').style.display = 'none'
-  document.getElementById('g5-input').style.display = 'none'
-  document.getElementById('g5-feedback').style.display = 'none'
-  await initCurby()
-}
-
-window.startFlash = function() {
-  document.getElementById('g5-start-overlay').style.display = 'none'
-  document.getElementById('g5-round-info').style.display = 'block'
-  document.getElementById('g5-progress').style.display = 'flex'
-  document.getElementById('g5-flash-number').style.display = 'block'
-  document.getElementById('g5-input').style.display = 'block'
-  document.getElementById('g5-feedback').style.display = 'block'
-  // build pips
-  const prog = document.getElementById('g5-progress')
-  prog.innerHTML = Array.from({ length: G5.totalRounds }, (_, i) =>
-    `<div class="g5-pip" id="g5-pip-${i}"></div>`).join('')
-  nextRoundG5()
-}
-
-function nextRoundG5() {
-  G5.round++
-  if (G5.round > G5.totalRounds) { endGame5(); return }
-
-  // Flash duration: starts 800ms, shrinks to 150ms by round 10
-  const flashMs = Math.max(150, 800 - (G5.round - 1) * 70)
-
-  // Number size: round 1 = 1-2 digits, grows to 4-5 digits by round 10
-  const maxDigits = Math.min(1 + Math.floor(G5.round / 2), 5)
-  const min = Math.pow(10, maxDigits - 1)
-  const max = Math.pow(10, maxDigits) - 1
-  G5.currentNumber = min + qRandInt(max - min + 1)
-
-  G5.state = 'showing'
-
-  const pip = document.getElementById(`g5-pip-${G5.round - 1}`)
-  if (pip) pip.classList.add('active')
-
-  const numEl = document.getElementById('g5-flash-number')
-  const inp = document.getElementById('g5-input')
-  const fbEl = document.getElementById('g5-feedback')
-  const roundEl = document.getElementById('g5-round-info')
-
-  roundEl.textContent = `Round ${G5.round} of ${G5.totalRounds} · ${flashMs}ms flash`
-  numEl.textContent = G5.currentNumber
-  numEl.style.opacity = '1'
-  inp.value = ''
-  inp.className = ''
-  inp.disabled = true
-  fbEl.textContent = '👀 Memorise!'
-  fbEl.style.color = '#f59e0b'
-
-  G5.flashTimeout = setTimeout(() => {
-    numEl.style.opacity = '0'
-    G5.state = 'typing'
-    inp.disabled = false
-    inp.focus()
-    fbEl.textContent = 'Type the number!'
-    fbEl.style.color = 'var(--muted)'
-  }, flashMs)
-}
-
-window.checkFlashInput = function() {
-  if (G5.state !== 'typing') return
-  const inp = document.getElementById('g5-input')
-  const val = parseInt(inp.value, 10)
-  if (isNaN(val)) return
-  // Auto-submit once input length matches number length
-  if (inp.value.length >= String(G5.currentNumber).length) {
-    submitFlashAnswer()
-  }
-}
-
-function submitFlashAnswer() {
-  if (G5.state !== 'typing') return
-  G5.state = 'feedback'
-  const inp = document.getElementById('g5-input')
-  const fbEl = document.getElementById('g5-feedback')
-  const pip = document.getElementById(`g5-pip-${G5.round - 1}`)
-  const val = parseInt(inp.value, 10)
-  const correct = val === G5.currentNumber
-
-  G5.results.push(correct)
-  if (correct) G5.score++
-  document.getElementById('g5-score').textContent = G5.score
-
-  if (correct) {
-    inp.className = 'correct'
-    fbEl.textContent = '✓ Correct!'
-    fbEl.style.color = 'var(--success)'
-    if (pip) { pip.classList.remove('active'); pip.classList.add('correct') }
-  } else {
-    inp.className = 'wrong'
-    fbEl.textContent = `✗ It was ${G5.currentNumber}`
-    fbEl.style.color = 'var(--danger)'
-    if (pip) { pip.classList.remove('active'); pip.classList.add('wrong') }
-    // Briefly show the correct answer
-    const numEl = document.getElementById('g5-flash-number')
-    numEl.textContent = G5.currentNumber
-    numEl.style.opacity = '0.4'
-  }
-
-  inp.disabled = true
-  G5.feedbackTimeout = setTimeout(() => {
-    document.getElementById('g5-flash-number').style.opacity = '0'
-    nextRoundG5()
-  }, 1200)
-}
-
-function endGame5() {
-  stopFlash()
-  window._g5Score = G5.score
-  document.getElementById('g5-final-score').textContent = G5.score + '/10'
-  document.getElementById('g5-over-stats').textContent =
-    `${G5.score} correct out of ${G5.totalRounds} rounds`
-  renderMedalDisplay('g5-medal-display', 'flash', G5.score)
-  document.getElementById('g5-over').classList.add('show')
-}
-</script>
+<!-- ══════════════════════════════════
+     GAME 7 — CURSOR BETRAYAL
+══════════════════════════════════ -->
+<section id="game7" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🖱️ Cursor Betrayal</span>
+    <div class="score-badge">Score <span id="g7-score" style="color:#f59e0b">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g7-dot"></div>
+      <span id="g7-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g7-arena" style="flex:1;position:relative;background:radial-gradient(ellipse at center,#0d0d22,#050510);border:1px solid var(--border);border-radius:1.25rem;overflow:hidden;min-height:450px;cursor:none;">
+    <div id="g7-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(0,0,0,.7);z-index:10;border-radius:1.25rem;">
+      <h3 style="font-size:1.5rem;font-weight:800;">🖱️ Cursor Betrayal</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Your phantom cursor moves <strong style="color:#f59e0b">mirrored</strong> — opposite to your real mouse! Click the glowing targets using your betrayed cursor. 30 seconds.</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" id="g7-start-btn" onclick="startCursor()">Start Game</button>
+    </div>
+    <div id="g7-phantom" style="position:absolute;width:20px;height:20px;border:2px solid #f59e0b;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5;display:none;box-shadow:0 0 8px #f59e0b;"></div>
+    <div id="g7-timer-display" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:.8rem;color:var(--muted);pointer-events:none;z-index:6;"></div>
+  </div>
+  <div class="game-over-overlay" id="g7-over">
+    <div class="game-over-card">
+      <h2>Betrayed! 🖱️</h2>
+      <div class="final-score" id="g7-final-score" style="color:#f59e0b">0</div>
+      <div id="g7-medal-display"></div>
+      <p id="g7-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" onclick="openSubmit('cursor')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(7)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 8 — TILE COLLAPSE
+══════════════════════════════════ -->
+<section id="game8" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🟦 Tile Collapse</span>
+    <div class="score-badge">Score <span id="g8-score" style="color:var(--accent2)">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g8-dot"></div>
+      <span id="g8-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+    <div class="stat-pill">Lives <strong id="g8-lives">❤️❤️❤️</strong></div>
+    <div class="stat-pill">Level <strong id="g8-level">1</strong></div>
+  </div>
+  <div style="flex:1;position:relative;background:var(--surface);border-radius:1.25rem;min-height:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;padding:1.5rem;" id="g8-wrap">
+    <div id="g8-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(10,10,20,.85);z-index:10;border-radius:1.25rem;text-align:center;padding:2rem;">
+      <div style="font-size:3rem">🟦</div>
+      <h3 style="font-size:1.4rem;font-weight:800;">Tile Collapse</h3>
+      <p style="color:var(--muted);font-size:.9rem;max-width:280px;line-height:1.6">Quantum tiles appear with countdown bars. Click them before they collapse! Lose 3 tiles and it's game over.</p>
+      <button class="btn-primary cyan" onclick="startTile()">Start Game</button>
+    </div>
+    <div class="g8-grid" id="g8-grid"></div>
+  </div>
+  <div class="game-over-overlay" id="g8-over">
+    <div class="game-over-card">
+      <h2>Collapsed! 🟦</h2>
+      <div class="final-score" id="g8-final-score" style="color:var(--accent2)">0</div>
+      <div id="g8-medal-display"></div>
+      <p id="g8-over-stats">—</p>
+      <button class="btn-primary cyan" onclick="openSubmit('tiles')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(8)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 9 — SWARM LEADER
+══════════════════════════════════ -->
+<section id="game9" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🐝 Swarm Leader</span>
+    <div class="score-badge">Orbs <span id="g9-score" style="color:var(--success)">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g9-dot"></div>
+      <span id="g9-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g9-arena">
+    <canvas id="g9-canvas"></canvas>
+    <div class="canvas-overlay" id="g9-overlay">
+      <h3>🐝 Swarm Leader</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Guide your leader with mouse or WASD/arrow keys. Your swarm follows. Collect glowing quantum orbs!</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="startSwarm()">Start Game</button>
+    </div>
+    <div class="canvas-timer" id="g9-timer-display">60s</div>
+  </div>
+  <div class="game-over-overlay" id="g9-over">
+    <div class="game-over-card">
+      <h2>Swarm Dispersed! 🐝</h2>
+      <div class="final-score" id="g9-final-score" style="color:var(--success)">0</div>
+      <div id="g9-medal-display"></div>
+      <p id="g9-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="openSubmit('swarm')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(9)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 10 — GRAVITY WELLS
+══════════════════════════════════ -->
+<section id="game10" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🌌 Gravity Wells</span>
+    <div class="score-badge">Time <span id="g10-score" style="color:var(--accent)">0.0s</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g10-dot"></div>
+      <span id="g10-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g10-arena">
+    <canvas id="g10-canvas"></canvas>
+    <div class="canvas-overlay" id="g10-overlay">
+      <h3>🌌 Gravity Wells</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Quantum gravity wells pull you in. Use mouse or WASD/arrows to thrust against them. Collect orbs. Don't get sucked in!</p>
+      <button class="btn-primary" onclick="startGravity()">Start Game</button>
+    </div>
+    <div class="canvas-timer" id="g10-timer-display"></div>
+  </div>
+  <div class="game-over-overlay" id="g10-over">
+    <div class="game-over-card">
+      <h2>Sucked In! 🌌</h2>
+      <div class="final-score" id="g10-final-score" style="color:var(--accent)">0.0s</div>
+      <div id="g10-medal-display"></div>
+      <p id="g10-over-stats">—</p>
+      <button class="btn-primary" onclick="openSubmit('gravity')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(10)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- Scripts — core must load first, then game files -->
+<script src="js/core.js"></script>
+<script src="js/game1.js"></script>
+<script src="js/game2.js"></script>
+<script src="js/game3.js"></script>
+<script src="js/game4.js"></script>
+<script src="js/game5.js"></script>
+<script src="js/game6.js"></script>
+<script src="js/game7.js"></script>
+<script src="js/game8.js"></script>
+<script src="js/game9.js"></script>
+<script src="js/game10.js"></script>
 </body>
 </html>
