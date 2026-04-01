@@ -104,8 +104,6 @@ body {
 .game5 .card-tag { background: rgba(245,158,11,.2); color: #f59e0b; }
 .game6:hover { border-color: #ec4899; box-shadow: 0 0 20px rgba(236,72,153,.4); }
 .game6 .card-tag { background: rgba(236,72,153,.2); color: #ec4899; }
-.game8:hover { border-color: var(--accent2); box-shadow: var(--glow2); }
-.game8 .card-tag { background: rgba(6,182,212,.2); color: var(--accent2); }
 .game10:hover { border-color: var(--accent); box-shadow: var(--glow); }
 .game10 .card-tag { background: rgba(124,58,237,.2); color: var(--accent); }
 
@@ -633,40 +631,7 @@ body {
 }
 
 /* ══════════════════════════════════════
-   GAME 8 — TILE COLLAPSE
-══════════════════════════════════════ */
-.g8-grid {
-  display: grid; gap: .5rem;
-  grid-template-columns: repeat(4, 1fr);
-  max-width: 420px; width: 100%;
-}
-.g8-tile {
-  aspect-ratio: 1; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; font-weight: 700;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: transform .1s, box-shadow .1s, opacity .2s;
-  position: relative; overflow: hidden;
-  user-select: none;
-}
-.g8-tile:hover { transform: scale(1.05); }
-.g8-tile:active { transform: scale(.95); }
-.g8-tile.collapsing {
-  animation: tileCollapse .3s ease-in forwards;
-}
-@keyframes tileCollapse {
-  to { transform: translateY(60px) scale(.5); opacity: 0; }
-}
-.g8-tile-bar {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 4px; background: rgba(255,255,255,.5);
-  transform-origin: left;
-  transition: transform .1s linear;
-}
-
-/* ══════════════════════════════════════
-   GAME 9 + 10 — CANVAS GAMES
+   GAME 10 — CANVAS GAMES
 ══════════════════════════════════════ */
 .canvas-arena {
   flex: 1; position: relative;

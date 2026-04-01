@@ -56,16 +56,10 @@
       <div class="card-desc">Two similar colours — find the hidden boundary. 40 rounds. Starts easy, ends near-impossible. Only top colour perceivers survive.</div>
       <span class="card-tag">Quantum Colour</span>
     </div>
-    <div class="game-card game8" onclick="showGame(8)">
-      <div class="card-icon">🟦</div>
-      <div class="card-title">Tile Collapse</div>
-      <div class="card-desc">Quantum tiles appear with countdown bars. Click them before they collapse! 3 lives. Speed and count increase each level.</div>
-      <span class="card-tag">Quantum Timing</span>
-    </div>
     <div class="game-card game10" onclick="showGame(10)">
       <div class="card-icon">🌌</div>
       <div class="card-title">Gravity Wells</div>
-      <div class="card-desc">Navigate through quantum-placed gravitational anomalies. The wells pull you in — use mouse or WASD/arrows to resist. Survive!</div>
+      <div class="card-desc">Quantum gravity wells move around pulling you in — and more spawn every 10 seconds! Use mouse or WASD/arrows to resist for 60 seconds.</div>
       <span class="card-tag">Quantum Gravity</span>
     </div>
   </div>
@@ -81,7 +75,6 @@
         <button class="lb-tab" style="border-color:var(--danger);color:var(--danger);" id="lb-tab-4" onclick="switchLbTab('dodge')">Dodge</button>
         <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-5" onclick="switchLbTab('flash')">Flash</button>
         <button class="lb-tab" style="border-color:#ec4899;color:#ec4899;" id="lb-tab-6" onclick="switchLbTab('deltae')">Delta E</button>
-        <button class="lb-tab" style="border-color:var(--accent2);color:var(--accent2);" id="lb-tab-8" onclick="switchLbTab('tiles')">Tiles</button>
         <button class="lb-tab" style="border-color:var(--accent);color:var(--accent);" id="lb-tab-10" onclick="switchLbTab('gravity')">Gravity</button>
       </div>
     </div>
@@ -366,46 +359,6 @@
 </section>
 
 <!-- ══════════════════════════════════
-     GAME 8 — TILE COLLAPSE
-══════════════════════════════════ -->
-<section id="game8" class="screen game-screen">
-  <div class="top-bar">
-    <button class="btn-back" onclick="goHome()">← Back</button>
-    <span class="game-title">🟦 Tile Collapse</span>
-    <div class="score-badge">Score <span id="g8-score" style="color:var(--accent2)">0</span></div>
-    <div class="entropy-indicator">
-      <div class="entropy-dot" id="g8-dot"></div>
-      <span id="g8-entropy-label">connecting…</span>
-    </div>
-  </div>
-  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
-    <div class="stat-pill">Lives <strong id="g8-lives">❤️❤️❤️</strong></div>
-    <div class="stat-pill">Level <strong id="g8-level">1</strong></div>
-  </div>
-  <div style="flex:1;position:relative;background:var(--surface);border-radius:1.25rem;min-height:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;padding:1.5rem;" id="g8-wrap">
-    <div id="g8-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(10,10,20,.85);z-index:10;border-radius:1.25rem;text-align:center;padding:2rem;">
-      <div style="font-size:3rem">🟦</div>
-      <h3 style="font-size:1.4rem;font-weight:800;">Tile Collapse</h3>
-      <p style="color:var(--muted);font-size:.9rem;max-width:280px;line-height:1.6">Quantum tiles appear with countdown bars. Click them before they collapse! Lose 3 tiles and it's game over.</p>
-      <button class="btn-primary cyan" onclick="startTile()">Start Game</button>
-    </div>
-    <div class="g8-grid" id="g8-grid"></div>
-  </div>
-  <div class="game-over-overlay" id="g8-over">
-    <div class="game-over-card">
-      <h2>Collapsed! 🟦</h2>
-      <div class="final-score" id="g8-final-score" style="color:var(--accent2)">0</div>
-      <div id="g8-medal-display"></div>
-      <p id="g8-over-stats">—</p>
-      <button class="btn-primary cyan" onclick="openSubmit('tiles')">Submit Score</button>
-      <br><br>
-      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(8)">Play Again</button>
-      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════
      GAME 10 — GRAVITY WELLS
 ══════════════════════════════════ -->
 <section id="game10" class="screen game-screen">
@@ -422,7 +375,7 @@
     <canvas id="g10-canvas"></canvas>
     <div class="canvas-overlay" id="g10-overlay">
       <h3>🌌 Gravity Wells</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Quantum gravity wells pull you in. Use mouse or WASD/arrows to thrust against them. Collect orbs. Don't get sucked in!</p>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Quantum gravity wells move around pulling you in. A new one spawns every 15 seconds — forever. Use mouse or WASD/arrows to resist. Collect orbs. Don't get sucked in!</p>
       <button class="btn-primary" onclick="startGravity()">Start Game</button>
     </div>
     <div class="canvas-timer" id="g10-timer-display"></div>
@@ -449,7 +402,6 @@
 <script src="js/game4.js"></script>
 <script src="js/game5.js"></script>
 <script src="js/game6.js"></script>
-<script src="js/game8.js"></script>
 <script src="js/game10.js"></script>
 </body>
 </html>

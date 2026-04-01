@@ -125,13 +125,12 @@ window.showGame = function(n) {
   if (n === 4) initGame4()
   if (n === 5) initGame5()
   if (n === 6) initGame6()
-  if (n === 8) initGame8()
   if (n === 10) initGame10()
 }
 
 window.goHome = function() {
   stopG1Timer(); stopSpawn(); stopReact(); stopDodge(); stopFlash(); stopDeltaE()
-  stopGame8(); stopGame10()
+  stopGame10()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
 }
@@ -144,7 +143,6 @@ window.restartGame = function(n) {
   if (n === 4) initGame4()
   if (n === 5) initGame5()
   if (n === 6) initGame6()
-  if (n === 8) initGame8()
   if (n === 10) initGame10()
 }
 
@@ -158,17 +156,16 @@ const MEDALS = {
   dodge:    { bronze: 100,  silver: 250, gold: 450  },
   flash:    { bronze: 4,    silver: 6,   gold: 8    },
   deltae:   { bronze: 1200, silver: 2400, gold: 3400 },
-  tiles:    { bronze: 10,   silver: 25,  gold: 45   },
-  gravity:  { bronze: 50,   silver: 150, gold: 300  },
+  gravity:  { bronze: 100,  silver: 300, gold: 500  },
 }
 
 let authorScores = {
   equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null,
-  tiles: null, gravity: null,
+  gravity: null,
 }
 
 async function fetchAuthorScores() {
-  for (const game of ['equation','aim','reaction','dodge','flash','deltae','tiles','gravity']) {
+  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity']) {
     try {
       const rows = await sbFetch(
         `/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`
@@ -293,7 +290,6 @@ function scoreToDisplay(game, score) {
   if (game === 'dodge' || game === 'gravity') return (score / 10).toFixed(1) + 's'
   if (game === 'flash') return score + '/10'
   if (game === 'deltae') return score + ' pts'
-  if (game === 'tiles') return score + ' tiles'
   return score.toLocaleString()
 }
 
@@ -306,7 +302,6 @@ const LB_TABS = [
   { id: 'lb-tab-4',  game: 'dodge',    label: 'Dodge',    color: 'var(--danger)'  },
   { id: 'lb-tab-5',  game: 'flash',    label: 'Flash',    color: '#f59e0b'         },
   { id: 'lb-tab-6',  game: 'deltae',   label: 'Delta E',  color: '#ec4899'         },
-  { id: 'lb-tab-8',  game: 'tiles',    label: 'Tiles',    color: 'var(--accent2)'  },
   { id: 'lb-tab-10', game: 'gravity',  label: 'Gravity',  color: 'var(--accent)'   },
 ]
 
@@ -403,7 +398,7 @@ let pendingSubmit = null
 const SCORE_COLORS = {
   aim: 'var(--accent2)', reaction: 'var(--success)', dodge: 'var(--danger)',
   flash: '#f59e0b', deltae: '#ec4899',
-  tiles: 'var(--accent2)', gravity: 'var(--accent)',
+  gravity: 'var(--accent)',
 }
 
 window.openSubmit = function(game) {
