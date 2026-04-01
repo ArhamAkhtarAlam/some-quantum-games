@@ -56,23 +56,11 @@
       <div class="card-desc">Two similar colours — find the hidden boundary. 40 rounds. Starts easy, ends near-impossible. Only top colour perceivers survive.</div>
       <span class="card-tag">Quantum Colour</span>
     </div>
-    <div class="game-card game7" onclick="showGame(7)">
-      <div class="card-icon">🖱️</div>
-      <div class="card-title">Cursor Betrayal</div>
-      <div class="card-desc">Your cursor is mirrored — it moves opposite to what you expect! Click quantum-placed targets using the betrayed cursor. 30 seconds.</div>
-      <span class="card-tag">Quantum Targets</span>
-    </div>
     <div class="game-card game8" onclick="showGame(8)">
       <div class="card-icon">🟦</div>
       <div class="card-title">Tile Collapse</div>
       <div class="card-desc">Quantum tiles appear with countdown bars. Click them before they collapse! 3 lives. Speed and count increase each level.</div>
       <span class="card-tag">Quantum Timing</span>
-    </div>
-    <div class="game-card game9" onclick="showGame(9)">
-      <div class="card-icon">🐝</div>
-      <div class="card-title">Swarm Leader</div>
-      <div class="card-desc">Guide your swarm leader with mouse or WASD. Collect quantum-placed energy orbs before they fade. How many can you gather in 60s?</div>
-      <span class="card-tag">Quantum Orbs</span>
     </div>
     <div class="game-card game10" onclick="showGame(10)">
       <div class="card-icon">🌌</div>
@@ -93,9 +81,7 @@
         <button class="lb-tab" style="border-color:var(--danger);color:var(--danger);" id="lb-tab-4" onclick="switchLbTab('dodge')">Dodge</button>
         <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-5" onclick="switchLbTab('flash')">Flash</button>
         <button class="lb-tab" style="border-color:#ec4899;color:#ec4899;" id="lb-tab-6" onclick="switchLbTab('deltae')">Delta E</button>
-        <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-7" onclick="switchLbTab('cursor')">Cursor</button>
         <button class="lb-tab" style="border-color:var(--accent2);color:var(--accent2);" id="lb-tab-8" onclick="switchLbTab('tiles')">Tiles</button>
-        <button class="lb-tab" style="border-color:var(--success);color:var(--success);" id="lb-tab-9" onclick="switchLbTab('swarm')">Swarm</button>
         <button class="lb-tab" style="border-color:var(--accent);color:var(--accent);" id="lb-tab-10" onclick="switchLbTab('gravity')">Gravity</button>
       </div>
     </div>
@@ -380,42 +366,6 @@
 </section>
 
 <!-- ══════════════════════════════════
-     GAME 7 — CURSOR BETRAYAL
-══════════════════════════════════ -->
-<section id="game7" class="screen game-screen">
-  <div class="top-bar">
-    <button class="btn-back" onclick="goHome()">← Back</button>
-    <span class="game-title">🖱️ Cursor Betrayal</span>
-    <div class="score-badge">Score <span id="g7-score" style="color:#f59e0b">0</span></div>
-    <div class="entropy-indicator">
-      <div class="entropy-dot" id="g7-dot"></div>
-      <span id="g7-entropy-label">connecting…</span>
-    </div>
-  </div>
-  <div class="arena" id="g7-arena" style="flex:1;position:relative;background:radial-gradient(ellipse at center,#0d0d22,#050510);border:1px solid var(--border);border-radius:1.25rem;overflow:hidden;min-height:450px;cursor:none;">
-    <div id="g7-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(0,0,0,.7);z-index:10;border-radius:1.25rem;">
-      <h3 style="font-size:1.5rem;font-weight:800;">🖱️ Cursor Betrayal</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Your phantom cursor moves <strong style="color:#f59e0b">mirrored</strong> — opposite to your real mouse! Click the glowing targets using your betrayed cursor. 30 seconds.</p>
-      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" id="g7-start-btn" onclick="startCursor()">Start Game</button>
-    </div>
-    <div id="g7-phantom" style="position:absolute;width:20px;height:20px;border:2px solid #f59e0b;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5;display:none;box-shadow:0 0 8px #f59e0b;"></div>
-    <div id="g7-timer-display" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:.8rem;color:var(--muted);pointer-events:none;z-index:6;"></div>
-  </div>
-  <div class="game-over-overlay" id="g7-over">
-    <div class="game-over-card">
-      <h2>Betrayed! 🖱️</h2>
-      <div class="final-score" id="g7-final-score" style="color:#f59e0b">0</div>
-      <div id="g7-medal-display"></div>
-      <p id="g7-over-stats">—</p>
-      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" onclick="openSubmit('cursor')">Submit Score</button>
-      <br><br>
-      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(7)">Play Again</button>
-      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════
      GAME 8 — TILE COLLAPSE
 ══════════════════════════════════ -->
 <section id="game8" class="screen game-screen">
@@ -450,42 +400,6 @@
       <button class="btn-primary cyan" onclick="openSubmit('tiles')">Submit Score</button>
       <br><br>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(8)">Play Again</button>
-      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════
-     GAME 9 — SWARM LEADER
-══════════════════════════════════ -->
-<section id="game9" class="screen game-screen">
-  <div class="top-bar">
-    <button class="btn-back" onclick="goHome()">← Back</button>
-    <span class="game-title">🐝 Swarm Leader</span>
-    <div class="score-badge">Orbs <span id="g9-score" style="color:var(--success)">0</span></div>
-    <div class="entropy-indicator">
-      <div class="entropy-dot" id="g9-dot"></div>
-      <span id="g9-entropy-label">connecting…</span>
-    </div>
-  </div>
-  <div class="canvas-arena" id="g9-arena">
-    <canvas id="g9-canvas"></canvas>
-    <div class="canvas-overlay" id="g9-overlay">
-      <h3>🐝 Swarm Leader</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Guide your leader with mouse or WASD/arrow keys. Your swarm follows. Collect glowing quantum orbs!</p>
-      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="startSwarm()">Start Game</button>
-    </div>
-    <div class="canvas-timer" id="g9-timer-display">60s</div>
-  </div>
-  <div class="game-over-overlay" id="g9-over">
-    <div class="game-over-card">
-      <h2>Swarm Dispersed! 🐝</h2>
-      <div class="final-score" id="g9-final-score" style="color:var(--success)">0</div>
-      <div id="g9-medal-display"></div>
-      <p id="g9-over-stats">—</p>
-      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="openSubmit('swarm')">Submit Score</button>
-      <br><br>
-      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(9)">Play Again</button>
       <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
     </div>
   </div>
@@ -535,9 +449,7 @@
 <script src="js/game4.js"></script>
 <script src="js/game5.js"></script>
 <script src="js/game6.js"></script>
-<script src="js/game7.js"></script>
 <script src="js/game8.js"></script>
-<script src="js/game9.js"></script>
 <script src="js/game10.js"></script>
 </body>
 </html>

@@ -104,12 +104,8 @@ body {
 .game5 .card-tag { background: rgba(245,158,11,.2); color: #f59e0b; }
 .game6:hover { border-color: #ec4899; box-shadow: 0 0 20px rgba(236,72,153,.4); }
 .game6 .card-tag { background: rgba(236,72,153,.2); color: #ec4899; }
-.game7:hover { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245,158,11,.4); }
-.game7 .card-tag { background: rgba(245,158,11,.2); color: #f59e0b; }
 .game8:hover { border-color: var(--accent2); box-shadow: var(--glow2); }
 .game8 .card-tag { background: rgba(6,182,212,.2); color: var(--accent2); }
-.game9:hover { border-color: var(--success); box-shadow: 0 0 20px rgba(34,197,94,.4); }
-.game9 .card-tag { background: rgba(34,197,94,.2); color: var(--success); }
 .game10:hover { border-color: var(--accent); box-shadow: var(--glow); }
 .game10 .card-tag { background: rgba(124,58,237,.2); color: var(--accent); }
 

@@ -125,15 +125,13 @@ window.showGame = function(n) {
   if (n === 4) initGame4()
   if (n === 5) initGame5()
   if (n === 6) initGame6()
-  if (n === 7) initGame7()
   if (n === 8) initGame8()
-  if (n === 9) initGame9()
   if (n === 10) initGame10()
 }
 
 window.goHome = function() {
   stopG1Timer(); stopSpawn(); stopReact(); stopDodge(); stopFlash(); stopDeltaE()
-  stopGame7(); stopGame8(); stopGame9(); stopGame10()
+  stopGame8(); stopGame10()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
 }
@@ -146,9 +144,7 @@ window.restartGame = function(n) {
   if (n === 4) initGame4()
   if (n === 5) initGame5()
   if (n === 6) initGame6()
-  if (n === 7) initGame7()
   if (n === 8) initGame8()
-  if (n === 9) initGame9()
   if (n === 10) initGame10()
 }
 
@@ -162,19 +158,17 @@ const MEDALS = {
   dodge:    { bronze: 100,  silver: 250, gold: 450  },
   flash:    { bronze: 4,    silver: 6,   gold: 8    },
   deltae:   { bronze: 1200, silver: 2400, gold: 3400 },
-  cursor:   { bronze: 5,    silver: 12,  gold: 20   },
   tiles:    { bronze: 10,   silver: 25,  gold: 45   },
-  swarm:    { bronze: 200,  silver: 500, gold: 900  },
   gravity:  { bronze: 50,   silver: 150, gold: 300  },
 }
 
 let authorScores = {
   equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null,
-  cursor: null, tiles: null, swarm: null, gravity: null,
+  tiles: null, gravity: null,
 }
 
 async function fetchAuthorScores() {
-  for (const game of ['equation','aim','reaction','dodge','flash','deltae','cursor','tiles','swarm','gravity']) {
+  for (const game of ['equation','aim','reaction','dodge','flash','deltae','tiles','gravity']) {
     try {
       const rows = await sbFetch(
         `/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`
@@ -300,8 +294,6 @@ function scoreToDisplay(game, score) {
   if (game === 'flash') return score + '/10'
   if (game === 'deltae') return score + ' pts'
   if (game === 'tiles') return score + ' tiles'
-  if (game === 'cursor') return score + ' targets'
-  if (game === 'swarm') return score + ' pts'
   return score.toLocaleString()
 }
 
@@ -314,9 +306,7 @@ const LB_TABS = [
   { id: 'lb-tab-4',  game: 'dodge',    label: 'Dodge',    color: 'var(--danger)'  },
   { id: 'lb-tab-5',  game: 'flash',    label: 'Flash',    color: '#f59e0b'         },
   { id: 'lb-tab-6',  game: 'deltae',   label: 'Delta E',  color: '#ec4899'         },
-  { id: 'lb-tab-7',  game: 'cursor',   label: 'Cursor',   color: '#f59e0b'         },
   { id: 'lb-tab-8',  game: 'tiles',    label: 'Tiles',    color: 'var(--accent2)'  },
-  { id: 'lb-tab-9',  game: 'swarm',    label: 'Swarm',    color: 'var(--success)'  },
   { id: 'lb-tab-10', game: 'gravity',  label: 'Gravity',  color: 'var(--accent)'   },
 ]
 
@@ -412,8 +402,8 @@ let pendingSubmit = null
 
 const SCORE_COLORS = {
   aim: 'var(--accent2)', reaction: 'var(--success)', dodge: 'var(--danger)',
-  flash: '#f59e0b', deltae: '#ec4899', cursor: '#f59e0b',
-  tiles: 'var(--accent2)', swarm: 'var(--success)', gravity: 'var(--accent)',
+  flash: '#f59e0b', deltae: '#ec4899',
+  tiles: 'var(--accent2)', gravity: 'var(--accent)',
 }
 
 window.openSubmit = function(game) {
