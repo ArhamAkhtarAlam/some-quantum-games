@@ -25,10 +25,18 @@ const G11 = {
 }
 
 let _g11Input = null
+let _g11ListenersAttached = false
 
 function _g11GetInput() {
   if (!_g11Input) _g11Input = document.getElementById('g11-input')
   return _g11Input
+}
+
+function _g11BlurHandler() {
+  if (G11.active) setTimeout(() => _g11GetInput().focus(), 0)
+}
+function _g11ArenaMousedown(e) {
+  if (G11.active) { e.preventDefault(); _g11GetInput().focus() }
 }
 
 function stopGame11() {
@@ -59,10 +67,11 @@ window.startTyping = function() {
   const inp = _g11GetInput()
   inp.value = ''
   inp.addEventListener('keydown', g11KeyDown)
-  inp.addEventListener('blur', () => { if (G11.active) setTimeout(() => inp.focus(), 0) })
-  document.getElementById('g11-arena').addEventListener('mousedown', e => {
-    if (G11.active) { e.preventDefault(); inp.focus() }
-  })
+  if (!_g11ListenersAttached) {
+    inp.addEventListener('blur', _g11BlurHandler)
+    document.getElementById('g11-arena').addEventListener('mousedown', _g11ArenaMousedown)
+    _g11ListenersAttached = true
+  }
   inp.focus()
   g11NextRound()
 }

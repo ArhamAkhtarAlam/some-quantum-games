@@ -47,7 +47,6 @@ function g28KU(e) {
   if (['ArrowLeft','KeyA'].includes(e.code))  g28Keys.left  = false
   if (['ArrowRight','KeyD'].includes(e.code)) g28Keys.right = false
   if (['Space','ArrowUp','KeyW'].includes(e.code)) g28Keys.up = false
-  g28Keys.up = g28Keys.up && (['Space','ArrowUp','KeyW'].includes(e.code) ? false : g28Keys.up)
 }
 let g28TIds = {}
 function g28TouchStart(e) {
