@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Games — Powered by CURBy</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ══════════════════════════════════
+     HOME SCREEN
+══════════════════════════════════ -->
+<section id="home" class="screen active">
+  <!-- Auth button — only on home screen -->
+  <div id="auth-header-wrap" class="auth-header-wrap"></div>
+
+  <div class="home-header">
+    <h1>Quantum Games</h1>
+    <p>Every move powered by real quantum entropy</p>
+    <div class="quantum-badge">Live quantum randomness from CURBy · University of Colorado</div>
+  </div>
+  <div class="game-cards">
+    <div class="game-card game10" onclick="showGame(10)">
+      <div class="card-icon">🌌</div>
+      <div class="card-title">Gravity Wells</div>
+      <div class="card-desc">Quantum gravity wells pull you in — more spawn over time! Shoot them, collect orbs, spend points on powerups. ESC to pause & shop.</div>
+      <span class="card-tag">Quantum Gravity</span>
+    </div>
+    <div class="game-card game11" onclick="showGame(11)">
+      <div class="card-icon">⌨️</div>
+      <div class="card-title">Quantum Type</div>
+      <div class="card-desc">A quantum-chosen word flashes on screen — type it as fast as you can. 5 rounds, your WPM is scored. No typos allowed!</div>
+      <span class="card-tag">Quantum Word</span>
+    </div>
+    <div class="game-card" onclick="showGame(1)">
+      <div class="card-icon">🧮</div>
+      <div class="card-title">Equation Builder</div>
+      <div class="card-desc">A quantum-chosen target number. Drag number & operator tiles to build an equation that equals it. Race against the clock.</div>
+      <span class="card-tag">Quantum Number</span>
+    </div>
+    <div class="game-card game2" onclick="showGame(2)">
+      <div class="card-icon">🎯</div>
+      <div class="card-title">Quantum Aim Trainer</div>
+      <div class="card-desc">Targets appear at quantum-random positions. Click them before they vanish. Gets faster. Gets smaller. How long can you last?</div>
+      <span class="card-tag">Quantum Position</span>
+    </div>
+    <div class="game-card game3" onclick="showGame(3)">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">Reaction Test</div>
+      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click as fast as you can. 5 rounds.</div>
+      <span class="card-tag">Quantum Delay</span>
+    </div>
+    <div class="game-card game4" onclick="showGame(4)">
+      <div class="card-icon">🚀</div>
+      <div class="card-title">Quantum Dodge</div>
+      <div class="card-desc">Move your cursor, finger, or WASD/arrows to dodge quantum-spawned obstacles flying at you. Survive as long as possible.</div>
+      <span class="card-tag">Quantum Spawn</span>
+    </div>
+    <div class="game-card game5" onclick="showGame(5)">
+      <div class="card-icon">🔢</div>
+      <div class="card-title">Flash Number</div>
+      <div class="card-desc">A quantum-chosen number flashes on screen for a split second. Type what you saw. Numbers get bigger and flash time gets shorter.</div>
+      <span class="card-tag">Quantum Number</span>
+    </div>
+    <div class="game-card game6" onclick="showGame(6)">
+      <div class="card-icon">🎨</div>
+      <div class="card-title">Delta E</div>
+      <div class="card-desc">Two similar colours — find the hidden boundary. 40 rounds. Starts easy, ends near-impossible. Only top colour perceivers survive.</div>
+      <span class="card-tag">Quantum Colour</span>
+    </div>
+    <div class="game-card game16" onclick="showGame(16)">
+      <div class="card-icon">🪙</div>
+      <div class="card-title">Quantum Clicker</div>
+      <div class="card-desc">Click to observe qubits. Buy buildings that auto-generate qubits. Unlock 55+ upgrades, catch golden qubits, and prestige for permanent bonuses!</div>
+      <span class="card-tag">Quantum Idle</span>
+    </div>
+    <div class="game-card game13" onclick="showGame(13)">
+      <div class="card-icon">⚛️</div>
+      <div class="card-title">Particle Collider</div>
+      <div class="card-desc">Rotate your aim with arrow keys and fire particles into a circular arena. Collide them together for points — but avoid anti-particles!</div>
+      <span class="card-tag">Quantum Collision</span>
+    </div>
+    <div class="game-card game14" onclick="showGame(14)">
+      <div class="card-icon">🔬</div>
+      <div class="card-title">Wave Collapse</div>
+      <div class="card-desc">A grid of qubits in superposition. Apply quantum gates (X, H, M) with your keyboard to collapse them into the target state before time runs out.</div>
+      <span class="card-tag">Quantum Gates</span>
+    </div>
+    <div class="game-card game15" onclick="showGame(15)">
+      <div class="card-icon">🔗</div>
+      <div class="card-title">Entanglement</div>
+      <div class="card-desc">Two entangled particles mirror each other. Collect orbs, dodge hazards, build your Resonance meter for an invincibility burst. Break entanglement for solo control!</div>
+      <span class="card-tag">Quantum Entanglement</span>
+    </div>
+    <div class="game-card game17" onclick="showGame(17)">
+      <div class="card-icon">🐍</div>
+      <div class="card-title">Quantum Snake</div>
+      <div class="card-desc">Slither.io-style snake with enemy AI, a boss that shoots, powerups, and shooting mechanics. Eat food for energy, boost and shoot to dominate the arena!</div>
+      <span class="card-tag">Quantum Slither</span>
+    </div>
+    <div class="game-card" onclick="showGame(18)" style="border-color:#a78bfa44;">
+      <div class="card-icon">🪢</div>
+      <div class="card-title">Quantum Whip</div>
+      <div class="card-desc">Swing a physics rope and catch orbs with the glowing tip! 90 seconds, combo multiplier, random wind, gravity flips, chain explosions and golden rain events.</div>
+      <span class="card-tag" style="background:rgba(167,139,250,.15);color:#a78bfa;border-color:#a78bfa44;">Rope Physics</span>
+    </div>
+    <div class="game-card" onclick="showGame(22)" style="border-color:#ef444444;">
+      <div class="card-icon">🌀</div>
+      <div class="card-title">Gravity Sling</div>
+      <div class="card-desc">Drag to aim and launch your ball. Planets bend the trajectory — use gravity assists for bonus points! Hit all targets with limited shots.</div>
+      <span class="card-tag" style="background:rgba(239,68,68,.15);color:#fca5a5;border-color:#ef444444;">Slingshot</span>
+    </div>
+    <div class="game-card" onclick="showGame(23)" style="border-color:#6366f144;">
+      <div class="card-icon">🔋</div>
+      <div class="card-title">Charge Rush</div>
+      <div class="card-desc">A charge pulse races along the circuit toward you. Click nodes in order before the pulse arrives — wrong node or too slow means ZAP!</div>
+      <span class="card-tag" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:#6366f144;">Reaction</span>
+    </div>
+    <div class="game-card" onclick="showGame(24)" style="border-color:#fbbf2444;">
+      <div class="card-icon">🎵</div>
+      <div class="card-title">Pulse</div>
+      <div class="card-desc">Rings expand from the centre. Click/tap exactly when the ring overlaps the target circle. BPM ramps up — keep the beat!</div>
+      <span class="card-tag" style="background:rgba(251,191,36,.15);color:#fbbf24;border-color:#fbbf2444;">Rhythm</span>
+    </div>
+    <div class="game-card" onclick="showGame(28)" style="border-color:#fb923c44;">
+      <div class="card-icon">🏃</div>
+      <div class="card-title">Parkour</div>
+      <div class="card-desc">Side-scrolling tile platformer — run, jump, dodge spikes, and reach the ★ goal to advance. 5 handcrafted levels!</div>
+      <span class="card-tag" style="background:rgba(251,146,60,.15);color:#fb923c;border-color:#fb923c44;">Runner</span>
+    </div>
+    <div class="game-card" onclick="showGame(29)" style="border-color:#e879f944;">
+      <div class="card-icon">🚀</div>
+      <div class="card-title">Quantum Blaster</div>
+      <div class="card-desc">Top-down shooter with quantum-random enemy waves. Move with mouse or WASD, auto-fire, grab powerups, survive boss fights!</div>
+      <span class="card-tag" style="background:rgba(232,121,249,.15);color:#e879f9;border-color:#e879f944;">Shooter</span>
+    </div>
+    <div class="game-card" onclick="showGame(26)" style="border-color:#34d39944;">
+      <div class="card-icon">🌙</div>
+      <div class="card-title">Orbit</div>
+      <div class="card-desc">Stay in your orbital safe zone while debris rains down. Click to thrust toward your cursor — stray too far and you burn up!</div>
+      <span class="card-tag" style="background:rgba(52,211,153,.15);color:#34d399;border-color:#34d39944;">Survival</span>
+    </div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="leaderboard-section">
+    <div class="lb-header">
+      <h3>🏆 Leaderboard</h3>
+      <div class="lb-tabs">
+        <button class="lb-tab" id="lb-tab-1" onclick="switchLbTab('equation')">Equation</button>
+        <button class="lb-tab cyan" id="lb-tab-2" onclick="switchLbTab('aim')">Aim</button>
+        <button class="lb-tab" style="border-color:var(--success);color:var(--success);" id="lb-tab-3" onclick="switchLbTab('reaction')">Reaction</button>
+        <button class="lb-tab" style="border-color:var(--danger);color:var(--danger);" id="lb-tab-4" onclick="switchLbTab('dodge')">Dodge</button>
+        <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-5" onclick="switchLbTab('flash')">Flash</button>
+        <button class="lb-tab" style="border-color:#ec4899;color:#ec4899;" id="lb-tab-6" onclick="switchLbTab('deltae')">Delta E</button>
+        <button class="lb-tab" style="border-color:var(--accent);color:var(--accent);" id="lb-tab-10" onclick="switchLbTab('gravity')">Gravity</button>
+        <button class="lb-tab" style="border-color:#34d399;color:#34d399;" id="lb-tab-11" onclick="switchLbTab('typing')">Typing</button>
+        <button class="lb-tab" style="border-color:#fbbf24;color:#fbbf24;" id="lb-tab-16" onclick="switchLbTab('qclicker')">Clicker</button>
+        <button class="lb-tab" style="border-color:#22d3ee;color:#22d3ee;" id="lb-tab-13" onclick="switchLbTab('collider')">Collider</button>
+        <button class="lb-tab" style="border-color:#c084fc;color:#c084fc;" id="lb-tab-14" onclick="switchLbTab('wavecollapse')">Wave</button>
+        <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-15" onclick="switchLbTab('entanglement')">Entanglement</button>
+        <button class="lb-tab" style="border-color:#4ade80;color:#4ade80;" id="lb-tab-17" onclick="switchLbTab('qsnake')">Snake</button>
+        <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-18" onclick="switchLbTab('qwhip')">Whip</button>
+        <button class="lb-tab" style="border-color:#fca5a5;color:#fca5a5;" id="lb-tab-22" onclick="switchLbTab('gravitysling')">Sling</button>
+        <button class="lb-tab" style="border-color:#818cf8;color:#818cf8;" id="lb-tab-23" onclick="switchLbTab('chargerush')">Charge</button>
+        <button class="lb-tab" style="border-color:#fbbf24;color:#fbbf24;" id="lb-tab-24" onclick="switchLbTab('pulse')">Pulse</button>
+        <button class="lb-tab" style="border-color:#34d399;color:#34d399;" id="lb-tab-26" onclick="switchLbTab('orbit')">Orbit</button>
+        <button class="lb-tab active" style="border-color:#fb923c;color:#fb923c;" id="lb-tab-28" onclick="switchLbTab('parkour')">Parkour</button>
+        <button class="lb-tab" style="border-color:#e879f9;color:#e879f9;" id="lb-tab-29" onclick="switchLbTab('qblaster')">Blaster</button>
+      </div>
+    </div>
+    <div class="lb-list" id="lb-list">
+      <div class="lb-loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+</section>
+
+<!-- Submit score modal (shared) -->
+<div class="submit-overlay" id="submit-overlay">
+  <div class="submit-card">
+    <h3>Submit Your Score</h3>
+    <div class="sub-score" id="sub-score-display">0</div>
+    <p style="color:var(--muted);font-size:.875rem">Enter your name for the leaderboard</p>
+    <div id="sub-pb-info" style="font-size:.8rem;min-height:1rem;"></div>
+    <input type="text" id="sub-name-input" placeholder="Your name" maxlength="20" autocomplete="off" />
+    <div id="admin-pw-row" style="display:none;flex-direction:column;gap:.4rem;">
+      <input type="password" id="sub-admin-pw" placeholder="Admin password" maxlength="40" autocomplete="off" />
+    </div>
+    <div class="sub-row">
+      <button class="btn-primary" id="sub-submit-btn" onclick="submitScore()">Submit</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="skipSubmit()">Skip</button>
+    </div>
+    <div id="sub-status" style="font-size:.8rem;color:var(--muted);min-height:1rem;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════ -->
+<section id="login-screen" class="screen">
+  <div class="login-page">
+    <button class="btn-back" onclick="AUTH.goHome()" style="align-self:flex-start">← Back</button>
+
+    <div class="login-logo">
+      <div class="login-logo-icon">⚛</div>
+      <h2>Quantum Games</h2>
+      <p>Sign in to protect your username and track scores across devices</p>
+    </div>
+
+    <div class="login-card">
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" data-tab="login"  onclick="AUTH._showTab('login')">Sign In</button>
+        <button class="auth-tab-btn"        data-tab="signup" onclick="AUTH._showTab('signup')">Sign Up</button>
+        <button class="auth-tab-btn"        data-tab="guest"  onclick="AUTH._showTab('guest')">Guest</button>
+      </div>
+
+      <!-- Sign In -->
+      <div class="auth-tab-content" id="auth-tab-login">
+        <input type="email"    id="auth-email" placeholder="Email" autocomplete="email" />
+        <input type="password" id="auth-pw"    placeholder="Password" autocomplete="current-password" />
+        <button class="btn-primary" onclick="AUTH.handleLogin()">Sign In</button>
+        <div id="auth-status" class="auth-status"></div>
+      </div>
+
+      <!-- Sign Up -->
+      <div class="auth-tab-content" id="auth-tab-signup" style="display:none">
+        <input type="text"     id="auth-signup-name"  placeholder="Display name (shown on leaderboard)" maxlength="20" autocomplete="off" />
+        <input type="email"    id="auth-signup-email" placeholder="Email" autocomplete="email" />
+        <input type="password" id="auth-signup-pw"    placeholder="Password (min 6 chars)" autocomplete="new-password" />
+        <button class="btn-primary" onclick="AUTH.handleSignUp()">Create Account</button>
+        <div id="auth-signup-status" class="auth-status"></div>
+      </div>
+
+      <!-- Guest -->
+      <div class="auth-tab-content" id="auth-tab-guest" style="display:none">
+        <div class="guest-info">
+          <div class="guest-icon">🎮</div>
+          <p>Play freely and submit scores under any name — no account needed.</p>
+          <p class="guest-warn">⚠️ You can't use a display name that belongs to a registered account.</p>
+        </div>
+        <button class="btn-primary" onclick="AUTH.goHome()">Continue as Guest</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     CHOOSE USERNAME SCREEN
+══════════════════════════════════ -->
+<section id="username-screen" class="screen">
+  <div class="login-page">
+    <div class="login-logo">
+      <div class="login-logo-icon">⚛</div>
+      <h2>One last step!</h2>
+      <p>Choose a display name for the leaderboard</p>
+    </div>
+    <div class="login-card">
+      <div class="auth-tab-content" style="display:flex">
+        <input type="text" id="choose-name-input" placeholder="Display name (2–20 chars)" maxlength="20" autocomplete="off" />
+        <button class="btn-primary" onclick="AUTH.handleChooseName()">Save & Continue</button>
+        <div id="choose-name-status" class="auth-status"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 1 — EQUATION BUILDER
+══════════════════════════════════ -->
+<section id="game1" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🧮 Equation Builder</span>
+    <div class="score-badge">Score <span id="g1-score">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g1-dot"></div>
+      <span id="g1-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g1-arena">
+    <div class="round-info">
+      <div class="round-badge" id="g1-round">Round 1</div>
+      <div class="lives" id="g1-lives"></div>
+    </div>
+    <div class="target-display">
+      <div class="target-label">Make this number</div>
+      <div class="target-number" id="g1-target">?</div>
+    </div>
+    <div class="timer-bar-wrap"><div class="timer-bar" id="g1-timer-bar"></div></div>
+    <div class="eq-drop-zone" id="g1-drop-zone" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
+      <span class="placeholder-text" id="g1-zone-placeholder">Drop tiles here to build your equation</span>
+    </div>
+    <div class="eq-result" id="g1-result"></div>
+    <div class="tile-palette" id="g1-palette"></div>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+      <button class="btn-primary" id="g1-check-btn" onclick="checkEquation()" disabled>Check ✓</button>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="clearZone()">Clear</button>
+    </div>
+    <div class="loading-msg" id="g1-loading">
+      <div class="spinner"></div> Fetching quantum entropy…
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g1-over">
+    <div class="game-over-card">
+      <h2>Game Over</h2>
+      <div class="final-score" id="g1-final-score">0</div>
+      <div id="g1-medal-display"></div>
+      <p>quantum equations solved</p>
+      <button class="btn-primary" onclick="openSubmit('equation')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(1)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 2 — AIM TRAINER
+══════════════════════════════════ -->
+<section id="game2" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🎯 Quantum Aim Trainer</span>
+    <div class="score-badge">Score <span id="g2-score">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g2-dot"></div>
+      <span id="g2-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="aim-stats">
+    <div class="stat-pill">Level <strong id="g2-level">1</strong></div>
+    <div class="stat-pill">Combo <strong id="g2-combo">×1</strong></div>
+    <div class="stat-pill">Accuracy <strong id="g2-acc">—</strong></div>
+    <div class="stat-pill" style="display:flex;align-items:center;gap:.4rem;">
+      Misses <span class="miss-dots" id="g2-miss-dots"></span>
+    </div>
+  </div>
+  <div class="arena" id="g2-arena" onclick="arenaMissClick(event)">
+    <div class="aim-start-msg" id="g2-start-msg">
+      <div class="loading-msg" id="g2-loading" style="display:none">
+        <div class="spinner"></div> Fetching quantum entropy…
+      </div>
+      <button class="btn-primary cyan" id="g2-start-btn" onclick="startAimGame(event)">Start Game</button>
+      <span style="font-size:.8rem">Click targets before they disappear</span>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g2-over">
+    <div class="game-over-card">
+      <h2>Game Over 🎯</h2>
+      <div class="final-score" id="g2-final-score" style="color:var(--accent2)">0</div>
+      <div id="g2-medal-display"></div>
+      <p id="g2-over-stats">—</p>
+      <button class="btn-primary cyan" onclick="openSubmit('aim')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(2)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 3 — REACTION TEST
+══════════════════════════════════ -->
+<section id="game3" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">⚡ Quantum Reaction Test</span>
+    <div class="score-badge">Best <span id="g3-best">—</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g3-dot"></div>
+      <span id="g3-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena state-wait" id="g3-arena" onclick="reactClick()">
+    <div class="react-rounds" id="g3-rounds"></div>
+    <div class="react-msg" id="g3-msg">Click to Start</div>
+    <div class="react-sub" id="g3-sub">5 rounds · quantum-random delay each time</div>
+    <div class="react-time" id="g3-time" style="display:none"></div>
+  </div>
+  <div class="game-over-overlay" id="g3-over">
+    <div class="game-over-card">
+      <h2>Results ⚡</h2>
+      <div class="final-score" id="g3-final-score" style="color:var(--success)">0</div>
+      <div id="g3-medal-display"></div>
+      <p id="g3-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--success),#16a34a);box-shadow:0 4px 15px rgba(34,197,94,.4);" onclick="openSubmit('reaction')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(3)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 4 — QUANTUM DODGE
+══════════════════════════════════ -->
+<section id="game4" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🚀 Quantum Dodge</span>
+    <div class="score-badge">Time <span id="g4-score" style="color:var(--danger)">0.0s</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g4-dot"></div>
+      <span id="g4-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g4-arena">
+    <div id="dodge-timer-display"></div>
+    <div id="dodge-player"></div>
+    <div id="dodge-overlay">
+      <h3>🚀 Quantum Dodge</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Move your cursor, finger, or use WASD / arrow keys to dodge incoming obstacles. Quantum-spawned — truly unpredictable.</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--danger),#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,.4);" id="g4-start-btn" onclick="startDodge(event)">Start Dodging</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g4-over">
+    <div class="game-over-card">
+      <h2>You Got Hit! 💥</h2>
+      <div class="final-score" id="g4-final-score" style="color:var(--danger)">0.0s</div>
+      <div id="g4-medal-display"></div>
+      <p id="g4-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--danger),#b91c1c);box-shadow:0 4px 15px rgba(239,68,68,.4);" onclick="openSubmit('dodge')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(4)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 5 — FLASH NUMBER
+══════════════════════════════════ -->
+<section id="game5" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔢 Flash Number</span>
+    <div class="score-badge">Score <span id="g5-score" style="color:#f59e0b">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g5-dot"></div>
+      <span id="g5-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g5-arena">
+    <div class="g5-start-overlay" id="g5-start-overlay">
+      <div style="font-size:3rem">🔢</div>
+      <h3 style="font-size:1.4rem">Flash Number</h3>
+      <p style="color:var(--muted);font-size:.9rem;max-width:280px;line-height:1.6">
+        A number will flash on screen. Type it as fast as you can!<br>
+        10 rounds · numbers get bigger · flash gets shorter.
+      </p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" onclick="startFlash()">Start Game</button>
+    </div>
+    <div id="g5-round-info" style="display:none"></div>
+    <div class="g5-progress" id="g5-progress" style="display:none"></div>
+    <div id="g5-flash-number" style="display:none"></div>
+    <input type="number" id="g5-input" placeholder="?" style="display:none" oninput="checkFlashInput()" autocomplete="off" />
+    <div id="g5-feedback" style="display:none"></div>
+  </div>
+  <div class="game-over-overlay" id="g5-over">
+    <div class="game-over-card">
+      <h2>Round Up! 🔢</h2>
+      <div class="final-score" id="g5-final-score" style="color:#f59e0b">0</div>
+      <div id="g5-medal-display"></div>
+      <p id="g5-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 15px rgba(245,158,11,.4);" onclick="openSubmit('flash')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(5)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 6 — DELTA E / JND
+══════════════════════════════════ -->
+<section id="game6" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🎨 Delta E</span>
+    <div class="score-badge">Score <span id="g6-score" style="color:#ec4899">0</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g6-dot"></div>
+      <span id="g6-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g6-arena">
+    <div class="g6-start-overlay" id="g6-start-overlay">
+      <div style="font-size:3rem">🎨</div>
+      <h3 style="font-size:1.4rem">Delta E</h3>
+      <p style="color:var(--muted);font-size:.9rem;max-width:300px;line-height:1.6">
+        Two similar colours fill the strip. Somewhere in the middle the colour subtly changes.<br><br>
+        <strong style="color:var(--text)">Tap exactly where the colour changes.</strong><br>
+        40 rounds · starts at ΔHue≈15°, ends near-invisible at ΔHue≈0.3°.
+      </p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#ec4899,#be185d);box-shadow:0 4px 15px rgba(236,72,153,.4);" onclick="startDeltaE()">Start Game</button>
+    </div>
+    <div id="g6-round-info" style="display:none;font-weight:600"></div>
+    <div class="g6-score-bar" id="g6-progress" style="display:none"></div>
+    <div id="g6-color-strip" style="display:none" onclick="deltaEClick(event)">
+      <div id="g6-left-half"></div>
+      <div id="g6-right-half"></div>
+      <div id="g6-marker"></div>
+      <div id="g6-answer-line"></div>
+    </div>
+    <div id="g6-info" style="display:none">Click anywhere on the strip where you think the colour changes</div>
+    <div id="g6-feedback" style="display:none"></div>
+  </div>
+  <div class="game-over-overlay" id="g6-over">
+    <div class="game-over-card">
+      <h2>Colour Test Done! 🎨</h2>
+      <div class="final-score" id="g6-final-score" style="color:#ec4899">0</div>
+      <div id="g6-medal-display"></div>
+      <p id="g6-over-stats">—</p>
+      <button class="btn-primary" style="background:linear-gradient(135deg,#ec4899,#be185d);box-shadow:0 4px 15px rgba(236,72,153,.4);" onclick="openSubmit('deltae')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(6)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 10 — GRAVITY WELLS
+══════════════════════════════════ -->
+<section id="game10" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🌌 Gravity Wells</span>
+    <div class="score-badge">Score <span id="g10-score" style="color:var(--accent)">0 pts</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot" id="g10-dot"></div>
+      <span id="g10-entropy-label">connecting…</span>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g10-arena">
+    <canvas id="g10-canvas"></canvas>
+    <!-- Boss HP bar -->
+    <div id="g10-boss-bar" style="display:none;position:absolute;top:6px;left:50%;transform:translateX(-50%);width:220px;z-index:5;">
+      <div style="text-align:center;font-size:.7rem;font-weight:700;color:#fde68a;margin-bottom:2px;">⚡ BOSS</div>
+      <div style="background:rgba(0,0,0,0.5);border-radius:4px;height:8px;overflow:hidden;">
+        <div id="g10-boss-bar-fill" style="height:100%;background:linear-gradient(90deg,#ef4444,#f97316);border-radius:4px;transition:width .1s;width:100%;"></div>
+      </div>
+    </div>
+    <!-- Reload bar -->
+    <div id="g10-reload-bar" style="display:none;position:absolute;top:30px;left:50%;transform:translateX(-50%);width:160px;z-index:5;">
+      <div style="text-align:center;font-size:.65rem;color:#a78bfa;margin-bottom:2px;">🎯 RELOADING</div>
+      <div style="background:rgba(0,0,0,0.5);border-radius:4px;height:6px;overflow:hidden;">
+        <div id="g10-reload-bar-fill" style="height:100%;background:#7c3aed;border-radius:4px;width:100%;"></div>
+      </div>
+    </div>
+    <!-- Orb timer bar -->
+    <div id="g10-orb-bar" style="display:none;position:absolute;bottom:32px;left:50%;transform:translateX(-50%);width:200px;z-index:5;">
+      <div style="text-align:center;font-size:.65rem;color:#f97316;margin-bottom:2px;" id="g10-orb-bar-label">⚠️ no orb 0s</div>
+      <div style="background:rgba(0,0,0,0.5);border-radius:4px;height:6px;overflow:hidden;">
+        <div id="g10-orb-bar-fill" style="height:100%;background:#f97316;border-radius:4px;width:0%;"></div>
+      </div>
+    </div>
+    <div class="canvas-overlay" id="g10-overlay">
+      <h3>🌌 Gravity Wells</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Quantum gravity wells move around pulling you in. A new one spawns every 15 seconds — forever. Use mouse or WASD/arrows to resist. Collect orbs. Don't get sucked in! Press <b>ESC</b> to pause.</p>
+      <button class="btn-primary" onclick="startGravity()">Start Game</button>
+    </div>
+    <div class="canvas-timer" id="g10-timer-display"></div>
+    <div id="g10-pause-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.85);border-radius:12px;z-index:10;overflow-y:auto;">
+      <div id="g10-pause-content" style="padding:1.2rem 1rem;max-width:520px;margin:0 auto;"></div>
+    </div>
+  </div>
+  <!-- Danger meter bar -->
+  <div id="g10-danger-bar" style="display:none;position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:200px;z-index:5;">
+    <div style="text-align:center;font-size:.65rem;font-weight:700;color:#fb923c;margin-bottom:2px;" id="g10-danger-label">⚠️ DANGER</div>
+    <div style="background:rgba(0,0,0,0.5);border-radius:4px;height:6px;overflow:hidden;">
+      <div id="g10-danger-fill" style="height:100%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:4px;transition:width .05s;width:0%;"></div>
+    </div>
+  </div>
+
+  <div class="game-over-overlay" id="g10-over">
+    <div class="game-over-card">
+      <h2>Sucked In! 🌌</h2>
+      <div class="final-score" id="g10-final-score" style="color:var(--accent)">0.0s</div>
+      <div id="g10-medal-display"></div>
+      <div id="g10-arav-taunt" style="display:none;background:rgba(249,115,22,0.15);border:1px solid #f97316;border-radius:8px;padding:.5rem .8rem;margin:.5rem 0;font-size:.82rem;color:#fb923c;"></div>
+      <div id="g10-breakdown" style="text-align:left;font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.04);border-radius:8px;padding:.6rem .8rem;margin:.5rem 0;line-height:1.7;"></div>
+      <button class="btn-primary" onclick="openSubmit('gravity')">Submit Score</button>
+      <button class="btn-primary" id="g10-share-btn" style="margin-left:.4rem;background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="g10Share()">📋 Share</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(10)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 11 — QUANTUM TYPE
+══════════════════════════════════ -->
+<section id="game11" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">⌨️ Quantum Type</span>
+    <div class="score-badge">WPM <span id="g11-score">—</span></div>
+    <div class="entropy-indicator">
+      <div class="entropy-dot"></div>
+      <span>connecting…</span>
+    </div>
+  </div>
+  <div class="arena" id="g11-arena" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;">
+    <div id="g11-round-badge" class="round-badge">Round 1 / 5</div>
+    <div id="g11-word-display" class="g11-word"></div>
+    <div id="g11-typed-display" class="g11-typed"></div>
+    <input id="g11-input" class="g11-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="start typing…" />
+    <div id="g11-feedback" class="g11-feedback"></div>
+    <div id="g11-overlay-start" class="canvas-overlay" style="position:absolute;border-radius:12px;">
+      <h3>⌨️ Quantum Type</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">A quantum word appears — type it exactly as fast as you can. 5 rounds. Score is average WPM. No typos count!</p>
+      <button class="btn-primary" onclick="startTyping()">Start Game</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g11-over">
+    <div class="game-over-card">
+      <h2>Nice Fingers! ⌨️</h2>
+      <div class="final-score" id="g11-final-score" style="color:#34d399">0 WPM</div>
+      <div id="g11-medal-display"></div>
+      <p id="g11-over-stats">—</p>
+      <button class="btn-primary" onclick="openSubmit('typing')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(11)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 16 — QUANTUM CLICKER
+══════════════════════════════════ -->
+<section id="game16" class="screen game-screen" style="min-height:100vh;">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🪙 Quantum Clicker</span>
+    <div id="g16-frenzy" style="display:none;background:rgba(251,191,36,.15);border:1px solid #fbbf24;border-radius:6px;padding:.2rem .7rem;font-size:.8rem;color:#fbbf24;font-weight:700;"></div>
+  </div>
+  <!-- News ticker -->
+  <div style="background:rgba(99,102,241,.1);border-bottom:1px solid var(--border);padding:.35rem 1rem;font-size:.78rem;color:var(--muted);overflow:hidden;white-space:nowrap;">
+    📡 <span id="g16-news-text">Quantum scientists report record qubit yields…</span>
+  </div>
+  <!-- Banner -->
+  <div id="g16-banner" style="display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(251,191,36,.2);border:1px solid #fbbf24;border-radius:8px;padding:.5rem 1.2rem;font-size:.9rem;font-weight:700;color:#fef3c7;text-align:center;pointer-events:none;"></div>
+  <!-- Main layout -->
+  <div style="display:flex;flex:1;gap:0;min-height:0;overflow:hidden;">
+    <!-- Left panel -->
+    <div id="g16-left-panel" style="position:relative;flex:0 0 340px;display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1.5rem 1rem;border-right:1px solid var(--border);overflow-y:auto;min-height:600px;">
+      <!-- Qubit count -->
+      <div style="text-align:center;">
+        <div id="g16-qubit-count" style="font-size:1.6rem;font-weight:800;color:#fbbf24;line-height:1.2;">0 qubits</div>
+        <div id="g16-qps-display" style="font-size:.85rem;color:var(--muted);">0 per second</div>
+        <div id="g16-click-val" style="font-size:.78rem;color:var(--muted);">each click: 1</div>
+      </div>
+      <!-- Click button -->
+      <div style="position:relative;">
+        <button id="g16-click-btn" class="g16-click-btn" onmousedown="g16Click(event)" ontouchstart="g16Click(event);event.preventDefault()">
+          <div style="font-size:3.5rem;line-height:1;">⚛️</div>
+          <div style="font-size:.8rem;margin-top:.3rem;color:#c7d2fe;">observe qubit</div>
+        </button>
+        <!-- Golden qubit -->
+        <div id="g16-golden" style="display:none;position:absolute;cursor:pointer;animation:g16spin 2s linear infinite;" onclick="g16ClickGolden()">
+          <div style="font-size:2rem;filter:drop-shadow(0 0 12px #fbbf24);">⭐</div>
+        </div>
+      </div>
+      <!-- Space bar hint -->
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;">Press <kbd style="background:var(--card);border:1px solid var(--border);padding:.1rem .4rem;border-radius:3px;font-size:.7rem;">Space</kbd> to click</div>
+      <!-- Building summary -->
+      <div id="g16-bld-summary" style="width:100%;display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;"></div>
+    </div>
+    <!-- Right panel (shop) -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <!-- Tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--border);">
+        <button id="g16-tab-upgrades"  class="g16-tab-btn active" onclick="g16Tab('upgrades')">⬆️ Upgrades</button>
+        <button id="g16-tab-buildings" class="g16-tab-btn"        onclick="g16Tab('buildings')">🏭 Buildings</button>
+        <button id="g16-tab-stats"     class="g16-tab-btn"        onclick="g16Tab('stats')">📊 Stats</button>
+      </div>
+      <div id="g16-shop-content" style="flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;"></div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g16-over" style="display:none;"></div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 13 — PARTICLE COLLIDER
+══════════════════════════════════ -->
+<section id="game13" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">⚛️ Particle Collider</span>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <div class="score-badge">Score <span id="g13-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#a78bfa;color:#a78bfa;" id="g13-combo-hud"></div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g13-coins-hud">🪙 0</div>
+      <span id="g13-ammo-hud" style="font-size:.8rem;color:#f97316;"></span>
+    </div>
+    <span id="g13-lives" style="font-size:1.1rem;">❤️❤️❤️</span>
+  </div>
+  <div class="canvas-arena" id="g13-arena">
+    <canvas id="g13-canvas"></canvas>
+    <div id="g13-pause" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);border-radius:12px;z-index:10;flex-direction:column;align-items:center;padding:1.5rem 1rem;gap:1rem;overflow-y:auto;">
+      <h3 style="color:var(--accent)">⏸ Paused</h3>
+      <div style="font-size:.9rem;color:#fbbf24;" id="g13-pause-coins">🪙 0</div>
+      <div id="g13-pu-list" style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:.5rem;"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;justify-content:center;">
+        <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="g13TogglePause()">▶ Resume</button>
+        <button class="btn-primary" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;box-shadow:none;" onclick="g13EndGame()">☠ End Game</button>
+      </div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g13-over">
+    <div class="game-over-card">
+      <h2>Annihilated! ⚛️</h2>
+      <div class="final-score" id="g13-final-score" style="color:#22d3ee">0</div>
+      <div id="g13-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('collider')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(13)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 14 — WAVE COLLAPSE PUZZLE
+══════════════════════════════════ -->
+<section id="game14" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔬 Wave Collapse</span>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <div class="score-badge">Score <span id="g14-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#c084fc;color:#c084fc;" id="g14-level-hud">Level 1</div>
+      <div class="score-badge" style="border-color:var(--danger);color:var(--danger);" id="g14-time-hud">30s</div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g14-coins-hud">🪙 0</div>
+      <span id="g14-hints-hud"  style="font-size:.8rem;color:#22d3ee;"></span>
+      <span id="g14-times-hud"  style="font-size:.8rem;color:#6ee7b7;"></span>
+      <span id="g14-peeks-hud"  style="font-size:.8rem;color:#a78bfa;"></span>
+    </div>
+  </div>
+  <div class="timer-bar-wrap" style="height:4px;border-radius:0;">
+    <div class="timer-bar" id="g14-timer-bar" style="height:4px;border-radius:0;"></div>
+  </div>
+  <div class="arena" id="g14-arena" style="display:flex;flex-direction:row;gap:2rem;align-items:flex-start;justify-content:center;padding:1.5rem;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:.8rem;">
+      <div style="font-size:.85rem;color:var(--muted);font-weight:600;">Your Grid — use arrow keys to move cursor</div>
+      <div id="g14-grid" class="g14-grid"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:.8rem;">
+      <div id="g14-target-label" style="font-size:.85rem;color:var(--muted);font-weight:600;">Target:</div>
+      <div id="g14-target" class="g14-grid g14-target-grid"></div>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);background:var(--card);border-radius:8px;padding:.6rem .8rem;line-height:1.9;max-width:220px;">
+      <b style="color:var(--text)">Gates:</b><br>
+      <span style="color:#60a5fa"><b>[X]</b></span> Flip: |0⟩↔|1⟩<br>
+      <span style="color:#c084fc"><b>[H]</b></span> Hadamard: |0⟩→|+⟩, |1⟩→|+⟩, |+⟩→|0⟩<br>
+      <span style="color:#f87171"><b>[M]</b></span> Measure: collapses |+⟩ randomly<br>
+      <span style="color:#fbbf24"><b>[Z]</b></span> Undo<br>
+      <span style="color:#22d3ee"><b>[I]</b></span> Hint &nbsp;
+      <span style="color:#6ee7b7"><b>[T]</b></span> +10s &nbsp;
+      <span style="color:#a78bfa"><b>[P]</b></span> Peek<br><br>
+      <b style="color:var(--text)">States:</b><br>
+      <span style="color:#60a5fa">|0⟩</span> zero &nbsp;
+      <span style="color:#f87171">|1⟩</span> one &nbsp;
+      <span style="color:#c084fc">|+⟩</span> super
+    </div>
+  </div>
+  <div style="text-align:center;font-size:.75rem;color:var(--muted);padding:.3rem" id="g14-keys-hud"></div>
+  <div id="g14-pause" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:20;flex-direction:column;align-items:center;padding:2rem 1rem;gap:1rem;overflow-y:auto;">
+    <h3 style="color:var(--accent)">⏸ Paused</h3>
+    <div style="font-size:.9rem;color:#fbbf24;" id="g14-pause-coins">🪙 0</div>
+    <div id="g14-pu-list" style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:.5rem;"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;justify-content:center;">
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="g14TogglePause()">▶ Resume</button>
+      <button class="btn-primary" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;box-shadow:none;" onclick="g14EndGame()">☠ End Game</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g14-over">
+    <div class="game-over-card">
+      <h2>Time's Up! 🔬</h2>
+      <div class="final-score" id="g14-final-score" style="color:#c084fc">0</div>
+      <div id="g14-medal-display"></div>
+      <p id="g14-final-level" style="color:var(--muted)">Reached level 1</p>
+      <button class="btn-primary" onclick="openSubmit('wavecollapse')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(14)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 15 — ENTANGLEMENT
+══════════════════════════════════ -->
+<section id="game15" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔗 Entanglement</span>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <div class="score-badge">Score <span id="g15-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#a78bfa;color:#a78bfa;" id="g15-combo-hud">×1</div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g15-coins-hud">🪙 0</div>
+      <div class="score-badge" style="border-color:#22d3ee;color:#22d3ee;font-size:.75rem;" id="g15-status-hud">🟢 ENTANGLED ×2</div>
+      <span id="g15-ghost-hud" style="font-size:.8rem;color:#a78bfa;"></span>
+      <span id="g15-lives-hud" style="font-size:1.1rem;">❤️❤️❤️</span>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:.5rem;padding:.3rem 1rem;align-items:center;">
+    <div style="font-size:.75rem;color:#a78bfa;">Resonance:</div>
+    <div style="width:140px;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;">
+      <div id="g15-res-bar" style="height:100%;width:0%;background:#a78bfa;transition:width .1s;"></div>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);" id="g15-wave-hud">Wave 1</div>
+  </div>
+  <div class="canvas-arena" id="g15-arena">
+    <canvas id="g15-canvas"></canvas>
+    <div id="g15-pause" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);border-radius:12px;z-index:10;flex-direction:column;align-items:center;padding:1.5rem 1rem;gap:1rem;overflow-y:auto;">
+      <h3 style="color:var(--accent)">⏸ Paused</h3>
+      <div style="font-size:.9rem;color:#fbbf24;" id="g15-pause-coins">🪙 0</div>
+      <div id="g15-pu-list" style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:.5rem;"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;justify-content:center;">
+        <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="g15TogglePause()">▶ Resume</button>
+        <button class="btn-primary" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;box-shadow:none;" onclick="g15EndGame()">☠ End Game</button>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.3rem">
+    Arrows/WASD = move you (entangled: twin mirrors) | Space = break entanglement | ESC = pause
+  </div>
+  <div class="game-over-overlay" id="g15-over">
+    <div class="game-over-card">
+      <h2>Collapsed! 🔗</h2>
+      <div class="final-score" id="g15-final-score" style="color:#a78bfa">0</div>
+      <div id="g15-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('entanglement')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(15)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 17 — QUANTUM SNAKE
+══════════════════════════════════ -->
+<section id="game17" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🐍 Quantum Snake</span>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <div class="score-badge">Score <span id="g17-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#4ade80;color:#4ade80;" id="g17-len-hud">Len 5</div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g17-energy-hud">⚡ 0</div>
+      <div class="score-badge" style="border-color:#f97316;color:#f97316;" id="g17-ammo-hud">🔫 3</div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g17-coins-hud">🪙 0</div>
+      <div class="score-badge" style="border-color:#f87171;color:#f87171;" id="g17-lives-hud">Lives 3</div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g17-arena">
+    <canvas id="g17-canvas"></canvas>
+    <div id="g17-pause" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.90);border-radius:12px;z-index:10;flex-direction:column;align-items:center;padding:1.5rem 1rem;gap:1rem;overflow-y:auto;">
+      <h3 style="color:var(--accent)">⏸ Paused</h3>
+      <div style="font-size:.9rem;color:#fbbf24;" id="g17-pause-coins">🪙 0</div>
+      <div id="g17-pu-list" style="width:100%;max-width:460px;display:flex;flex-direction:column;gap:.5rem;"></div>
+      <button onmousedown="g17SummonCircleBoss()" ontouchstart="g17SummonCircleBoss();event.preventDefault()"
+        style="width:100%;max-width:460px;background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid #ef4444;border-radius:8px;padding:.5rem 1rem;cursor:pointer;font-size:.85rem;font-weight:600;">
+        ⭕ Summon Ring Boss
+      </button>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;justify-content:center;">
+        <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="g17TogglePause()">▶ Resume</button>
+        <button class="btn-primary" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;box-shadow:none;" onclick="g17EndGame()">☠ End Game</button>
+      </div>
+      <div id="g17-boss-flash" style="display:none;position:fixed;inset:0;background:rgba(239,68,68,.35);z-index:9999;pointer-events:none;align-items:center;justify-content:center;">
+        <div id="g17-boss-flash-text" style="font-size:2.2rem;font-weight:900;color:#fff;text-shadow:0 0 30px #ef4444;text-align:center;">⭕ RING BOSS SUMMONED<br><span style="font-size:1.1rem;font-weight:400">AUTO-AIM JAMMED INSIDE</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.3rem">
+    Arrow keys / WASD = steer | Hold Shift = boost (uses energy) | F = shoot | V = auto-aim toggle | ESC = pause
+  </div>
+  <div class="game-over-overlay" id="g17-over">
+    <div class="game-over-card">
+      <h2>Splatted! 🐍</h2>
+      <div class="final-score" id="g17-final-score" style="color:#4ade80">0</div>
+      <div id="g17-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('qsnake')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(17)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game18" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🪢 Quantum Whip</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#a78bfa;color:#a78bfa;">Score <span id="g18-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;" id="g18-combo-hud">×1</div>
+      <div class="score-badge" style="border-color:#4ade80;color:#4ade80;" id="g18-time-hud">90s</div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g18-arena">
+    <canvas id="g18-canvas"></canvas>
+  </div>
+  <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.3rem">
+    Move mouse (or drag finger) to swing the rope — catch orbs with the glowing purple TIP
+  </div>
+  <div class="game-over-overlay" id="g18-over">
+    <div class="game-over-card">
+      <h2>Time's Up! 🪢</h2>
+      <div class="final-score" id="g18-final-score" style="color:#a78bfa">0</div>
+      <div id="g18-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('qwhip')">Submit Score</button>
+      <br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(18)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game22" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🌀 Gravity Sling</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#fca5a5;color:#fca5a5;">Score <span id="g22-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g22-arena"><canvas id="g22-canvas"></canvas></div>
+  <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.3rem">Drag from the green circle to aim — release to fire. Planets bend your trajectory!</div>
+  <div class="game-over-overlay" id="g22-over">
+    <div class="game-over-card">
+      <h2>Out of Ammo! 🌀</h2>
+      <div class="final-score" id="g22-final-score" style="color:#fca5a5">0</div>
+      <div id="g22-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('gravitysling')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(22)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game23" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔋 Charge Rush</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#818cf8;color:#818cf8;">Score <span id="g23-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g23-arena"><canvas id="g23-canvas"></canvas></div>
+  <div style="text-align:center;font-size:.7rem;color:var(--muted);padding:.3rem">Click numbered nodes 1→2→3 in order before the orange pulse reaches them</div>
+  <div class="game-over-overlay" id="g23-over">
+    <div class="game-over-card">
+      <h2>Fried! 🔋</h2>
+      <div class="final-score" id="g23-final-score" style="color:#818cf8">0</div>
+      <div id="g23-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('chargerush')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(23)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game24" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🎵 Pulse</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;">Score <span id="g24-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g24-arena"><canvas id="g24-canvas"></canvas></div>
+  <div class="game-over-overlay" id="g24-over">
+    <div class="game-over-card">
+      <h2>Out of Beat! 🎵</h2>
+      <div class="final-score" id="g24-final-score" style="color:#fbbf24">0</div>
+      <div id="g24-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('pulse')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(24)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game28" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🏃 Parkour</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#fb923c;color:#fb923c;">Score <span id="g28-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g28-arena"><canvas id="g28-canvas"></canvas></div>
+  <div class="game-over-overlay" id="g28-over">
+    <div class="game-over-card">
+      <h2>Wiped Out! 🏃</h2>
+      <div class="final-score" id="g28-final-score" style="color:#fb923c">0</div>
+      <div id="g28-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('parkour')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(28)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<section id="game26" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🌙 Orbit</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#34d399;color:#34d399;">Score <span id="g26-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g26-arena"><canvas id="g26-canvas"></canvas></div>
+  <div class="game-over-overlay" id="g26-over">
+    <div class="game-over-card">
+      <h2>Lost in Space! 🌙</h2>
+      <div class="final-score" id="g26-final-score" style="color:#34d399">0</div>
+      <div id="g26-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <button class="btn-primary" onclick="openSubmit('orbit')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(26)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 29 — QUANTUM BLASTER
+══════════════════════════════════ -->
+<section id="game29" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🚀 Quantum Blaster</span>
+    <div class="score-badge" style="border-color:#e879f9;color:#e879f9;">Score <span id="g29-score-hud">0</span></div>
+    <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;">🪙 <span id="g29-coin-hud">0</span></div>
+    <button id="g29-bomb-btn" onclick="g29UseBomb()" style="display:none;padding:.25rem .6rem;border-radius:6px;border:1px solid #f97316;background:#f9731622;color:#f97316;font-size:.8rem;font-weight:700;cursor:pointer">💣 <span id="g29-bomb-count">0</span></button>
+    <button id="g29-pause-btn" onclick="G29.active?g29Pause():g29Resume()" style="padding:.25rem .6rem;border-radius:6px;border:1px solid #888;background:transparent;color:#aaa;font-size:.8rem;cursor:pointer">⏸ Shop</button>
+  </div>
+  <div class="canvas-arena" id="g29-arena">
+    <canvas id="g29-canvas"></canvas>
+    <div class="canvas-overlay" id="g29-overlay">
+      <h3>🚀 Quantum Blaster</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Move with <b>mouse</b> or <b>WASD</b>. Auto-fire destroys enemies. Grab powerups. Survive quantum-random waves and boss fights!</p>
+      <div style="display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center;margin:.5rem 0;font-size:.8rem;color:var(--muted);">
+        <span>⚡ Triple</span><span>🔥 Rapid</span><span>🛡️ Shield</span><span>💣 Bomb (store→Q)</span>
+      </div>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.3rem">ESC = pause &amp; shop · kills earn 🪙 coins</div>
+      <button class="btn-primary" onclick="startBlaster()">Launch!</button>
+    </div>
+    <div id="g29-pause" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);border-radius:12px;z-index:10;overflow-y:auto;">
+      <div id="g29-shop-content" style="padding:1.2rem 1rem;max-width:480px;margin:0 auto;"></div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g29-over">
+    <div class="game-over-card">
+      <h2>Ship Destroyed! 🚀</h2>
+      <div class="final-score" id="g29-final-score" style="color:#e879f9">0 pts</div>
+      <div id="g29-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('qblaster')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(29)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- Scripts — core must load first, then game files -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/core.js?v=4"></script>
+<script src="js/auth.js"></script>
+<script src="js/game1.js"></script>
+<script src="js/game2.js"></script>
+<script src="js/game3.js"></script>
+<script src="js/game4.js"></script>
+<script src="js/game5.js"></script>
+<script src="js/game6.js"></script>
+<script src="js/game10.js?v=2"></script>
+<script src="js/game11.js"></script>
+<script src="js/game13.js"></script>
+<script src="js/game16.js"></script>
+<script src="js/game14.js"></script>
+<script src="js/game15.js"></script>
+<script src="js/game17.js?v=4"></script>
+<script src="js/game18.js"></script>
+<script src="js/game22.js"></script>
+<script src="js/game23.js"></script>
+<script src="js/game24.js"></script>
+<script src="js/game26.js"></script>
+<script src="js/game28.js"></script>
+<script src="js/game29.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Redirect any unknown path back to the root, preserving the hash (for OAuth tokens)
+    const base = '/some-quantum-games'
+    window.location.replace(base + '/' + window.location.hash)
+  </script>
+</head>
+<body></body>
+</html>
