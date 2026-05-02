@@ -20,6 +20,8 @@ const G35 = {
   wallGenCy: 0,
   wallGenTarget: 0,
   wallGenTimer: 0,
+  wallGenVel: 0,   // velocity for smooth round corners
+  wallGenDist: 0,  // total cols generated (for difficulty ramp)
   trail: [],
   cx: 0,
   grace: 3.5,
@@ -116,7 +118,9 @@ window.startWaveDash = function() {
   G35.wallBuf       = []
   G35.wallGenCy     = h / 2
   G35.wallGenTarget = h / 2
-  G35.wallGenTimer  = 0
+  G35.wallGenTimer  = 240  // delay first curve well past the safe zone
+  G35.wallGenVel    = 0
+  G35.wallGenDist   = 0
 
   // Long straight opening — player can orient before obstacles appear
   const safeLen = Math.max(420, Math.floor(w * 0.70))
@@ -137,13 +141,22 @@ window.startWaveDash = function() {
 
 function g35GenCols(n, h) {
   for (let i = 0; i < n; i++) {
+    G35.wallGenDist++
     G35.wallGenTimer--
     if (G35.wallGenTimer <= 0) {
       const margin = G35.gapH / 2 + 22
-      G35.wallGenTarget = margin + qRandInt(Math.max(1, Math.floor(h - margin * 2)))
-      G35.wallGenTimer  = 55 + qRandInt(110)
+      // Gradually expand how far from center targets can go
+      const progress = Math.min(1, G35.wallGenDist / 2200)
+      const spread   = (0.10 + progress * 0.38) * h
+      const lo = Math.max(margin, h / 2 - spread)
+      const hi = Math.min(h - margin, h / 2 + spread)
+      G35.wallGenTarget = lo + qRandInt(Math.max(1, Math.floor(hi - lo)))
+      G35.wallGenTimer  = 90 + qRandInt(160)
     }
-    G35.wallGenCy += (G35.wallGenTarget - G35.wallGenCy) * 0.028
+    // Velocity-based smoothing — no sharp corners, naturally round curves
+    G35.wallGenVel += (G35.wallGenTarget - G35.wallGenCy) * 0.0006
+    G35.wallGenVel *= 0.93
+    G35.wallGenCy  += G35.wallGenVel
     G35.wallBuf.push({ cy: G35.wallGenCy, gapH: G35.gapH })
   }
 }
@@ -198,9 +211,9 @@ function g35Loop(ts) {
   G35.y  += G35.vy * dt
   G35.y   = Math.max(G35_PR, Math.min(h - G35_PR, G35.y))
 
-  // Trail
-  G35.trail.push({ x: G35.cx, y: G35.y })
-  if (G35.trail.length > 50) G35.trail.shift()
+  // Trail — store world scroll position so it renders as a zigzag path
+  G35.trail.push({ sx: G35.scrollX, y: G35.y })
+  if (G35.trail.length > 120) G35.trail.shift()
 
   // Collision
   const wallIdx = Math.min(G35.cx, G35.wallBuf.length - 1)
@@ -263,14 +276,34 @@ function g35Draw(ctx, w, h) {
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
   ctx.shadowBlur = 0
 
-  // Neon trail
-  for (let i = 0; i < G35.trail.length; i++) {
-    const t = (i + 1) / G35.trail.length
-    const p = G35.trail[i]
-    const r = G35_PR * 0.55 * t
-    ctx.shadowColor = '#4ade80'; ctx.shadowBlur = r * 4
-    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, r), 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(74,222,128,${t * 0.85})`; ctx.fill()
+  // Neon trail — rendered as a glowing zigzag line showing the actual path
+  if (G35.trail.length > 1) {
+    // Build visible segment (clip to screen)
+    const pts = []
+    for (let i = 0; i < G35.trail.length; i++) {
+      const p = G35.trail[i]
+      const sx = G35.cx - (G35.scrollX - p.sx)
+      if (sx >= -4) pts.push({ x: sx, y: p.y })
+    }
+    if (pts.length > 1) {
+      // Outer glow pass
+      ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 10
+      ctx.lineWidth = 5
+      ctx.strokeStyle = 'rgba(74,222,128,0.25)'
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+      ctx.stroke()
+      // Bright core line
+      ctx.shadowBlur = 6
+      ctx.lineWidth = 2
+      ctx.strokeStyle = '#4ade80'
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+      ctx.stroke()
+    }
   }
   ctx.shadowBlur = 0
 
