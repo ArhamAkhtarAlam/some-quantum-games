@@ -167,6 +167,12 @@
       <div class="card-desc">Watch the quantum-chosen colour sequence light up. Repeat it back. Each round adds one step — how long can you remember?</div>
       <span class="card-tag" style="background:rgba(167,139,250,.15);color:#a78bfa;border-color:#a78bfa44;">Memory</span>
     </div>
+    <div class="game-card" onclick="showGame(34)" style="border-color:#f59e0b44;">
+      <div class="card-icon">〰️</div>
+      <div class="card-title">Wave Dash</div>
+      <div class="card-desc">GD wave gamemode. Hold to go up, release to go down. Navigate the quantum-generated corridor — it gets narrower and faster!</div>
+      <span class="card-tag" style="background:rgba(245,158,11,.15);color:#f59e0b;border-color:#f59e0b44;">Wave</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -198,6 +204,7 @@
         <button class="lb-tab" style="border-color:#4ade80;color:#4ade80;" id="lb-tab-31" onclick="switchLbTab('runsnake')">Run Snake</button>
         <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-32" onclick="switchLbTab('gravflip')">Grav Flip</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-33" onclick="switchLbTab('memseq')">Memory</button>
+        <button class="lb-tab" style="border-color:#f59e0b;color:#f59e0b;" id="lb-tab-34" onclick="switchLbTab('wavedash')">Wave Dash</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -1273,5 +1280,38 @@
 <script src="js/game31.js?v=2"></script>
 <script src="js/game32.js"></script>
 <script src="js/game33.js"></script>
+<!-- ══════════════════════════════════
+     GAME 34 — WAVE DASH
+══════════════════════════════════ -->
+<section id="game34" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">〰️ Wave Dash</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#f59e0b;color:#f59e0b;">Blocks <span id="g34-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g34-arena">
+    <canvas id="g34-canvas"></canvas>
+    <div class="canvas-overlay" id="g34-overlay">
+      <h3>〰️ Wave Dash</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> SPACE / click / tap to go <b>up</b>. <b>Release</b> to go down. Navigate through the corridor — quantum-generated, gets faster and narrower!</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Score = blocks survived · corridor shrinks over time</div>
+      <button class="btn-primary" onclick="startWaveDash()">Go!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g34-over">
+    <div class="game-over-card">
+      <h2>Crashed! 〰️</h2>
+      <div class="final-score" id="g34-final-score" style="color:#f59e0b">0 blocks</div>
+      <div id="g34-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('wavedash')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(34)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game34.js"></script>
 </body>
 </html>
