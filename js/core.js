@@ -154,6 +154,7 @@ const GAME_SLUGS = {
   'gravity-flipper':  32,
   'memory-seq':       33,
   'manual-sort':      34,
+  'wave-dash':        35,
 }
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
@@ -210,6 +211,7 @@ window.showGame = function(n) {
   if (n === 32) initGame32()
   if (n === 33) initGame33()
   if (n === 34) initGame34()
+  if (n === 35) initGame35()
 }
 
 window.goHome = function() {
@@ -285,6 +287,7 @@ window.restartGame = function(n) {
   if (n === 32) initGame32()
   if (n === 33) initGame33()
   if (n === 34) initGame34()
+  if (n === 35) initGame35()
 }
 
 // ═══════════════════════════════════════════════════════
@@ -310,15 +313,16 @@ const MEDALS = {
   gravflip: { bronze: 10,   silver: 25,  gold: 50   },
   memseq:   { bronze: 5,    silver: 10,  gold: 16   },
   manualsort: { bronze: 1, silver: 700, gold: 850, author: 930 },
+  wavedash:   { bronze: 30, silver: 100, gold: 250 },
 }
 
-let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null }
-let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null }
+let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null }
+let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null }
 
 const ARAV_NAMES = ['arav','aravthegoat','arav:)','ARAV','ARAVTHEGOAT']
 
 async function fetchAuthorScores() {
-  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq','manualsort']) {
+  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq','manualsort','wavedash']) {
     try {
       const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`)
       if (rows && rows.length > 0 && rows[0].score > 0) authorScores[game] = rows[0].score
@@ -495,6 +499,7 @@ const LB_TABS = [
   { id: 'lb-tab-32', game: 'gravflip',    label: 'Grav Flip',    color: '#f472b6'  },
   { id: 'lb-tab-33', game: 'memseq',      label: 'Memory',       color: '#a78bfa'  },
   { id: 'lb-tab-34', game: 'manualsort',  label: 'Manual Sort',  color: '#4a7c59'  },
+  { id: 'lb-tab-35', game: 'wavedash',    label: 'Wave Dash',    color: '#06b6d4'  },
 ]
 
 window.switchLbTab = function(game) {
@@ -616,6 +621,7 @@ const SCORE_COLORS = {
   gravflip: '#f472b6',
   memseq:   '#a78bfa',
   manualsort: '#4a7c59',
+  wavedash:   '#06b6d4',
 }
 
 window.openSubmit = function(game) {
@@ -648,6 +654,7 @@ window.openSubmit = function(game) {
   else if (game === 'gravflip')     score = window._g32Score  || 0
   else if (game === 'memseq')       score = window._g33Score  || 0
   else if (game === 'manualsort')   score = window._g34Score  || 0
+  else if (game === 'wavedash')     score = window._g35Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -766,7 +773,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')

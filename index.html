@@ -173,6 +173,12 @@
       <div class="card-desc">Quantum-shuffled bars. Click one to select, click another to swap. Sort them ascending as fast as you can — timer starts on your first move.</div>
       <span class="card-tag" style="background:rgba(74,124,89,.15);color:#4a7c59;border-color:#4a7c5944;">Sort</span>
     </div>
+    <div class="game-card" onclick="showGame(35)" style="border-color:#06b6d444;">
+      <div class="card-icon">〰️</div>
+      <div class="card-title">Wave Dash</div>
+      <div class="card-desc">GD wave gamemode. Hold to angle up, release to go down. Navigate the quantum corridor — starts wide and slow, gets tighter and faster!</div>
+      <span class="card-tag" style="background:rgba(6,182,212,.15);color:#06b6d4;border-color:#06b6d444;">Wave</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -205,6 +211,7 @@
         <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-32" onclick="switchLbTab('gravflip')">Grav Flip</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-33" onclick="switchLbTab('memseq')">Memory</button>
         <button class="lb-tab" style="border-color:#4a7c59;color:#4a7c59;" id="lb-tab-34" onclick="switchLbTab('manualsort')">Manual Sort</button>
+        <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-35" onclick="switchLbTab('wavedash')">Wave Dash</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -1320,5 +1327,37 @@
 </section>
 
 <script src="js/game34.js?v=2"></script>
+
+<!-- ══════════════════════════════════════════════════ GAME 35 -->
+<section id="game35" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">〰️ Wave Dash</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#06b6d4;color:#06b6d4;">Blocks <span id="g35-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g35-arena">
+    <canvas id="g35-canvas"></canvas>
+    <div class="canvas-overlay" id="g35-overlay">
+      <h3>〰️ Wave Dash</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> SPACE / click / tap to angle <b>up</b>. <b>Release</b> to angle down. Navigate the corridor — starts easy, gets tighter and faster!</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">A 3-second countdown gives you time to adapt before it moves</div>
+      <button class="btn-primary" onclick="startWaveDash()">Go!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g35-over">
+    <div class="game-over-card">
+      <h2>Crashed! 〰️</h2>
+      <div class="final-score" id="g35-final-score" style="color:#06b6d4">0 blocks</div>
+      <div id="g35-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('wavedash')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(35)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game35.js"></script>
 </body>
 </html>
