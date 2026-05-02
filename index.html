@@ -1108,17 +1108,25 @@
     <span class="game-title">⚔️ Micro RTS</span>
     <div style="display:flex;gap:.5rem;align-items:center;">
       <div class="score-badge" style="border-color:#60a5fa;color:#60a5fa;">Score <span id="g30-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#fbbf24;color:#fbbf24;">🪙 <span id="g30-coin-hud">0</span></div>
       <div class="score-badge" style="border-color:#60a5fa55;color:#60a5fa99;font-size:.75rem;"><span id="g30-wave-hud">Wave 0</span></div>
       <div class="score-badge" style="border-color:#ef444455;color:#ef4444;font-size:.75rem;">HP <span id="g30-hp-hud">10 / 10</span></div>
+      <button onclick="G30.active?g30OpenShop():null" style="padding:.25rem .6rem;border-radius:6px;border:1px solid #888;background:transparent;color:#aaa;font-size:.8rem;cursor:pointer">⏸ Shop</button>
     </div>
   </div>
   <div class="canvas-arena" id="g30-arena">
     <canvas id="g30-canvas"></canvas>
     <div class="canvas-overlay" id="g30-overlay">
       <h3>⚔️ Micro RTS</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Command one unit. <b>Click</b> to move. Your unit auto-attacks enemies in range. Survive quantum-random waves — each one bigger than the last!</p>
-      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Big red enemies = 4HP but slow · heal +2 HP between waves</div>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Command one unit. <b>Click</b> to move. Auto-attacks in range. Kills earn 🪙 coins — spend them in the shop on fire rate &amp; speed upgrades!</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Purple turrets = ranged · heavy reds = tanky · <b>ESC</b> = shop</div>
       <button class="btn-primary" onclick="startRTS()">Deploy!</button>
+    </div>
+    <div id="g30-shop" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.9);border-radius:12px;z-index:10;align-items:center;justify-content:center;">
+      <div style="width:100%;max-width:380px;padding:1.2rem 1rem;">
+        <h3 style="text-align:center;color:#60a5fa;margin-bottom:.5rem">🛒 Command Shop</h3>
+        <div id="g30-shop-content"></div>
+      </div>
     </div>
   </div>
   <div class="game-over-overlay" id="g30-over">
@@ -1261,8 +1269,8 @@
 <script src="js/game26.js"></script>
 <script src="js/game28.js"></script>
 <script src="js/game29.js"></script>
-<script src="js/game30.js"></script>
-<script src="js/game31.js"></script>
+<script src="js/game30.js?v=2"></script>
+<script src="js/game31.js?v=2"></script>
 <script src="js/game32.js"></script>
 <script src="js/game33.js"></script>
 </body>
