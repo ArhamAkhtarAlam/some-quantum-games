@@ -143,6 +143,30 @@
       <div class="card-desc">Stay in your orbital safe zone while debris rains down. Click to thrust toward your cursor — stray too far and you burn up!</div>
       <span class="card-tag" style="background:rgba(52,211,153,.15);color:#34d399;border-color:#34d39944;">Survival</span>
     </div>
+    <div class="game-card" onclick="showGame(30)" style="border-color:#60a5fa44;">
+      <div class="card-icon">⚔️</div>
+      <div class="card-title">Micro RTS</div>
+      <div class="card-desc">Command one unit. Click to move. Auto-attack enemies in range. Survive quantum-random waves — each one bigger and faster than the last.</div>
+      <span class="card-tag" style="background:rgba(96,165,250,.15);color:#60a5fa;border-color:#60a5fa44;">Strategy</span>
+    </div>
+    <div class="game-card" onclick="showGame(31)" style="border-color:#4ade8044;">
+      <div class="card-icon">🐍</div>
+      <div class="card-title">Runaway Snake</div>
+      <div class="card-desc">Classic snake — but the apple uses quantum pathfinding to dodge you. Corner it before it escapes. The longer you grow, the less room it has!</div>
+      <span class="card-tag" style="background:rgba(74,222,128,.15);color:#4ade80;border-color:#4ade8044;">Snake</span>
+    </div>
+    <div class="game-card" onclick="showGame(32)" style="border-color:#f472b644;">
+      <div class="card-icon">🔄</div>
+      <div class="card-title">Gravity Flipper</div>
+      <div class="card-desc">Auto-runner with a twist — press SPACE or tap to flip gravity. Navigate through quantum-placed pillar gaps. How many can you clear?</div>
+      <span class="card-tag" style="background:rgba(244,114,182,.15);color:#f472b6;border-color:#f472b644;">Runner</span>
+    </div>
+    <div class="game-card" onclick="showGame(33)" style="border-color:#a78bfa44;">
+      <div class="card-icon">🧠</div>
+      <div class="card-title">Memory Sequence</div>
+      <div class="card-desc">Watch the quantum-chosen colour sequence light up. Repeat it back. Each round adds one step — how long can you remember?</div>
+      <span class="card-tag" style="background:rgba(167,139,250,.15);color:#a78bfa;border-color:#a78bfa44;">Memory</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -170,6 +194,10 @@
         <button class="lb-tab" style="border-color:#34d399;color:#34d399;" id="lb-tab-26" onclick="switchLbTab('orbit')">Orbit</button>
         <button class="lb-tab active" style="border-color:#fb923c;color:#fb923c;" id="lb-tab-28" onclick="switchLbTab('parkour')">Parkour</button>
         <button class="lb-tab" style="border-color:#e879f9;color:#e879f9;" id="lb-tab-29" onclick="switchLbTab('qblaster')">Blaster</button>
+        <button class="lb-tab" style="border-color:#60a5fa;color:#60a5fa;" id="lb-tab-30" onclick="switchLbTab('mrts')">Micro RTS</button>
+        <button class="lb-tab" style="border-color:#4ade80;color:#4ade80;" id="lb-tab-31" onclick="switchLbTab('runsnake')">Run Snake</button>
+        <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-32" onclick="switchLbTab('gravflip')">Grav Flip</button>
+        <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-33" onclick="switchLbTab('memseq')">Memory</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -1071,6 +1099,142 @@
   </div>
 </section>
 
+<!-- ══════════════════════════════════
+     GAME 30 — MICRO RTS
+══════════════════════════════════ -->
+<section id="game30" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">⚔️ Micro RTS</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#60a5fa;color:#60a5fa;">Score <span id="g30-score-hud">0</span></div>
+      <div class="score-badge" style="border-color:#60a5fa55;color:#60a5fa99;font-size:.75rem;"><span id="g30-wave-hud">Wave 0</span></div>
+      <div class="score-badge" style="border-color:#ef444455;color:#ef4444;font-size:.75rem;">HP <span id="g30-hp-hud">10 / 10</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g30-arena">
+    <canvas id="g30-canvas"></canvas>
+    <div class="canvas-overlay" id="g30-overlay">
+      <h3>⚔️ Micro RTS</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Command one unit. <b>Click</b> to move. Your unit auto-attacks enemies in range. Survive quantum-random waves — each one bigger than the last!</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Big red enemies = 4HP but slow · heal +2 HP between waves</div>
+      <button class="btn-primary" onclick="startRTS()">Deploy!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g30-over">
+    <div class="game-over-card">
+      <h2>Unit Destroyed! ⚔️</h2>
+      <div class="final-score" id="g30-final-score" style="color:#60a5fa">0 pts</div>
+      <div id="g30-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('mrts')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(30)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 31 — RUNAWAY SNAKE
+══════════════════════════════════ -->
+<section id="game31" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🐍 Runaway Snake</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#4ade80;color:#4ade80;">Apples <span id="g31-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g31-arena">
+    <canvas id="g31-canvas"></canvas>
+    <div class="canvas-overlay" id="g31-overlay">
+      <h3>🐍 Runaway Snake</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Classic snake — but the apple <b>runs away</b> from you! Use <b>WASD</b> or <b>arrow keys</b> to chase it down. Swipe on mobile.</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Apple gets smarter as your score climbs!</div>
+      <button class="btn-primary" onclick="startRunSnake()">Chase!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g31-over">
+    <div class="game-over-card">
+      <h2>Game Over! 🐍</h2>
+      <div class="final-score" id="g31-final-score" style="color:#4ade80">0 apples</div>
+      <div id="g31-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('runsnake')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(31)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 32 — GRAVITY FLIPPER
+══════════════════════════════════ -->
+<section id="game32" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔄 Gravity Flipper</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#f472b6;color:#f472b6;">Pillars <span id="g32-score-hud">0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g32-arena">
+    <canvas id="g32-canvas"></canvas>
+    <div class="canvas-overlay" id="g32-overlay">
+      <h3>🔄 Gravity Flipper</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">You auto-run forward. Press <b>SPACE</b>, tap the screen, or click to <b>flip gravity</b>. Navigate through the gaps in each pillar pair!</p>
+      <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Gaps are quantum-placed. Speed increases with each pillar cleared.</div>
+      <button class="btn-primary" onclick="startGravFlip()">Flip!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g32-over">
+    <div class="game-over-card">
+      <h2>Crashed! 🔄</h2>
+      <div class="final-score" id="g32-final-score" style="color:#f472b6">0 pillars</div>
+      <div id="g32-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('gravflip')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(32)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════
+     GAME 33 — MEMORY SEQUENCE
+══════════════════════════════════ -->
+<section id="game33" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🧠 Memory Sequence</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#a78bfa;color:#a78bfa;"><span id="g33-round-info">Round 0</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g33-arena" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;padding:1rem;">
+    <div class="canvas-overlay" id="g33-overlay" style="border-radius:12px;">
+      <h3>🧠 Memory Sequence</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">Watch the quantum-chosen sequence of colours light up. Then click them back in the same order. Each round adds one more step!</p>
+      <button class="btn-primary" onclick="startMemSeq()">Start!</button>
+    </div>
+    <div id="g33-msg" style="font-size:1rem;color:var(--muted);min-height:1.5rem;text-align:center;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:320px;width:100%;">
+      <button id="g33-btn-0" onclick="g33Press(0)" style="height:120px;border-radius:16px;border:none;background:#450a0a;cursor:pointer;font-size:2rem;transition:background .1s;" disabled>🔴</button>
+      <button id="g33-btn-1" onclick="g33Press(1)" style="height:120px;border-radius:16px;border:none;background:#0c1a3a;cursor:pointer;font-size:2rem;transition:background .1s;" disabled>🔵</button>
+      <button id="g33-btn-2" onclick="g33Press(2)" style="height:120px;border-radius:16px;border:none;background:#052e16;cursor:pointer;font-size:2rem;transition:background .1s;" disabled>🟢</button>
+      <button id="g33-btn-3" onclick="g33Press(3)" style="height:120px;border-radius:16px;border:none;background:#422006;cursor:pointer;font-size:2rem;transition:background .1s;" disabled>🟡</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g33-over">
+    <div class="game-over-card">
+      <h2>Memory Faded! 🧠</h2>
+      <div class="final-score" id="g33-final-score" style="color:#a78bfa">0 rounds</div>
+      <div id="g33-final-seq" style="font-size:.85rem;color:var(--muted);margin:.3rem 0"></div>
+      <div id="g33-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('memseq')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(33)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
 <!-- Scripts — core must load first, then game files -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/sfx.js"></script>
@@ -1096,5 +1260,9 @@
 <script src="js/game26.js"></script>
 <script src="js/game28.js"></script>
 <script src="js/game29.js"></script>
+<script src="js/game30.js"></script>
+<script src="js/game31.js"></script>
+<script src="js/game32.js"></script>
+<script src="js/game33.js"></script>
 </body>
 </html>

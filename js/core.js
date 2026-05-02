@@ -149,6 +149,10 @@ const GAME_SLUGS = {
   'orbit':            26,
   'parkour':          28,
   'qblaster':         29,
+  'micro-rts':        30,
+  'runaway-snake':    31,
+  'gravity-flipper':  32,
+  'memory-seq':       33,
 }
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
@@ -200,6 +204,10 @@ window.showGame = function(n) {
   if (n === 26) initGame26()
   if (n === 28) initGame28()
   if (n === 29) initGame29()
+  if (n === 30) initGame30()
+  if (n === 31) initGame31()
+  if (n === 32) initGame32()
+  if (n === 33) initGame33()
 }
 
 window.goHome = function() {
@@ -216,6 +224,10 @@ window.goHome = function() {
   if (typeof G26 !== 'undefined') G26.active = false
   if (typeof G28 !== 'undefined') G28.active = false
   if (typeof G29 !== 'undefined') stopGame29()
+  if (typeof G30 !== 'undefined') stopGame30()
+  if (typeof G31 !== 'undefined') stopGame31()
+  if (typeof G32 !== 'undefined') stopGame32()
+  if (typeof G33 !== 'undefined') stopGame33()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
   pushHomeUrl()
@@ -265,6 +277,10 @@ window.restartGame = function(n) {
   if (n === 26) initGame26()
   if (n === 28) initGame28()
   if (n === 29) initGame29()
+  if (n === 30) initGame30()
+  if (n === 31) initGame31()
+  if (n === 32) initGame32()
+  if (n === 33) initGame33()
 }
 
 // ═══════════════════════════════════════════════════════
@@ -285,15 +301,19 @@ const MEDALS = {
   deltae:   { bronze: 1200, silver: 2400, gold: 3400 },
   gravity:  { bronze: 100,  silver: 300, gold: 500  },
   typing:   { bronze: 40,   silver: 70,  gold: 100  },
+  mrts:     { bronze: 100,  silver: 350, gold: 800  },
+  runsnake: { bronze: 10,   silver: 25,  gold: 50   },
+  gravflip: { bronze: 10,   silver: 25,  gold: 50   },
+  memseq:   { bronze: 5,    silver: 10,  gold: 16   },
 }
 
-let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null }
-let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null }
+let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null }
+let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null }
 
 const ARAV_NAMES = ['arav','aravthegoat','arav:)','ARAV','ARAVTHEGOAT']
 
 async function fetchAuthorScores() {
-  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing']) {
+  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq']) {
     try {
       const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`)
       if (rows && rows.length > 0) authorScores[game] = rows[0].score
@@ -465,6 +485,10 @@ const LB_TABS = [
   { id: 'lb-tab-26', game: 'orbit',        label: 'Orbit',        color: '#34d399'  },
   { id: 'lb-tab-28', game: 'parkour',      label: 'Parkour',      color: '#fb923c'  },
   { id: 'lb-tab-29', game: 'qblaster',    label: 'Blaster',      color: '#e879f9'  },
+  { id: 'lb-tab-30', game: 'mrts',        label: 'Micro RTS',    color: '#60a5fa'  },
+  { id: 'lb-tab-31', game: 'runsnake',    label: 'Run Snake',    color: '#4ade80'  },
+  { id: 'lb-tab-32', game: 'gravflip',    label: 'Grav Flip',    color: '#f472b6'  },
+  { id: 'lb-tab-33', game: 'memseq',      label: 'Memory',       color: '#a78bfa'  },
 ]
 
 window.switchLbTab = function(game) {
@@ -581,6 +605,10 @@ const SCORE_COLORS = {
   pulse: '#fbbf24', orbit: '#34d399', parkour: '#fb923c',
   gravity: 'var(--accent)',
   typing:  '#34d399',
+  mrts:     '#60a5fa',
+  runsnake: '#4ade80',
+  gravflip: '#f472b6',
+  memseq:   '#a78bfa',
 }
 
 window.openSubmit = function(game) {
@@ -608,6 +636,10 @@ window.openSubmit = function(game) {
   else if (game === 'orbit')        score = window._g26Score  || 0
   else if (game === 'parkour')      score = window._g28Score  || 0
   else if (game === 'qblaster')     score = window._g29Score  || 0
+  else if (game === 'mrts')         score = window._g30Score  || 0
+  else if (game === 'runsnake')     score = window._g31Score  || 0
+  else if (game === 'gravflip')     score = window._g32Score  || 0
+  else if (game === 'memseq')       score = window._g33Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -726,6 +758,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
