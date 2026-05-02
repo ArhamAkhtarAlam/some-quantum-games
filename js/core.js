@@ -153,7 +153,7 @@ const GAME_SLUGS = {
   'runaway-snake':    31,
   'gravity-flipper':  32,
   'memory-seq':       33,
-  'wave-dash':        34,
+  'manual-sort':      34,
 }
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
@@ -309,16 +309,16 @@ const MEDALS = {
   runsnake: { bronze: 10,   silver: 25,  gold: 50   },
   gravflip: { bronze: 10,   silver: 25,  gold: 50   },
   memseq:   { bronze: 5,    silver: 10,  gold: 16   },
-  wavedash: { bronze: 30,   silver: 100, gold: 250  },
+  manualsort: { bronze: 1, silver: 700, gold: 850, author: 930 },
 }
 
-let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, wavedash: null }
-let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, wavedash: null }
+let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null }
+let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null }
 
 const ARAV_NAMES = ['arav','aravthegoat','arav:)','ARAV','ARAVTHEGOAT']
 
 async function fetchAuthorScores() {
-  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq','wavedash']) {
+  for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq','manualsort']) {
     try {
       const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`)
       if (rows && rows.length > 0 && rows[0].score > 0) authorScores[game] = rows[0].score
@@ -494,7 +494,7 @@ const LB_TABS = [
   { id: 'lb-tab-31', game: 'runsnake',    label: 'Run Snake',    color: '#4ade80'  },
   { id: 'lb-tab-32', game: 'gravflip',    label: 'Grav Flip',    color: '#f472b6'  },
   { id: 'lb-tab-33', game: 'memseq',      label: 'Memory',       color: '#a78bfa'  },
-  { id: 'lb-tab-34', game: 'wavedash',    label: 'Wave Dash',    color: '#f59e0b'  },
+  { id: 'lb-tab-34', game: 'manualsort',  label: 'Manual Sort',  color: '#4a7c59'  },
 ]
 
 window.switchLbTab = function(game) {
@@ -615,7 +615,7 @@ const SCORE_COLORS = {
   runsnake: '#4ade80',
   gravflip: '#f472b6',
   memseq:   '#a78bfa',
-  wavedash: '#f59e0b',
+  manualsort: '#4a7c59',
 }
 
 window.openSubmit = function(game) {
@@ -647,7 +647,7 @@ window.openSubmit = function(game) {
   else if (game === 'runsnake')     score = window._g31Score  || 0
   else if (game === 'gravflip')     score = window._g32Score  || 0
   else if (game === 'memseq')       score = window._g33Score  || 0
-  else if (game === 'wavedash')     score = window._g34Score  || 0
+  else if (game === 'manualsort')   score = window._g34Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -766,7 +766,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', wavedash:'g34-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')

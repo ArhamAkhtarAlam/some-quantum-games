@@ -1,29 +1,21 @@
 // ═══════════════════════════════════════════════════════
-//  GAME 34 — WAVE DASH
-//  Hold to go up, release to go down. Navigate the
-//  quantum-generated corridor. GD wave gamemode vibes.
+//  GAME 34 — MANUAL SORT
+//  Click a bar to select it, click another to swap.
+//  Timer starts on your first swap. Sort ascending.
 // ═══════════════════════════════════════════════════════
-const G34_WAVE_SPD = 245   // vertical speed px/s
-const G34_PR       = 8     // player half-size
 
 const G34 = {
   active: false,
-  y: 0,
-  holding: false,
-  score: 0,          // blocks = floor(scrollX / 80)
-  scrollX: 0,
-  scrollAcc: 0,
-  speed: 195,        // horizontal px/s (increases over time)
-  gapH: 132,         // corridor gap height (shrinks slowly)
-  wallBuf: [],       // { cy, gapH } per screen column
-  wallGenCy: 0,
-  wallGenTarget: 0,
-  wallGenTimer: 0,
-  trail: [],         // last N {x,y} positions
-  cx: 0,             // fixed player screen x
-  shake: 0,
-  grace: 0,     // countdown seconds before collision is live
-  raf: null, lastTime: 0,
+  bars: [],
+  n: 10,
+  selected: -1,
+  moves: 0,
+  timeMs: 0,
+  started: false,
+  sorted: false,
+  bestMs: null,
+  raf: null,
+  lastTime: 0,
 }
 window._g34Score = 0
 
@@ -36,240 +28,194 @@ function _g34C() {
 function stopGame34() {
   G34.active = false
   if (G34.raf) { cancelAnimationFrame(G34.raf); G34.raf = null }
-  document.removeEventListener('keydown',  _g34KD)
-  document.removeEventListener('keyup',    _g34KU)
-  _g34C().removeEventListener('mousedown', _g34MD)
-  _g34C().removeEventListener('mouseup',   _g34MU)
-  _g34C().removeEventListener('touchstart',_g34TD)
-  _g34C().removeEventListener('touchend',  _g34TU)
+  const c = _g34C()
+  if (c) {
+    c.removeEventListener('click',    _g34Click)
+    c.removeEventListener('touchend', _g34Touch)
+  }
 }
 window.stopGame34 = stopGame34
 
-function _g34KD(e) { if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') { e.preventDefault(); G34.holding = true } }
-function _g34KU(e) { if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') { e.preventDefault(); G34.holding = false } }
-function _g34MD() { G34.holding = true }
-function _g34MU() { G34.holding = false }
-function _g34TD(e) { e.preventDefault(); G34.holding = true }
-function _g34TU(e) { e.preventDefault(); G34.holding = false }
-
-async function initGame34() {
+function initGame34() {
   stopGame34()
   _g34Canvas = null
   document.getElementById('g34-over').classList.remove('show')
-  document.getElementById('g34-score-hud').textContent = '0'
   document.getElementById('g34-overlay').style.display = 'flex'
-  await initCurby()
+  initCurby()
 }
 
-window.startWaveDash = function() {
+function _g34GenBars(n) {
+  const vals = new Set()
+  while (vals.size < n) vals.add(1 + qRandInt(999))
+  const arr = [...vals]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = qRandInt(i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+function _g34IsSorted(arr) {
+  for (let i = 1; i < arr.length; i++) if (arr[i] < arr[i - 1]) return false
+  return true
+}
+
+window.startManualSort = function(n) {
   SFX.resume(); SFX.click()
+  G34.n = n || 10
   const c = _g34C()
   c.width  = c.parentElement.clientWidth
   c.height = c.parentElement.clientHeight
   document.getElementById('g34-overlay').style.display = 'none'
 
-  const w = c.width, h = c.height
-  G34.active    = true
-  G34.y         = h / 2
-  G34.holding   = false
-  G34.score     = 0
-  G34.scrollX   = 0
-  G34.scrollAcc = 0
-  G34.speed     = 195
-  G34.gapH      = 132
-  G34.shake     = 0
-  G34.grace     = 3.0
-  G34.trail     = []
-  G34.cx        = Math.floor(w * 0.22)
+  G34.bars     = _g34GenBars(G34.n)
+  G34.selected = -1
+  G34.moves    = 0
+  G34.timeMs   = 0
+  G34.started  = false
+  G34.sorted   = false
+  G34.active   = true
 
-  // Init wall buffer: first 160px straight, then generated
-  G34.wallBuf       = []
-  G34.wallGenCy     = h / 2
-  G34.wallGenTarget = h / 2
-  G34.wallGenTimer  = 0
-  for (let x = 0; x < 160; x++) G34.wallBuf.push({ cy: h / 2, gapH: G34.gapH })
-  g34GenCols(w + 200 - 160, h)  // fill rest of buffer
+  document.getElementById('g34-moves-hud').textContent = '0'
+  document.getElementById('g34-time-hud').textContent  = '00:00.00'
+  document.getElementById('g34-best-hud').textContent  = G34.bestMs !== null ? _g34FmtTime(G34.bestMs) : '--'
 
-  document.getElementById('g34-score-hud').textContent = '0'
-  document.addEventListener('keydown',   _g34KD)
-  document.addEventListener('keyup',     _g34KU)
-  c.addEventListener('mousedown',  _g34MD)
-  c.addEventListener('mouseup',    _g34MU)
-  c.addEventListener('touchstart', _g34TD, { passive: false })
-  c.addEventListener('touchend',   _g34TU, { passive: false })
+  c.addEventListener('click',    _g34Click)
+  c.addEventListener('touchend', _g34Touch, { passive: false })
 
   G34.lastTime = performance.now()
   G34.raf = requestAnimationFrame(g34Loop)
 }
 
-function g34GenCols(n, h) {
-  for (let i = 0; i < n; i++) {
-    G34.wallGenTimer--
-    if (G34.wallGenTimer <= 0) {
-      const margin = G34.gapH / 2 + 18
-      G34.wallGenTarget = margin + qRandInt(Math.max(1, Math.floor(h - margin * 2)))
-      G34.wallGenTimer  = 55 + qRandInt(110)
-    }
-    G34.wallGenCy += (G34.wallGenTarget - G34.wallGenCy) * 0.032
-    G34.wallBuf.push({ cy: G34.wallGenCy, gapH: G34.gapH })
+function _g34HitIdx(clientX, c) {
+  const rect = c.getBoundingClientRect()
+  const x    = (clientX - rect.left) * (c.width / rect.width)
+  return Math.max(0, Math.min(G34.n - 1, Math.floor(x / (c.width / G34.n))))
+}
+
+function _g34Click(e) {
+  if (!G34.active || G34.sorted) return
+  _g34TrySelect(_g34HitIdx(e.clientX, _g34C()))
+}
+
+function _g34Touch(e) {
+  if (!G34.active || G34.sorted) return
+  e.preventDefault()
+  _g34TrySelect(_g34HitIdx(e.changedTouches[0].clientX, _g34C()))
+}
+
+function _g34TrySelect(idx) {
+  if (G34.selected === -1) {
+    G34.selected = idx
+    SFX.click()
+  } else if (G34.selected === idx) {
+    G34.selected = -1
+  } else {
+    if (!G34.started) { G34.started = true; G34.lastTime = performance.now() }
+    ;[G34.bars[G34.selected], G34.bars[idx]] = [G34.bars[idx], G34.bars[G34.selected]]
+    G34.moves++
+    document.getElementById('g34-moves-hud').textContent = G34.moves
+    G34.selected = -1
+    SFX.coin()
+    if (_g34IsSorted(G34.bars)) G34.sorted = true
   }
+}
+
+function _g34FmtTime(ms) {
+  const cs = Math.floor(ms / 10) % 100
+  const s  = Math.floor(ms / 1000) % 60
+  const m  = Math.floor(ms / 60000)
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`
 }
 
 function g34Loop(ts) {
   if (!G34.active) return
-  const dt = Math.min((ts - G34.lastTime) / 1000, 0.05)
+  const dt = Math.min((ts - G34.lastTime) / 1000, 0.1)
   G34.lastTime = ts
 
-  const c = _g34C()
-  const w = c.width, h = c.height
-
-  // Grace period — count down, freeze scroll, no collision
-  if (G34.grace > 0) {
-    G34.grace -= dt
-    // still draw the frozen corridor so player can see layout
-    const ctx = c.getContext('2d')
-    g34Draw(ctx, w, h)
-    // countdown text
-    ctx.textAlign = 'center'
-    const label = G34.grace > 2 ? '3' : G34.grace > 1 ? '2' : G34.grace > 0.25 ? '1' : 'GO!'
-    const alpha = G34.grace > 0.25 ? 1 : G34.grace / 0.25
-    ctx.globalAlpha = alpha
-    ctx.font = 'bold 72px monospace'
-    ctx.fillStyle = '#fbbf24'
-    ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 24
-    ctx.fillText(label, w / 2, h / 2 + 24)
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.textAlign = 'left'
-    G34.raf = requestAnimationFrame(g34Loop)
-    return
+  if (G34.started && !G34.sorted) {
+    G34.timeMs += dt * 1000
+    document.getElementById('g34-time-hud').textContent = _g34FmtTime(G34.timeMs)
   }
 
-  // Scroll
-  G34.scrollAcc += G34.speed * dt
-  const px = Math.floor(G34.scrollAcc)
-  if (px > 0) {
-    G34.scrollAcc -= px
-    G34.scrollX   += px
-    G34.wallBuf.splice(0, px)
-    // Slowly shrink gap and speed up
-    G34.gapH  = Math.max(62, G34.gapH - px * 0.003)
-    G34.speed = Math.min(380, 195 + G34.scrollX * 0.018)
-    g34GenCols(px, h)
-  }
+  if (G34.sorted) { endGame34(); return }
 
-  // Update score
-  const newScore = Math.floor(G34.scrollX / 80)
-  if (newScore !== G34.score) {
-    G34.score = newScore
-    document.getElementById('g34-score-hud').textContent = G34.score
-  }
-
-  // Player vertical movement
-  const vy = G34.holding ? -G34_WAVE_SPD : G34_WAVE_SPD
-  G34.y += vy * dt
-  G34.y  = Math.max(G34_PR, Math.min(h - G34_PR, G34.y))
-
-  // Trail
-  G34.trail.push({ x: G34.cx, y: G34.y })
-  if (G34.trail.length > 38) G34.trail.shift()
-
-  // Collision check at player x
-  const wallIdx = Math.min(G34.cx, G34.wallBuf.length - 1)
-  const wall    = G34.wallBuf[wallIdx]
-  const topKill = wall.cy - wall.gapH / 2 + G34_PR
-  const botKill = wall.cy + wall.gapH / 2 - G34_PR
-  if (G34.y <= topKill || G34.y >= botKill) { endGame34(); return }
-
-  // ─── Draw ───
-  const ctx = c.getContext('2d')
-  g34Draw(ctx, w, h)
+  g34Draw()
   G34.raf = requestAnimationFrame(g34Loop)
 }
 
-function g34Draw(ctx, w, h) {
-  ctx.save()
+function g34Draw() {
+  const c   = _g34C()
+  const ctx = c.getContext('2d')
+  const w   = c.width, h = c.height
+  const n   = G34.n
 
-  if (G34.shake > 0) {
-    ctx.translate((Math.random() - 0.5) * G34.shake * 6, (Math.random() - 0.5) * G34.shake * 6)
-    G34.shake = Math.max(0, G34.shake - 0.016 * 5)
-  }
-
-  ctx.fillStyle = '#07090f'
+  ctx.fillStyle = '#1a1f2e'
   ctx.fillRect(0, 0, w, h)
 
-  ctx.fillStyle = '#111827'
-  ctx.beginPath()
-  ctx.moveTo(0, 0)
-  for (let x = 0; x < w; x += 2) {
-    const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
-    ctx.lineTo(x, entry.cy - entry.gapH / 2)
-  }
-  ctx.lineTo(w, 0)
-  ctx.closePath()
-  ctx.fill()
+  const barW   = w / n
+  const gap    = Math.max(1, Math.floor(barW * 0.12))
+  const maxVal = Math.max(...G34.bars)
+  const labelH = n <= 30 ? 26 : 0
+  const areaH  = h - labelH - 8
+  const bw     = Math.floor(barW - gap)
 
-  ctx.beginPath()
-  ctx.moveTo(0, h)
-  for (let x = 0; x < w; x += 2) {
-    const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
-    ctx.lineTo(x, entry.cy + entry.gapH / 2)
-  }
-  ctx.lineTo(w, h)
-  ctx.closePath()
-  ctx.fill()
+  for (let i = 0; i < n; i++) {
+    const val   = G34.bars[i]
+    const bh    = Math.max(4, Math.floor((val / maxVal) * (areaH - 10)))
+    const x     = Math.floor(i * barW + gap / 2)
+    const y     = areaH - bh + 4
+    const isSel = i === G34.selected
 
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  for (let x = 0; x < w; x += 2) {
-    const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
-    const y = entry.cy - entry.gapH / 2
-    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-  }
-  ctx.strokeStyle = '#3b82f6'; ctx.stroke()
+    // Bar glow for selected
+    if (isSel) {
+      ctx.fillStyle = 'rgba(245,158,11,0.15)'
+      ctx.fillRect(x - 2, 0, bw + 4, areaH + 4)
+    }
 
-  ctx.beginPath()
-  for (let x = 0; x < w; x += 2) {
-    const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
-    const y = entry.cy + entry.gapH / 2
-    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-  }
-  ctx.strokeStyle = '#3b82f6'; ctx.stroke()
+    ctx.fillStyle = isSel ? '#f59e0b' : '#4a7c59'
+    const r = Math.min(3, bw / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + bw - r, y)
+    ctx.quadraticCurveTo(x + bw, y, x + bw, y + r)
+    ctx.lineTo(x + bw, areaH + 4)
+    ctx.lineTo(x, areaH + 4)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+    ctx.closePath()
+    ctx.fill()
 
-  for (let i = 0; i < G34.trail.length; i++) {
-    const t = i / G34.trail.length
-    const p = G34.trail[i]
-    const r = G34_PR * 0.55 * t
-    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, r), 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(251,191,36,${t * 0.7})`; ctx.fill()
+    if (n <= 30) {
+      ctx.fillStyle = isSel ? '#fbbf24' : '#6aab7c'
+      ctx.font = `${Math.max(9, Math.min(13, bw - 3))}px monospace`
+      ctx.textAlign = 'center'
+      ctx.fillText(val, x + bw / 2, h - 6)
+    }
   }
 
-  const angle = Math.atan2(G34.holding ? -G34_WAVE_SPD : G34_WAVE_SPD, G34.speed)
-  ctx.save()
-  ctx.translate(G34.cx, G34.y)
-  ctx.rotate(angle)
+  // Selection indicator triangle at top
+  if (G34.selected !== -1) {
+    const x = (G34.selected + 0.5) * barW
+    ctx.fillStyle = '#f59e0b'
+    ctx.beginPath()
+    ctx.moveTo(x, 4)
+    ctx.lineTo(x - 7, 14)
+    ctx.lineTo(x + 7, 14)
+    ctx.closePath()
+    ctx.fill()
+  }
 
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, G34_PR * 2.5)
-  glow.addColorStop(0, '#fbbf2488'); glow.addColorStop(1, '#fbbf2400')
-  ctx.beginPath(); ctx.arc(0, 0, G34_PR * 2.5, 0, Math.PI * 2)
-  ctx.fillStyle = glow; ctx.fill()
-
-  ctx.beginPath()
-  ctx.moveTo(0, -G34_PR)
-  ctx.lineTo(G34_PR, 0)
-  ctx.lineTo(0, G34_PR)
-  ctx.lineTo(-G34_PR, 0)
-  ctx.closePath()
-  ctx.fillStyle = '#fbbf24'; ctx.fill()
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke()
-  ctx.restore()
-
-  ctx.restore()
+  ctx.textAlign = 'left'
 }
 
 function endGame34() {
-  SFX.die()
+  SFX.coin()
   stopGame34()
-  window._g34Score = G34.score
-  document.getElementById('g34-final-score').textContent = G34.score + ' blocks'
-  renderMedalDisplay('g34-medal-display', 'wavedash', G34.score)
+  if (G34.bestMs === null || G34.timeMs < G34.bestMs) G34.bestMs = G34.timeMs
+  const score = Math.max(0, 1000 - Math.floor(G34.timeMs / 100))
+  window._g34Score = score
+  document.getElementById('g34-final-score').textContent = _g34FmtTime(G34.timeMs) + ' · ' + G34.moves + ' swaps'
+  renderMedalDisplay('g34-medal-display', 'manualsort', score)
   document.getElementById('g34-over').classList.add('show')
 }
