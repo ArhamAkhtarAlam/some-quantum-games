@@ -15,6 +15,7 @@ const G31 = {
   score: 0,
   moveTimer: 0, movePeriod: 8,
   appleTimer: 0, appleMovePeriod: 4,
+  timeLeft: 60, lastTime: 0,
   raf: null,
 }
 window._g31Score = 0
@@ -50,7 +51,10 @@ window.startRunSnake = function() {
   G31.score = 0
   G31.moveTimer = 0; G31.appleTimer = 0
   G31.movePeriod = 8
+  G31.timeLeft = 60
+  G31.lastTime = performance.now()
   document.getElementById('g31-score-hud').textContent = '0'
+  document.getElementById('g31-timer-hud').textContent = '60'
   g31PlaceApple()
 
   G31.raf = requestAnimationFrame(g31Loop)
@@ -74,10 +78,13 @@ function g31MoveApple() {
   const dirs = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }]
   let best = null, bestDist = -1
   for (const d of dirs) {
-    const nx = G31.apple.x + d.x, ny = G31.apple.y + d.y
-    if (nx < 0 || ny < 0 || nx >= G31.gw || ny >= G31.gh) continue
+    const nx = ((G31.apple.x + d.x) + G31.gw) % G31.gw
+    const ny = ((G31.apple.y + d.y) + G31.gh) % G31.gh
     if (occupied.has(`${nx},${ny}`)) continue
-    const dist = Math.hypot(nx - head.x, ny - head.y)
+    // wrap-aware distance
+    const ddx = Math.min(Math.abs(nx - head.x), G31.gw - Math.abs(nx - head.x))
+    const ddy = Math.min(Math.abs(ny - head.y), G31.gh - Math.abs(ny - head.y))
+    const dist = Math.hypot(ddx, ddy)
     if (dist > bestDist) { bestDist = dist; best = { x: nx, y: ny } }
   }
   if (best) G31.apple = best
@@ -108,8 +115,16 @@ document.addEventListener('touchend', e => {
   }
 }, { passive: true })
 
-function g31Loop() {
+function g31Loop(ts) {
   if (!G31.active) return
+
+  // Real-time countdown
+  const dt = (ts - G31.lastTime) / 1000
+  G31.lastTime = ts
+  G31.timeLeft -= dt
+  if (G31.timeLeft <= 0) { endGame31(); return }
+  document.getElementById('g31-timer-hud').textContent = Math.ceil(G31.timeLeft)
+
   G31.moveTimer++
 
   if (G31.moveTimer >= G31.movePeriod) {
@@ -123,11 +138,11 @@ function g31Loop() {
     }
 
     const head = G31.snake[0]
-    const newHead = { x: head.x + G31.dir.x, y: head.y + G31.dir.y }
-
-    if (newHead.x < 0 || newHead.y < 0 || newHead.x >= G31.gw || newHead.y >= G31.gh) {
-      endGame31(); return
+    const newHead = {
+      x: ((head.x + G31.dir.x) + G31.gw) % G31.gw,
+      y: ((head.y + G31.dir.y) + G31.gh) % G31.gh,
     }
+
     for (let i = 0; i < G31.snake.length - 1; i++) {
       if (G31.snake[i].x === newHead.x && G31.snake[i].y === newHead.y) {
         endGame31(); return
@@ -144,6 +159,7 @@ function g31Loop() {
       document.getElementById('g31-score-hud').textContent = G31.score
       G31.movePeriod = Math.max(4, 8 - Math.floor(G31.score / 5))
       G31.appleMovePeriod = Math.max(2, 4 - Math.floor(G31.score / 8))
+      G31.timeLeft = Math.max(15, 60 - G31.score)
       g31PlaceApple()
       G31.appleTimer = 0
     }
@@ -170,6 +186,15 @@ function g31Loop() {
 
   ctx.fillStyle = '#ef4444'
   ctx.beginPath(); ctx.arc(ax, ay, gs / 2 - 2, 0, Math.PI * 2); ctx.fill()
+
+  // Timer bar along bottom
+  const maxTime = Math.max(15, 60 - (G31.score > 0 ? G31.score - 1 : 0))
+  const timerFrac = Math.max(0, G31.timeLeft / maxTime)
+  const timerColor = G31.timeLeft < 8 ? '#ef4444' : G31.timeLeft < 15 ? '#f97316' : '#4ade80'
+  ctx.fillStyle = '#1a2332'
+  ctx.fillRect(0, c.height - 4, c.width, 4)
+  ctx.fillStyle = timerColor
+  ctx.fillRect(0, c.height - 4, c.width * timerFrac, 4)
 
   // Snake
   for (let i = 0; i < G31.snake.length; i++) {

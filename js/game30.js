@@ -7,7 +7,7 @@ const G30 = {
   active: false,
   px: 0, py: 0, ptx: 0, pty: 0,
   pHp: 10, pMaxHp: 10,
-  pRange: 120, pAtkCd: 0, pAtkCdMax: 55,
+  pRange: 95, pAtkCd: 0, pAtkCdMax: 68,
   pSpeed: 160,
   enemies: [], bullets: [],
   score: 0, wave: 0,
@@ -46,7 +46,7 @@ window.startRTS = function() {
   G30.pAtkCd = 0
   G30.enemies = []; G30.bullets = []
   G30.score = 0; G30.wave = 0
-  G30.betweenWaves = true; G30.waveTimer = 120
+  G30.betweenWaves = true; G30.waveTimer = 90
   G30.lastTime = performance.now()
 
   c.onclick = function(e) {
@@ -63,7 +63,7 @@ function g30SpawnWave() {
   G30.wave++
   const c = document.getElementById('g30-canvas')
   const w = c.width, h = c.height
-  const count = 3 + G30.wave * 2
+  const count = 5 + G30.wave * 2
   document.getElementById('g30-wave-hud').textContent = `Wave ${G30.wave}`
   for (let i = 0; i < count; i++) {
     const side = qRandInt(4)
@@ -72,11 +72,11 @@ function g30SpawnWave() {
     else if (side === 1) { ex = w + 24; ey = qRandInt(h) }
     else if (side === 2) { ex = qRandInt(w); ey = h + 24 }
     else                 { ex = -24; ey = qRandInt(h) }
-    const big = qRandInt(3) === 0
+    const big = qRandInt(5) < 2
     G30.enemies.push({
       x: ex, y: ey,
       hp: big ? 4 : 1, maxHp: big ? 4 : 1,
-      speed: big ? 55 : 90 + G30.wave * 5,
+      speed: big ? 72 : 115 + G30.wave * 9,
       r: big ? 14 : 9,
       atk: big ? 2 : 1,
       atkCd: 0, atkCdMax: big ? 80 : 55,
@@ -102,7 +102,7 @@ function g30Loop(ts) {
   } else if (G30.enemies.every(e => e.dead)) {
     G30.betweenWaves = true
     G30.waveTimer = 90
-    G30.pHp = Math.min(G30.pMaxHp, G30.pHp + 2)
+    G30.pHp = Math.min(G30.pMaxHp, G30.pHp + 1)
     document.getElementById('g30-hp-hud').textContent = `${G30.pHp} / ${G30.pMaxHp}`
     SFX.coin()
   }
