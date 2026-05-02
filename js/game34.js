@@ -22,6 +22,7 @@ const G34 = {
   trail: [],         // last N {x,y} positions
   cx: 0,             // fixed player screen x
   shake: 0,
+  grace: 0,     // countdown seconds before collision is live
   raf: null, lastTime: 0,
 }
 window._g34Score = 0
@@ -77,6 +78,7 @@ window.startWaveDash = function() {
   G34.speed     = 195
   G34.gapH      = 132
   G34.shake     = 0
+  G34.grace     = 3.0
   G34.trail     = []
   G34.cx        = Math.floor(w * 0.22)
 
@@ -121,6 +123,26 @@ function g34Loop(ts) {
   const c = _g34C()
   const w = c.width, h = c.height
 
+  // Grace period — count down, freeze scroll, no collision
+  if (G34.grace > 0) {
+    G34.grace -= dt
+    // still draw the frozen corridor so player can see layout
+    const ctx = c.getContext('2d')
+    g34Draw(ctx, w, h)
+    // countdown text
+    ctx.textAlign = 'center'
+    const label = G34.grace > 2 ? '3' : G34.grace > 1 ? '2' : G34.grace > 0.25 ? '1' : 'GO!'
+    const alpha = G34.grace > 0.25 ? 1 : G34.grace / 0.25
+    ctx.globalAlpha = alpha
+    ctx.font = 'bold 72px monospace'
+    ctx.fillStyle = '#fbbf24'
+    ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 24
+    ctx.fillText(label, w / 2, h / 2 + 24)
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.textAlign = 'left'
+    G34.raf = requestAnimationFrame(g34Loop)
+    return
+  }
+
   // Scroll
   G34.scrollAcc += G34.speed * dt
   const px = Math.floor(G34.scrollAcc)
@@ -159,20 +181,22 @@ function g34Loop(ts) {
 
   // ─── Draw ───
   const ctx = c.getContext('2d')
+  g34Draw(ctx, w, h)
+  G34.raf = requestAnimationFrame(g34Loop)
+}
+
+function g34Draw(ctx, w, h) {
   ctx.save()
 
-  // Shake on near-miss (unused — only on death)
   if (G34.shake > 0) {
     ctx.translate((Math.random() - 0.5) * G34.shake * 6, (Math.random() - 0.5) * G34.shake * 6)
-    G34.shake = Math.max(0, G34.shake - dt * 5)
+    G34.shake = Math.max(0, G34.shake - 0.016 * 5)
   }
 
   ctx.fillStyle = '#07090f'
   ctx.fillRect(0, 0, w, h)
 
-  // Draw corridor walls as filled polygons
   ctx.fillStyle = '#111827'
-  // Top wall
   ctx.beginPath()
   ctx.moveTo(0, 0)
   for (let x = 0; x < w; x += 2) {
@@ -183,7 +207,6 @@ function g34Loop(ts) {
   ctx.closePath()
   ctx.fill()
 
-  // Bottom wall
   ctx.beginPath()
   ctx.moveTo(0, h)
   for (let x = 0; x < w; x += 2) {
@@ -194,9 +217,7 @@ function g34Loop(ts) {
   ctx.closePath()
   ctx.fill()
 
-  // Wall edge glow lines
   ctx.lineWidth = 2
-  // Top edge
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
@@ -205,7 +226,6 @@ function g34Loop(ts) {
   }
   ctx.strokeStyle = '#3b82f6'; ctx.stroke()
 
-  // Bottom edge
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const entry = G34.wallBuf[Math.min(x, G34.wallBuf.length - 1)]
@@ -214,29 +234,24 @@ function g34Loop(ts) {
   }
   ctx.strokeStyle = '#3b82f6'; ctx.stroke()
 
-  // Trail
   for (let i = 0; i < G34.trail.length; i++) {
-    const t   = i / G34.trail.length
-    const p   = G34.trail[i]
-    const r   = G34_PR * 0.55 * t
-    const alpha = t * 0.7
+    const t = i / G34.trail.length
+    const p = G34.trail[i]
+    const r = G34_PR * 0.55 * t
     ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, r), 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(251,191,36,${alpha})`; ctx.fill()
+    ctx.fillStyle = `rgba(251,191,36,${t * 0.7})`; ctx.fill()
   }
 
-  // Player diamond
   const angle = Math.atan2(G34.holding ? -G34_WAVE_SPD : G34_WAVE_SPD, G34.speed)
   ctx.save()
   ctx.translate(G34.cx, G34.y)
   ctx.rotate(angle)
 
-  // Outer glow
   const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, G34_PR * 2.5)
   glow.addColorStop(0, '#fbbf2488'); glow.addColorStop(1, '#fbbf2400')
   ctx.beginPath(); ctx.arc(0, 0, G34_PR * 2.5, 0, Math.PI * 2)
   ctx.fillStyle = glow; ctx.fill()
 
-  // Diamond shape
   ctx.beginPath()
   ctx.moveTo(0, -G34_PR)
   ctx.lineTo(G34_PR, 0)
@@ -248,7 +263,6 @@ function g34Loop(ts) {
   ctx.restore()
 
   ctx.restore()
-  G34.raf = requestAnimationFrame(g34Loop)
 }
 
 function endGame34() {
