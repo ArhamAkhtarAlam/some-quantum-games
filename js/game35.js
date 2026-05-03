@@ -145,18 +145,18 @@ function g35GenCols(n, h) {
     G35.wallGenTimer--
     if (G35.wallGenTimer <= 0) {
       const margin = G35.gapH / 2 + 22
-      // Gradually expand how far from center targets can go
-      const progress = Math.min(1, G35.wallGenDist / 2200)
-      const spread   = (0.10 + progress * 0.38) * h
+      const progress = Math.min(1, G35.wallGenDist / 2500)
+      const spread   = (0.10 + progress * 0.30) * h
       const lo = Math.max(margin, h / 2 - spread)
       const hi = Math.min(h - margin, h / 2 + spread)
       G35.wallGenTarget = lo + qRandInt(Math.max(1, Math.floor(hi - lo)))
-      G35.wallGenTimer  = 90 + qRandInt(160)
+      G35.wallGenTimer  = 110 + qRandInt(180)  // longer flat sections = more GD-like
     }
-    // Velocity-based smoothing — no sharp corners, naturally round curves
-    G35.wallGenVel += (G35.wallGenTarget - G35.wallGenCy) * 0.0006
-    G35.wallGenVel *= 0.93
-    G35.wallGenCy  += G35.wallGenVel
+    // Constant-speed movement toward target — creates diagonal ramps + flat corners
+    // Cap at 0.50px/col so player (255px/s) always outruns wall at any speed
+    const dist = G35.wallGenTarget - G35.wallGenCy
+    const step = Math.min(Math.abs(dist), 0.50)
+    G35.wallGenCy += Math.sign(dist) * step
     G35.wallBuf.push({ cy: G35.wallGenCy, gapH: G35.gapH })
   }
 }
@@ -194,8 +194,8 @@ function g35Loop(ts) {
     G35.scrollAcc -= px
     G35.scrollX   += px
     G35.wallBuf.splice(0, px)
-    G35.gapH  = Math.max(72, G35.gapH - px * 0.0045)
-    G35.speed = Math.min(420, 150 + G35.scrollX * 0.022)
+    G35.gapH  = Math.max(88, G35.gapH - px * 0.003)
+    G35.speed = Math.min(380, 150 + G35.scrollX * 0.018)
     g35GenCols(px, h)
   }
 

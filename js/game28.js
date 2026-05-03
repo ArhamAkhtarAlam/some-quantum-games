@@ -165,7 +165,7 @@ function g28Reset() {
     // scrollX in TILE units
     scrollX: 0,
     // player position in TILE units
-    p: { tx: 1.5, ty: G28_ROWS - 4, vtx: 0, vty: 0, onGround: false, jumping: false, jumpCool: 0, facing: 1, runFrame: 0 },
+    p: { tx: 1.5, ty: G28_ROWS - 4, vtx: 0, vty: 0, onGround: false, jumping: false, jumpCool: 0, jumpsLeft: 2, jumpWasUp: false, facing: 1, runFrame: 0 },
     grid: null,
     particles: [], msgs: [], screenShake: 0,
   }
@@ -185,7 +185,7 @@ function g28SpawnPlayer() {
       if (g[r][c] === '1' && g[r-1][c] === '0') {
         G28.p.tx = c + 0.1
         G28.p.ty = r - G28_PH
-        G28.p.vtx = 0; G28.p.vty = 0; G28.p.onGround = true; G28.p.jumping = false
+        G28.p.vtx = 0; G28.p.vty = 0; G28.p.onGround = true; G28.p.jumping = false; G28.p.jumpsLeft = 2; G28.p.jumpWasUp = false
         return
       }
     }
@@ -248,15 +248,17 @@ function g28Update() {
   else if (g28Keys.right)  { p.vtx =  G28_HSPD; p.facing =  1 }
   else                     { p.vtx *= 0.4 }
 
-  // ── jump ──
-  if (g28Keys.up && p.onGround && p.jumpCool <= 0) {
+  // ── jump (double jump) ──
+  if (g28Keys.up && !p.jumpWasUp && p.jumpsLeft > 0 && p.jumpCool <= 0) {
     SFX.jump()
-    p.vty = G28_JUMP
+    p.vty      = G28_JUMP
     p.onGround = false
     p.jumping  = true
     p.jumpCool = 8
+    p.jumpsLeft--
     g28SparksTile(p.tx, p.ty + G28_PH, '#38bdf8', 4)
   }
+  p.jumpWasUp = g28Keys.up
   if (p.jumpCool > 0) p.jumpCool--
 
   // ── gravity ──
@@ -271,7 +273,7 @@ function g28Update() {
   p.onGround = false
   p.ty += p.vty
   g28SolveY()
-  if (!wasOnGround && p.onGround) SFX.land()
+  if (!wasOnGround && p.onGround) { SFX.land(); p.jumpsLeft = 2 }
 
   if (p.onGround && Math.abs(p.vtx) > 0.02) p.runFrame += 0.2
 
