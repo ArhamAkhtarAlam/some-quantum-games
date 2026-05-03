@@ -26,6 +26,7 @@ window.initGame28 = function() {
   window.addEventListener('keydown', g28KD)
   window.addEventListener('keyup',   g28KU)
   g28Canvas.onmousedown  = () => { g28Keys.up = true }
+  g28Canvas.onmouseup    = () => { g28Keys.up = false }
   g28Canvas.ontouchstart = e => { e.preventDefault(); g28TouchStart(e) }
   g28Canvas.ontouchend   = e => { e.preventDefault(); g28TouchEnd(e) }
 

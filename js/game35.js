@@ -142,21 +142,28 @@ window.startWaveDash = function() {
 function g35GenCols(n, h) {
   for (let i = 0; i < n; i++) {
     G35.wallGenDist++
-    G35.wallGenTimer--
-    if (G35.wallGenTimer <= 0) {
-      const margin = G35.gapH / 2 + 22
-      const progress = Math.min(1, G35.wallGenDist / 2500)
-      const spread   = (0.10 + progress * 0.30) * h
-      const lo = Math.max(margin, h / 2 - spread)
-      const hi = Math.min(h - margin, h / 2 + spread)
-      G35.wallGenTarget = lo + qRandInt(Math.max(1, Math.floor(hi - lo)))
-      G35.wallGenTimer  = 110 + qRandInt(180)  // longer flat sections = more GD-like
+    const margin   = G35.gapH / 2 + 24
+    const progress = Math.min(1, G35.wallGenDist / 2400)
+    const spread   = (0.12 + progress * 0.28) * h
+    const lo       = Math.max(margin, h / 2 - spread)
+    const hi       = Math.min(h - margin, h / 2 + spread)
+    const step     = 0.55  // constant diagonal speed px/col
+
+    // Snap to target when within one step → immediately reverse to opposite half
+    if (Math.abs(G35.wallGenTarget - G35.wallGenCy) <= step) {
+      G35.wallGenCy = G35.wallGenTarget
+      const mid = (lo + hi) / 2
+      if (G35.wallGenCy <= mid) {
+        // currently low → go high
+        G35.wallGenTarget = mid + qRandInt(Math.max(1, Math.floor(hi - mid + 1)))
+      } else {
+        // currently high → go low
+        G35.wallGenTarget = lo + qRandInt(Math.max(1, Math.floor(mid - lo + 1)))
+      }
+    } else {
+      G35.wallGenCy += Math.sign(G35.wallGenTarget - G35.wallGenCy) * step
     }
-    // Constant-speed movement toward target — creates diagonal ramps + flat corners
-    // Cap at 0.50px/col so player (255px/s) always outruns wall at any speed
-    const dist = G35.wallGenTarget - G35.wallGenCy
-    const step = Math.min(Math.abs(dist), 0.50)
-    G35.wallGenCy += Math.sign(dist) * step
+
     G35.wallBuf.push({ cy: G35.wallGenCy, gapH: G35.gapH })
   }
 }
