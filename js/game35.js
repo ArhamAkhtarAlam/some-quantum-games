@@ -147,7 +147,7 @@ function g35GenCols(n, h) {
     const spread   = (0.12 + progress * 0.28) * h
     const lo       = Math.max(margin, h / 2 - spread)
     const hi       = Math.min(h - margin, h / 2 + spread)
-    const step     = 0.55  // constant diagonal speed px/col
+    const step     = G35_WAVE_SPD / G35.speed  // match player wave slope
 
     // Snap to target when within one step → immediately reverse to opposite half
     if (Math.abs(G35.wallGenTarget - G35.wallGenCy) <= step) {
