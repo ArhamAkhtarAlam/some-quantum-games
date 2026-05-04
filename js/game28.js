@@ -71,8 +71,8 @@ function g28TouchEnd(e) {
 
 // ─── level generation ──────────────────────────────────
 // Tile codes: 0=air  1=solid  3=lava  5=goal
-// Lava levels: every 3rd level starting at level 2 (0-indexed: 2,5,8…)
-function g28IsLavaLevel(lvl) { return lvl >= 2 && (lvl % 3 === 2) }
+function g28IsLavaLevel(lvl) { return false }
+function g28TimeLimit(lvl)   { return Math.max(480, 1500 - lvl * 40) }  // frames; 25s → 8s
 
 function g28GenLevel(lvl) {
   // use handcrafted level if one exists for this index
@@ -159,13 +159,16 @@ function g28Reset() {
     frameCount: 0,
     level: 0,
     levelTime: 0,
-    fade: 255,         // start fully visible (no initial fade-out)
+    timeLeft: g28TimeLimit(0),
+    coins: 0,
+    lives: 1,
+    extraJumps: 0,
+    bonusTime: 0,
+    fade: 255,
     fadeDir: 0,
     nextLevel: -1,
     dead: false,
-    // scrollX in TILE units
     scrollX: 0,
-    // player position in TILE units
     p: { tx: 1.5, ty: G28_ROWS - 4, vtx: 0, vty: 0, onGround: false, jumping: false, jumpCool: 0, jumpsLeft: 2, jumpWasUp: false, facing: 1, runFrame: 0 },
     grid: null,
     particles: [], msgs: [], screenShake: 0,
@@ -186,7 +189,7 @@ function g28SpawnPlayer() {
       if (g[r][c] === '1' && g[r-1][c] === '0') {
         G28.p.tx = c + 0.1
         G28.p.ty = r - G28_PH
-        G28.p.vtx = 0; G28.p.vty = 0; G28.p.onGround = true; G28.p.jumping = false; G28.p.jumpsLeft = 2; G28.p.jumpWasUp = false
+        G28.p.vtx = 0; G28.p.vty = 0; G28.p.onGround = true; G28.p.jumping = false; G28.p.jumpsLeft = 2 + G28.extraJumps; G28.p.jumpWasUp = false
         return
       }
     }
@@ -227,15 +230,9 @@ function g28Update() {
       G28.fadeDir = 0
       if (G28.dead) { g28Over(); return }
       if (G28.nextLevel >= 0) {
-        const bonus = Math.max(50, 600 - Math.floor(G28.levelTime / 60) * 8) + 200
-        G28.score += bonus
-        G28.level = G28.nextLevel; G28.nextLevel = -1
-        G28.levelTime = 0; G28.dead = false
-        G28.grid = g28GenLevel(G28.level)
-        g28SpawnPlayer()
-        G28.scrollX = 0
+        G28.level = G28.nextLevel   // nextLevel cleared in shop Continue
+        g28OpenShop(); return
       }
-      G28.fadeDir = 1   // fade back in
     }
     if (G28.fadeDir > 0 && G28.fade >= 255) { G28.fade = 255; G28.fadeDir = 0 }
     if (G28.fade < 100) return   // pause physics during transition
@@ -243,6 +240,10 @@ function g28Update() {
 
   const p = G28.p
   if (!p || G28.dead) return
+
+  // ── countdown timer ──
+  G28.timeLeft--
+  if (G28.timeLeft <= 0) { g28Die(); return }
 
   // ── horizontal ──
   if (g28Keys.left)        { p.vtx = -G28_HSPD; p.facing = -1 }
@@ -274,7 +275,7 @@ function g28Update() {
   p.onGround = false
   p.ty += p.vty
   g28SolveY()
-  if (!wasOnGround && p.onGround) { SFX.land(); p.jumpsLeft = 2 }
+  if (!wasOnGround && p.onGround) { SFX.land(); p.jumpsLeft = 2 + G28.extraJumps }
 
   if (p.onGround && Math.abs(p.vtx) > 0.02) p.runFrame += 0.2
 
@@ -336,6 +337,14 @@ function g28Die() {
   if (G28.playtest) { g28SpawnPlayer(); G28.scrollX = 0; return }
   if (G28.dead || G28.fadeDir !== 0) return
   SFX.die()
+  if (G28.lives > 1) {
+    G28.lives--
+    G28.screenShake = 12
+    G28.timeLeft = Math.min(G28.timeLeft + 600, g28TimeLimit(G28.level))
+    g28SpawnPlayer(); G28.scrollX = 0
+    G28.msgs.push({ text: '❤ 1UP used!', color: '#f87171', frames: 70, big: false })
+    return
+  }
   G28.dead = true; G28.screenShake = 16
   const p = G28.p
   for (let i = 0; i < 12; i++) {
@@ -348,11 +357,141 @@ function g28Die() {
 function g28Finish() {
   if (G28.fadeDir !== 0) return
   SFX.win()
-  const bonus = Math.max(50, 600 - Math.floor(G28.levelTime/60)*8) + 200
-  G28.msgs.push({ text: `LVL ${G28.level+1} ✓  +${bonus}`, color: '#fbbf24', frames: 90, big: true })
-  G28.nextLevel = G28.level + 1
+  const secsLeft = Math.ceil(G28.timeLeft / 60)
+  const bonus = 100 + secsLeft * 25
+  G28.score += bonus
+  G28.coins += secsLeft
   if (G28.score > G28.bestScore) G28.bestScore = G28.score
+  G28.msgs.push({ text: `LVL ${G28.level+1} ✓  +${bonus}  +${secsLeft}🪙`, color: '#fbbf24', frames: 90, big: true })
+  G28.nextLevel = G28.level + 1
   G28.fadeDir = -1
+}
+
+function g28OpenShop() {
+  const prev = document.getElementById('g28-shop')
+  if (prev) prev.remove()
+
+  const overlay = document.createElement('div')
+  overlay.id = 'g28-shop'
+  overlay.style.cssText = `
+    position:absolute;inset:0;z-index:998;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:monospace;color:#f1f5f9;gap:12px;
+    background:radial-gradient(ellipse at 50% 60%,#0a1628 0%,#030710 70%);
+  `
+
+  // starfield
+  const stars = document.createElement('canvas')
+  stars.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
+  const arena = document.getElementById('g28-arena')
+  stars.width = arena.clientWidth; stars.height = arena.clientHeight
+  const sc = stars.getContext('2d')
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random() * stars.width, y = Math.random() * stars.height
+    const r = Math.random() * 1.4
+    sc.beginPath(); sc.arc(x, y, r, 0, Math.PI*2)
+    sc.fillStyle = `rgba(255,255,255,${0.15 + Math.random()*0.6})`; sc.fill()
+  }
+  // gravity-well rings
+  const cx = stars.width * 0.5, cy = stars.height * 0.5
+  for (let r = 40; r < Math.max(stars.width, stars.height) * 0.9; r += 55) {
+    sc.beginPath(); sc.arc(cx, cy, r, 0, Math.PI*2)
+    sc.strokeStyle = `rgba(56,189,248,${0.06 - r*0.00005})`; sc.lineWidth = 1; sc.stroke()
+  }
+  overlay.appendChild(stars)
+
+  const inner = document.createElement('div')
+  inner.style.cssText = 'position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(360px,92vw);'
+
+  const title = document.createElement('div')
+  title.style.cssText = 'font-size:20px;font-weight:bold;color:#fbbf24;letter-spacing:3px;text-shadow:0 0 18px #fbbf2488;'
+  title.textContent = '★ LEVEL CLEAR'
+  inner.appendChild(title)
+
+  const sub = document.createElement('div')
+  sub.style.cssText = 'font-size:12px;color:#64748b;'
+  sub.textContent = `Next: Level ${G28.level + 1}  •  Time limit: ${Math.round(g28TimeLimit(G28.level) / 60)}s`
+  inner.appendChild(sub)
+
+  const coinEl = document.createElement('div')
+  coinEl.style.cssText = 'font-size:17px;color:#fbbf24;font-weight:bold;text-shadow:0 0 10px #fbbf2466;'
+  const renderCoins = () => { coinEl.textContent = `🪙 ${G28.coins} coins` }
+  renderCoins()
+  inner.appendChild(coinEl)
+
+  const grid = document.createElement('div')
+  grid.style.cssText = 'display:flex;flex-direction:column;gap:7px;width:100%;'
+
+  function makeItem(icon, label, desc, price, canBuy, onBuy) {
+    const row = document.createElement('div')
+    row.style.cssText = `display:flex;align-items:center;gap:10px;
+      background:rgba(15,23,42,0.85);border:1px solid #1e3a8a55;
+      border-radius:8px;padding:9px 12px;backdrop-filter:blur(4px);`
+    const info = document.createElement('div')
+    info.style.cssText = 'flex:1;'
+    info.innerHTML = `<div style="font-size:14px;font-weight:bold;">${icon} ${label}</div>
+      <div style="font-size:10px;color:#475569;margin-top:1px;">${desc}</div>`
+    const btn = document.createElement('button')
+    btn.classList.add('g28-shop-btn')
+    const refresh = () => {
+      const ok = canBuy() && G28.coins >= price
+      btn.style.cssText = `border:none;padding:5px 11px;border-radius:5px;
+        cursor:${ok ? 'pointer' : 'default'};font-family:monospace;font-size:12px;white-space:nowrap;
+        background:${ok ? '#1d4ed8' : '#1e293b'};color:${ok ? '#fff' : '#475569'};
+        box-shadow:${ok ? '0 0 8px #3b82f655' : 'none'};`
+      btn.textContent = `${price}🪙`
+    }
+    refresh()
+    btn.onclick = () => {
+      if (!canBuy() || G28.coins < price) return
+      G28.coins -= price; onBuy(); renderCoins()
+      overlay.querySelectorAll('.g28-shop-btn').forEach(b => b._refresh && b._refresh())
+    }
+    btn._refresh = refresh
+    row.append(info, btn); grid.appendChild(row)
+  }
+
+  const maxJumps = 4
+  makeItem('❤', 'Extra Life', `${G28.lives}/3 lives · respawn instead of game over`, 20,
+    () => G28.lives < 3, () => { G28.lives++ })
+
+  makeItem('⬆', `Extra Jump`, `${2 + G28.extraJumps}→${3 + G28.extraJumps} mid-air jumps (max ${maxJumps})`, 40,
+    () => G28.extraJumps < maxJumps - 2, () => { G28.extraJumps++ })
+
+  makeItem('⏱', '+10 seconds', 'Added to this next level\'s timer', 15,
+    () => true, () => { G28.bonusTime += 600 })
+
+  inner.appendChild(grid)
+
+  // Continue + Quit row
+  const btns = document.createElement('div')
+  btns.style.cssText = 'display:flex;gap:10px;width:100%;margin-top:4px;'
+
+  const quit = document.createElement('button')
+  quit.style.cssText = `flex:0 0 auto;background:#7f1d1d;border:none;color:#fca5a5;
+    padding:10px 18px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:13px;`
+  quit.textContent = '✕ End Run'
+  quit.onclick = () => { overlay.remove(); G28.active = false; g28Over() }
+  btns.appendChild(quit)
+
+  const cont = document.createElement('button')
+  cont.style.cssText = `flex:1;background:#15803d;border:none;color:#fff;padding:10px 0;
+    border-radius:8px;cursor:pointer;font-family:monospace;font-size:15px;font-weight:bold;
+    letter-spacing:1px;box-shadow:0 0 14px #16a34a66;`
+  cont.textContent = '▶ CONTINUE'
+  cont.onclick = () => {
+    overlay.remove()
+    G28.nextLevel = -1
+    G28.timeLeft = g28TimeLimit(G28.level) + G28.bonusTime; G28.bonusTime = 0
+    G28.levelTime = 0; G28.dead = false
+    G28.grid = g28GenLevel(G28.level)
+    g28SpawnPlayer(); G28.scrollX = 0
+    G28.fadeDir = 1
+  }
+  btns.appendChild(cont)
+  inner.appendChild(btns)
+  overlay.appendChild(inner)
+  arena.appendChild(overlay)
 }
 
 function g28SparksTile(tx, ty, col, n) {
@@ -522,15 +661,6 @@ function g28Draw() {
     }
   }
 
-  // lava glow from bottom on lava levels
-  if (G28.grid && g28IsLavaLevel(G28.level)) {
-    const lavaY = OY + (G28_ROWS - 2) * S
-    const lg = c.createLinearGradient(0, lavaY - S * 2, 0, lavaY)
-    lg.addColorStop(0, 'rgba(255,60,0,0)')
-    lg.addColorStop(1, `rgba(255,60,0,${0.18 * fa})`)
-    c.fillStyle = lg; c.fillRect(0, lavaY - S * 2, W, S * 2)
-  }
-
   c.restore()
 
   // fade overlay
@@ -539,19 +669,47 @@ function g28Draw() {
     c.fillRect(0, 0, W, H)
   }
 
+  // low-time urgency vignette
+  if (G28.timeLeft <= 300 && G28.timeLeft > 0 && !G28.dead) {
+    const urgency = 1 - G28.timeLeft / 300
+    const pulse = 0.5 + Math.sin(G28.frameCount * 0.25) * 0.4
+    const vg = c.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.8)
+    vg.addColorStop(0, 'rgba(0,0,0,0)')
+    vg.addColorStop(1, `rgba(220,38,38,${urgency * pulse * 0.45})`)
+    c.fillStyle = vg; c.fillRect(0, 0, W, H)
+  }
+
   // HUD
   c.font = 'bold 14px monospace'; c.textAlign = 'left'
   c.fillStyle = '#f1f5f9'; c.shadowColor = '#000'; c.shadowBlur = 4
-  const lvlTag = g28IsLavaLevel(G28.level) ? ' 🔥' : ''
-  c.fillText(`LVL ${G28.level + 1}${lvlTag}   ${G28.score.toLocaleString()} pts`, 10, 22)
+  c.fillText(`LVL ${G28.level + 1}   ${G28.score.toLocaleString()} pts`, 10, 22)
+  c.shadowBlur = 0
+  c.font = '11px monospace'; c.fillStyle = '#64748b'
+  const jumpLabel = G28.extraJumps > 0 ? `  ⬆×${2 + G28.extraJumps}` : ''
+  c.fillText(`BEST ${G28.bestScore}   🪙${G28.coins}${jumpLabel}`, 10, 38)
+
+  // Lives (right side, left-to-right)
+  c.textAlign = 'left'; c.font = 'bold 13px monospace'
+  for (let i = 0; i < 3; i++) {
+    c.fillStyle = i < G28.lives ? '#f87171' : '#334155'
+    c.fillText('❤', W - 68 + i * 22, 22)
+  }
+
+  // Countdown timer
+  const secsLeft = Math.ceil(G28.timeLeft / 60)
+  const timerColor = secsLeft <= 5 ? '#ef4444' : secsLeft <= 10 ? '#f59e0b' : '#4ade80'
+  c.fillStyle = timerColor
+  c.shadowColor = timerColor; c.shadowBlur = secsLeft <= 5 ? 14 : 0
+  c.font = `bold ${secsLeft <= 5 ? 16 : 14}px monospace`
+  c.textAlign = 'right'
+  c.fillText(`⏱ ${secsLeft}s`, W - 10, 38)
+  c.shadowBlur = 0; c.textAlign = 'left'
+
   if (G28.playtest) {
-    c.fillStyle = '#fb923c'; c.textAlign = 'right'
-    c.fillText('PLAYTEST — no death', W - 10, 22)
+    c.fillStyle = '#fb923c'; c.textAlign = 'right'; c.font = '11px monospace'
+    c.fillText('PLAYTEST — no death', W - 10, 54)
     c.textAlign = 'left'
   }
-  c.shadowBlur = 0
-  c.font = '11px monospace'; c.fillStyle = '#475569'
-  c.fillText('BEST ' + G28.bestScore, 10, 38)
 
   let my = H * 0.38
   for (const m of G28.msgs) {
