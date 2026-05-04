@@ -230,13 +230,14 @@ function g28Update() {
       G28.fadeDir = 0
       if (G28.dead) { g28Over(); return }
       if (G28.nextLevel >= 0) {
-        G28.level = G28.nextLevel   // nextLevel cleared in shop Continue
+        G28.level = G28.nextLevel
+        G28.nextLevel = -1
         g28OpenShop(); return
       }
     }
     if (G28.fadeDir > 0 && G28.fade >= 255) { G28.fade = 255; G28.fadeDir = 0 }
-    if (G28.fade < 100) return   // pause physics during transition
   }
+  if (G28.fade < 100) return   // pause physics when screen is dark (covers shop state too)
 
   const p = G28.p
   if (!p || G28.dead) return
@@ -374,7 +375,7 @@ function g28OpenShop() {
   const overlay = document.createElement('div')
   overlay.id = 'g28-shop'
   overlay.style.cssText = `
-    position:absolute;inset:0;z-index:998;overflow:hidden;
+    position:fixed;inset:0;z-index:9999;overflow:hidden;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     font-family:monospace;color:#f1f5f9;gap:12px;
     background:radial-gradient(ellipse at 50% 60%,#0a1628 0%,#030710 70%);
@@ -383,8 +384,7 @@ function g28OpenShop() {
   // starfield
   const stars = document.createElement('canvas')
   stars.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
-  const arena = document.getElementById('g28-arena')
-  stars.width = arena.clientWidth; stars.height = arena.clientHeight
+  stars.width = window.innerWidth; stars.height = window.innerHeight
   const sc = stars.getContext('2d')
   for (let i = 0; i < 120; i++) {
     const x = Math.random() * stars.width, y = Math.random() * stars.height
@@ -491,7 +491,7 @@ function g28OpenShop() {
   btns.appendChild(cont)
   inner.appendChild(btns)
   overlay.appendChild(inner)
-  arena.appendChild(overlay)
+  document.body.appendChild(overlay)
 }
 
 function g28SparksTile(tx, ty, col, n) {
