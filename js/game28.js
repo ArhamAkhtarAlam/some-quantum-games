@@ -356,7 +356,7 @@ function g28Die() {
 }
 
 function g28Finish() {
-  if (G28.fadeDir !== 0) return
+  if (G28.fadeDir !== 0 || G28.nextLevel >= 0) return
   SFX.win()
   const secsLeft = Math.ceil(G28.timeLeft / 60)
   const bonus = 100 + secsLeft * 25
