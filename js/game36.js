@@ -26,10 +26,14 @@ function _g36TU(e) { e.preventDefault(); _g36Holding = false }
 function _g36Press() {
   _g36Holding = true
   if (G36.mode === 'cube' && G36.onGround && G36.active && !G36.dead) {
-    G36.vy = G36_JUMP_V * G36.B * G36.gravDir
-    G36.onGround = false
-    SFX.jump()
+    _g36CubeJump()
   }
+}
+
+function _g36CubeJump() {
+  G36.vy = G36_JUMP_V * G36.B * G36.gravDir
+  G36.onGround = false
+  SFX.jump()
 }
 
 // ─── Stop ───────────────────────────────────────────────
@@ -128,10 +132,8 @@ function _g36BuildLevel() {
     ],
 
     pads: [
-      { bx: 36,  by: FLOOR-1, color: 'yellow' },  // launch over 4 spikes
-      { bx: 103, by: FLOOR-1, color: 'yellow' },  // launch over 4 spikes
-      { bx: 140, by: FLOOR-1, color: 'blue'   },  // flip gravity
-      { bx: 172, by: 1,       color: 'blue'   },  // flip back (ceiling in inverted = row 1)
+      { bx: 39,  by: FLOOR-1, color: 'yellow' },  // right before the 40–43 spike run
+      { bx: 104, by: FLOOR-1, color: 'yellow' },  // right before the 105–108 spike run
     ],
 
     modeChanges: [
@@ -145,7 +147,7 @@ function _g36BuildLevel() {
 
     gravChanges: [
       { bx: 140, dir: -1 },
-      { bx: 175, dir:  1 },
+      { bx: 172, dir:  1 },
     ],
   }
 }
@@ -174,9 +176,18 @@ const G36_TERM     = 18.0    // blocks/sec terminal velocity
 const G36_SHIP_THR = -22.0   // blocks/sec² thrust
 const G36_SHIP_GRV = 12.0    // blocks/sec² ship gravity
 const G36_SHIP_MAX = 14.0    // blocks/sec max ship speed
-const G36_WAVE_SPD = 10.0    // blocks/sec wave diagonal
-const G36_YPAD_V   = -22.0   // yellow pad launch (blocks/sec)
+const G36_WAVE_SPD = 8.0     // blocks/sec wave diagonal (45 degrees vs horizontal speed)
+const G36_YPAD_V   = -24.5   // yellow pad launch (blocks/sec)
 const G36_PR       = 0.35    // player half-size in blocks
+const G36_TRAIL_MAX = 34
+const G36_THEMES = [
+  { at: 0,   bg0:'#111827', bg1:'#0e7490', tile:'#164e63', edge:'#22d3ee', accent:'#00e5ff' },
+  { at: 60,  bg0:'#24111f', bg1:'#9a3412', tile:'#57231a', edge:'#fb923c', accent:'#ff6b35' },
+  { at: 100, bg0:'#06261f', bg1:'#047857', tile:'#064e3b', edge:'#34d399', accent:'#4ade80' },
+  { at: 140, bg0:'#20123a', bg1:'#6d28d9', tile:'#3b1f68', edge:'#c084fc', accent:'#a78bfa' },
+  { at: 175, bg0:'#082f49', bg1:'#0f766e', tile:'#164e63', edge:'#38bdf8', accent:'#22d3ee' },
+  { at: 210, bg0:'#2b0f1e', bg1:'#9f1239', tile:'#581c2c', edge:'#fb7185', accent:'#f43f5e' },
+]
 
 // ─── Start ──────────────────────────────────────────────
 window.startGDMix = function() {
@@ -200,6 +211,7 @@ window.startGDMix = function() {
     attempts:  (G36.attempts || 0) + 1,
     bestProg:  G36.bestProg || 0,
     progress:  0,
+    time:      0,
     mode:      'cube',
     gravDir:   1,
     cx:        Math.floor(c.width * 0.25),
@@ -208,6 +220,8 @@ window.startGDMix = function() {
     level:     _g36BuildLevel(),
     waveWalls: _g36BuildWaveWalls(),
     deathTimer: 0,
+    portalFlash: 0,
+    trail:     [],
     raf:       null,
     lastTime:  0,
     // track which mode/grav changes have fired
@@ -231,9 +245,12 @@ window.startGDMix = function() {
 
 // ─── Update ─────────────────────────────────────────────
 function _g36Update(dt) {
-  const g = G36, B = g.B, gd = g.gravDir
+  const g = G36, B = g.B
   const FLOOR_ROW = G36_ROWS - 1
   const PR = G36_PR * B
+
+  g.time += dt
+  if (g.portalFlash > 0) g.portalFlash = Math.max(0, g.portalFlash - dt)
 
   if (g.dead) {
     g.deathTimer -= dt
@@ -253,14 +270,21 @@ function _g36Update(dt) {
   for (const mc of g.level.modeChanges) {
     if (!g._mcFired[mc.bx] && bxNow >= mc.bx) {
       g._mcFired[mc.bx] = true
+      const wasMode = g.mode
       g.mode = mc.mode
+      g.portalFlash = 0.22
       if (mc.mode === 'ship') g.vy = 0
+      if (mc.mode === 'cube' && wasMode === 'ship') g.vy = Math.max(g.vy, 0)
+      SFX.whoosh()
     }
   }
   for (const gc of g.level.gravChanges) {
     if (!g._gcFired[gc.bx] && bxNow >= gc.bx) {
       g._gcFired[gc.bx] = true
       g.gravDir = gc.dir
+      g.vy = 0
+      g.portalFlash = 0.22
+      SFX.whoosh()
     }
   }
 
@@ -271,7 +295,7 @@ function _g36Update(dt) {
     const padY  = pad.by * B + B * 0.5
     if (Math.abs(g.worldX - padWX) < PR * 1.5 && Math.abs(g.y - padY) < B) {
       g._padFired[pad.bx] = true
-      if (pad.color === 'yellow') {
+      if (pad.color === 'yellow' && g.mode !== 'wave') {
         g.vy = G36_YPAD_V * B * g.gravDir
         g.onGround = false
         SFX.jump()
@@ -299,6 +323,7 @@ function _g36Update(dt) {
     } else {
       g.onGround = false
     }
+    if (_g36Holding && g.onGround) _g36CubeJump()
 
   } else if (g.mode === 'ship') {
     const thr = _g36Holding ? G36_SHIP_THR : G36_SHIP_GRV
@@ -331,7 +356,7 @@ function _g36Update(dt) {
 
   // ── Obstacle collision ──
   const bxI = Math.floor(bxNow)
-  const PR2 = PR * 0.85
+  const PR2 = PR * 0.74
   for (const obs of g.level.obstacles) {
     if (Math.abs(obs.bx - bxI) > 3) continue
     const ox = obs.bx * B, oy = obs.by * B
@@ -354,15 +379,19 @@ function _g36Update(dt) {
         const minO  = Math.min(overT, overB, overL, overR)
         if (minO === overT && g.vy < 0) {
           g.y = oy + oh + PR2; g.vy = 0
+          if (g.mode === 'cube' && g.gravDir === -1) g.onGround = true
         } else if (minO === overB && g.vy > 0) {
           g.y = oy - PR2; g.vy = 0
-          if (g.mode === 'cube') g.onGround = true
+          if (g.mode === 'cube' && g.gravDir === 1) g.onGround = true
         } else {
           _g36Die(); return
         }
       }
     }
   }
+
+  g.trail.push({ x: g.worldX, y: g.y, mode: g.mode, t: g.time })
+  if (g.trail.length > G36_TRAIL_MAX) g.trail.splice(0, g.trail.length - G36_TRAIL_MAX)
 }
 
 function _g36AABB(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -406,22 +435,284 @@ function _g36Loop(ts) {
 }
 
 // ─── Draw ──────────────────────────────────────────────
+function _g36ThemeFor(bx) {
+  let theme = G36_THEMES[0]
+  for (const t of G36_THEMES) if (bx >= t.at) theme = t
+  return theme
+}
+
+function _g36DrawTileBand(ctx, y, h, W, B, offX, theme) {
+  ctx.fillStyle = theme.tile
+  ctx.fillRect(0, y, W, h)
+  for (let i = -1; i < Math.ceil(W / B) + 2; i++) {
+    const x = i * B - offX
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)'
+    ctx.fillRect(x, y, B, h)
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+    ctx.strokeRect(x + 0.5, y + 0.5, B - 1, h - 1)
+  }
+  ctx.fillStyle = theme.edge
+  ctx.shadowColor = theme.edge
+  ctx.shadowBlur = 8
+  ctx.fillRect(0, y, W, Math.max(2, B * 0.07))
+  ctx.shadowBlur = 0
+}
+
+function _g36DrawBlock(ctx, sx, sy, ow, oh, B, theme) {
+  ctx.fillStyle = theme.tile
+  ctx.fillRect(sx, sy, ow, oh)
+  const cols = Math.ceil(ow / B)
+  const rows = Math.ceil(oh / B)
+  for (let ix = 0; ix < cols; ix++) {
+    for (let iy = 0; iy < rows; iy++) {
+      const x = sx + ix * B, y = sy + iy * B
+      ctx.fillStyle = (ix + iy) % 2 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.09)'
+      ctx.fillRect(x, y, B, B)
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+      ctx.strokeRect(x + 0.5, y + 0.5, B - 1, B - 1)
+    }
+  }
+  ctx.strokeStyle = theme.edge
+  ctx.lineWidth = 2
+  ctx.shadowColor = theme.edge
+  ctx.shadowBlur = 5
+  ctx.strokeRect(sx + 1, sy + 1, ow - 2, oh - 2)
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+}
+
+function _g36DrawSpike(ctx, sx, sy, B, down) {
+  const grd = ctx.createLinearGradient(0, sy, 0, sy + B)
+  grd.addColorStop(0, down ? '#fef08a' : '#fff7ad')
+  grd.addColorStop(1, '#facc15')
+  ctx.fillStyle = grd
+  ctx.strokeStyle = '#fff7ad'
+  ctx.lineWidth = 2
+  ctx.shadowColor = '#facc15'
+  ctx.shadowBlur = 10
+  ctx.beginPath()
+  if (down) {
+    ctx.moveTo(sx + B * 0.5, sy + B * 0.98)
+    ctx.lineTo(sx + B * 0.06, sy + B * 0.05)
+    ctx.lineTo(sx + B * 0.94, sy + B * 0.05)
+  } else {
+    ctx.moveTo(sx + B * 0.5, sy + B * 0.02)
+    ctx.lineTo(sx + B * 0.06, sy + B * 0.95)
+    ctx.lineTo(sx + B * 0.94, sy + B * 0.95)
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+}
+
+function _g36DrawPad(ctx, sx, sy, B, pad, fired) {
+  const cx = sx + B * 0.5
+  const cy = sy + B * 0.68
+  const pulse = fired ? 0.75 : 1 + Math.sin(G36.time * 8) * 0.06
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.scale(pulse, pulse)
+  ctx.fillStyle = '#facc15'
+  ctx.strokeStyle = '#fff7ad'
+  ctx.shadowColor = '#facc15'
+  ctx.shadowBlur = fired ? 4 : 16
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.ellipse(0, 0, B * 0.43, B * 0.18, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#78350f'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, B * 0.22, B * 0.08, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#fff7ad'
+  ctx.beginPath()
+  ctx.moveTo(0, -B * 0.58)
+  ctx.lineTo(B * 0.22, -B * 0.25)
+  ctx.lineTo(B * 0.08, -B * 0.25)
+  ctx.lineTo(B * 0.08, -B * 0.06)
+  ctx.lineTo(-B * 0.08, -B * 0.06)
+  ctx.lineTo(-B * 0.08, -B * 0.25)
+  ctx.lineTo(-B * 0.22, -B * 0.25)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+}
+
+function _g36DrawModePortal(ctx, sx, B, floorRow, mode, time) {
+  const col = { cube:'#00e5ff', ship:'#ff6b35', wave:'#4ade80' }[mode] || '#fff'
+  const cy = floorRow * B * 0.5
+  const spin = (time * 2.4) % (Math.PI * 2)
+  ctx.save()
+  ctx.translate(sx + B * 0.5, cy)
+  ctx.strokeStyle = col
+  ctx.shadowColor = col
+  ctx.shadowBlur = 14
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  ctx.ellipse(0, 0, B * 0.42, B * 1.75, 0, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.lineWidth = 2
+  ctx.rotate(spin)
+  for (let i = 0; i < 6; i++) {
+    ctx.rotate(Math.PI / 3)
+    ctx.beginPath()
+    ctx.moveTo(0, -B * 1.45)
+    ctx.lineTo(0, -B * 1.15)
+    ctx.stroke()
+  }
+  ctx.rotate(-spin)
+  ctx.fillStyle = '#fff'
+  ctx.font = `bold ${Math.floor(B * 0.28)}px monospace`
+  ctx.textAlign = 'center'
+  ctx.fillText(mode[0].toUpperCase(), 0, B * 0.1)
+  ctx.restore()
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+  ctx.textAlign = 'left'
+}
+
+function _g36DrawGravityPortal(ctx, sx, B, floorRow, dir, time) {
+  const col = dir === -1 ? '#facc15' : '#38bdf8'
+  const cy = floorRow * B * 0.5
+  const arrow = dir === -1 ? '↑' : '↓'
+  ctx.save()
+  ctx.translate(sx + B * 0.5, cy)
+  ctx.strokeStyle = col
+  ctx.shadowColor = col
+  ctx.shadowBlur = 14
+  ctx.lineWidth = 4
+  ctx.setLineDash([B * 0.16, B * 0.12])
+  ctx.lineDashOffset = -time * B * 2
+  ctx.beginPath()
+  ctx.ellipse(0, 0, B * 0.45, B * 1.9, 0, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.fillStyle = '#fff'
+  ctx.font = `bold ${Math.floor(B * 0.5)}px monospace`
+  ctx.textAlign = 'center'
+  ctx.fillText(arrow, 0, B * 0.17)
+  ctx.restore()
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+  ctx.textAlign = 'left'
+}
+
+function _g36DrawTrail(ctx, g, wx2sx) {
+  if (g.trail.length < 2) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  for (let i = 1; i < g.trail.length; i++) {
+    const a = g.trail[i - 1], b = g.trail[i]
+    const alpha = (i / g.trail.length) * 0.38
+    const col = { cube:'0,229,255', ship:'255,107,53', wave:'74,222,128' }[b.mode] || '255,255,255'
+    ctx.strokeStyle = `rgba(${col},${alpha})`
+    ctx.lineWidth = (G36_PR * g.B * 1.5) * (i / g.trail.length)
+    ctx.beginPath()
+    ctx.moveTo(wx2sx(a.x), a.y)
+    ctx.lineTo(wx2sx(b.x), b.y)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function _g36DrawPlayer(ctx, g) {
+  const B = g.B
+  const PR = G36_PR * B
+  ctx.save()
+  ctx.translate(g.cx, g.y)
+
+  if (g.mode === 'cube') {
+    ctx.rotate((g.worldX / B) * (Math.PI / 2) * g.gravDir)
+    ctx.fillStyle = '#00e5ff'
+    ctx.strokeStyle = '#ecfeff'
+    ctx.shadowColor = '#00e5ff'
+    ctx.shadowBlur = 14
+    ctx.lineWidth = 3
+    ctx.fillRect(-PR, -PR, PR * 2, PR * 2)
+    ctx.strokeRect(-PR, -PR, PR * 2, PR * 2)
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#053242'
+    ctx.fillRect(-PR * 0.45, -PR * 0.35, PR * 0.24, PR * 0.24)
+    ctx.fillRect(PR * 0.2, -PR * 0.35, PR * 0.24, PR * 0.24)
+    ctx.fillRect(-PR * 0.38, PR * 0.22, PR * 0.76, PR * 0.16)
+  } else if (g.mode === 'ship') {
+    ctx.rotate(Math.atan2(g.vy, G36_SPEED * B) * 0.45)
+    if (_g36Holding) {
+      ctx.fillStyle = '#facc15'
+      ctx.shadowColor = '#f97316'
+      ctx.shadowBlur = 15
+      ctx.beginPath()
+      ctx.moveTo(-PR * 1.1, 0)
+      ctx.lineTo(-PR * 1.9, -PR * 0.36)
+      ctx.lineTo(-PR * 1.7, 0)
+      ctx.lineTo(-PR * 1.9, PR * 0.36)
+      ctx.closePath()
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+    ctx.fillStyle = '#ff6b35'
+    ctx.strokeStyle = '#ffedd5'
+    ctx.shadowColor = '#ff6b35'
+    ctx.shadowBlur = 14
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(PR * 1.45, 0)
+    ctx.lineTo(-PR * 0.75, -PR * 0.78)
+    ctx.lineTo(-PR * 1.05, 0)
+    ctx.lineTo(-PR * 0.75, PR * 0.78)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#38bdf8'
+    ctx.beginPath()
+    ctx.arc(PR * 0.15, 0, PR * 0.32, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (g.mode === 'wave') {
+    ctx.rotate(_g36Holding ? -Math.PI / 4 : Math.PI / 4)
+    ctx.fillStyle = '#4ade80'
+    ctx.strokeStyle = '#dcfce7'
+    ctx.shadowColor = '#4ade80'
+    ctx.shadowBlur = 14
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(PR * 1.25, 0)
+    ctx.lineTo(-PR * 0.85, -PR * 0.85)
+    ctx.lineTo(-PR * 0.35, 0)
+    ctx.lineTo(-PR * 0.85, PR * 0.85)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
+  ctx.restore()
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 1
+}
+
 function _g36Draw() {
   const c   = _g36C()
   const ctx = c.getContext('2d')
   const W = c.width, H = c.height
   const g = G36, B = g.B
   const FLOOR_ROW = G36_ROWS - 1
-
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#0d0527'); bg.addColorStop(1, '#1a0a33')
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
-
-  // Grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1
+  const bxNow = g.worldX / B
+  const theme = _g36ThemeFor(bxNow)
   const offX = g.worldX % B
-  for (let i = 0; i < Math.ceil(W / B) + 1; i++) {
+  const wx2sx = wx => g.cx + (wx - g.worldX)
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, theme.bg0)
+  bg.addColorStop(1, theme.bg1)
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+  ctx.lineWidth = 1
+  for (let i = 0; i < Math.ceil(W / B) + 2; i++) {
     const x = i * B - offX
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
   }
@@ -430,163 +721,113 @@ function _g36Draw() {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
   }
 
-  const wx2sx = wx => g.cx + (wx - g.worldX)
+  _g36DrawTileBand(ctx, FLOOR_ROW * B, B, W, B, offX, theme)
+  _g36DrawTileBand(ctx, 0, B, W, B, offX, theme)
 
-  // Floor
-  ctx.fillStyle = '#2d2b5e'; ctx.fillRect(0, FLOOR_ROW * B, W, B)
-  ctx.fillStyle = '#3d3b7e'; ctx.fillRect(0, FLOOR_ROW * B, W, B * 0.18)
-  ctx.strokeStyle = '#5a58a0'; ctx.lineWidth = 1; ctx.strokeRect(0, FLOOR_ROW * B, W, B)
-
-  // Ceiling
-  ctx.fillStyle = '#2d2b5e'; ctx.fillRect(0, 0, W, B)
-  ctx.fillStyle = '#3d3b7e'; ctx.fillRect(0, B * 0.82, W, B * 0.18)
-  ctx.strokeStyle = '#5a58a0'; ctx.strokeRect(0, 0, W, B)
-
-  // Wave walls
   if (g.worldX > 174 * B) {
     for (let bx = 175; bx <= 210; bx++) {
       const ww = g.waveWalls[bx]
       if (!ww) continue
       const sx = wx2sx(bx * B)
       if (sx + B < 0 || sx > W) continue
-      ctx.fillStyle = '#1a3a6e'
+      ctx.fillStyle = 'rgba(8,47,73,0.82)'
       ctx.fillRect(sx, B, B, ww.topRow * B - B)
       ctx.fillRect(sx, ww.botRow * B, B, FLOOR_ROW * B - ww.botRow * B)
-      ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 1
-      ctx.strokeRect(sx, B, B, ww.topRow * B - B)
-      ctx.strokeRect(sx, ww.botRow * B, B, FLOOR_ROW * B - ww.botRow * B)
+      ctx.strokeStyle = '#38bdf8'
+      ctx.lineWidth = 1
+      ctx.strokeRect(sx + 0.5, B + 0.5, B - 1, ww.topRow * B - B - 1)
+      ctx.strokeRect(sx + 0.5, ww.botRow * B + 0.5, B - 1, FLOOR_ROW * B - ww.botRow * B - 1)
     }
   }
 
-  // Obstacles
   for (const obs of g.level.obstacles) {
     const sx = wx2sx(obs.bx * B)
     const sy = obs.by * B
     const ow = (obs.w || 1) * B, oh = (obs.h || 1) * B
     if (sx + ow < 0 || sx > W) continue
-
-    if (obs.type === 'block') {
-      ctx.fillStyle = '#2d2b5e'; ctx.fillRect(sx, sy, ow, oh)
-      ctx.fillStyle = '#3d3b7e'; ctx.fillRect(sx, sy, ow, oh * 0.15)
-      ctx.strokeStyle = '#5a58a0'; ctx.lineWidth = 1; ctx.strokeRect(sx+0.5, sy+0.5, ow-1, oh-1)
-    } else if (obs.type === 'spike_up') {
-      ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 6
-      ctx.beginPath()
-      ctx.moveTo(sx + B*0.5, sy + B*0.02)
-      ctx.lineTo(sx + B*0.05, sy + B)
-      ctx.lineTo(sx + B*0.95, sy + B)
-      ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0
-    } else if (obs.type === 'spike_dn') {
-      ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 6
-      ctx.beginPath()
-      ctx.moveTo(sx + B*0.5, sy + B*0.98)
-      ctx.lineTo(sx + B*0.05, sy)
-      ctx.lineTo(sx + B*0.95, sy)
-      ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0
-    }
+    if (obs.type === 'block') _g36DrawBlock(ctx, sx, sy, ow, oh, B, theme)
+    else if (obs.type === 'spike_up') _g36DrawSpike(ctx, sx, sy, B, false)
+    else if (obs.type === 'spike_dn') _g36DrawSpike(ctx, sx, sy, B, true)
   }
 
-  // Pads
   for (const pad of g.level.pads) {
     const sx = wx2sx(pad.bx * B)
     if (sx < -B || sx > W + B) continue
-    const sy  = pad.by * B
-    const col = pad.color === 'yellow' ? '#ffd700' : '#4488ff'
-    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 14
-    const px = sx + B/2, py = sy + B/2
-    ctx.beginPath()
-    ctx.moveTo(px, py - B*0.4); ctx.lineTo(px + B*0.4, py)
-    ctx.lineTo(px, py + B*0.4); ctx.lineTo(px - B*0.4, py)
-    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.floor(B*0.35)}px monospace`
-    ctx.textAlign = 'center'
-    ctx.fillText(pad.color === 'yellow' ? '▲' : '↕', px, sy + B * 0.7)
-    ctx.textAlign = 'left'
+    _g36DrawPad(ctx, sx, pad.by * B, B, pad, !!g._padFired[pad.bx])
   }
 
-  // Mode portals
-  const portalCols = { cube:'#00e5ff', ship:'#ff6b35', wave:'#4ade80' }
   for (const mc of g.level.modeChanges) {
     const sx = wx2sx(mc.bx * B)
-    if (sx < -B*2 || sx > W + B*2) continue
-    const col = portalCols[mc.mode] || '#fff'
-    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.shadowColor = col; ctx.shadowBlur = 8
-    ctx.setLineDash([6, 4])
-    ctx.beginPath(); ctx.moveTo(sx, B); ctx.lineTo(sx, FLOOR_ROW * B); ctx.stroke()
-    ctx.setLineDash([]); ctx.shadowBlur = 0
+    if (sx < -B * 2 || sx > W + B * 2) continue
+    _g36DrawModePortal(ctx, sx, B, FLOOR_ROW, mc.mode, g.time)
   }
 
-  // Player
-  const px = g.cx, py = g.y
-  if (g.dead) ctx.globalAlpha = Math.floor(Date.now() / 80) % 2 === 0 ? 0.5 : 0.1
-
-  ctx.save(); ctx.translate(px, py)
-
-  if (g.mode === 'cube') {
-    const rot = (g.worldX / B) * (Math.PI / 2) * g.gravDir
-    ctx.rotate(rot)
-    const PR = G36_PR * B
-    ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 14
-    ctx.fillRect(-PR, -PR, PR*2, PR*2)
-    ctx.fillStyle = '#003344'
-    ctx.fillRect(-PR*0.55, -PR*0.55, PR*1.1, PR*1.1)
-    ctx.fillStyle = '#00e5ff'
-    ctx.beginPath(); ctx.arc(0, 0, PR*0.3, 0, Math.PI*2); ctx.fill()
-    ctx.shadowBlur = 0
-
-  } else if (g.mode === 'ship') {
-    const ang = Math.atan2(g.vy, G36_SPEED * B) * 0.4
-    ctx.rotate(ang)
-    const PR = G36_PR * B
-    ctx.fillStyle = '#ff6b35'; ctx.shadowColor = '#ff6b35'; ctx.shadowBlur = 14
-    ctx.beginPath()
-    ctx.moveTo(PR*1.4, 0)
-    ctx.bezierCurveTo(PR*0.4, -PR*0.9, -PR*0.9, -PR*0.6, -PR, 0)
-    ctx.bezierCurveTo(-PR*0.9, PR*0.6, PR*0.4, PR*0.9, PR*1.4, 0)
-    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0
-
-  } else if (g.mode === 'wave') {
-    const rot = (g.worldX / B) * Math.PI * 0.5
-    ctx.rotate(rot)
-    const PR = G36_PR * B
-    ctx.fillStyle = '#4ade80'; ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 14
-    ctx.beginPath()
-    ctx.moveTo(0, -PR); ctx.lineTo(PR, 0); ctx.lineTo(0, PR); ctx.lineTo(-PR, 0)
-    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0
+  for (const gc of g.level.gravChanges) {
+    const sx = wx2sx(gc.bx * B)
+    if (sx < -B * 2 || sx > W + B * 2) continue
+    _g36DrawGravityPortal(ctx, sx, B, FLOOR_ROW, gc.dir, g.time)
   }
 
-  ctx.restore()
+  _g36DrawTrail(ctx, g, wx2sx)
+
+  if (g.dead) ctx.globalAlpha = Math.floor(Date.now() / 80) % 2 === 0 ? 0.45 : 0.12
+  _g36DrawPlayer(ctx, g)
   ctx.globalAlpha = 1
 
-  // Progress bar
-  const barW = W * 0.4, barH = 5, barX = (W-barW)/2, barY = H - barH - 6
-  ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(barX, barY, barW, barH)
-  ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 5
+  const barW = Math.min(420, W * 0.46)
+  const barH = 7
+  const barX = (W - barW) / 2
+  const barY = 12
+  ctx.fillStyle = 'rgba(0,0,0,0.36)'
+  ctx.fillRect(barX, barY, barW, barH)
+  ctx.strokeStyle = 'rgba(255,255,255,0.38)'
+  ctx.strokeRect(barX + 0.5, barY + 0.5, barW - 1, barH - 1)
+  ctx.fillStyle = theme.accent
+  ctx.shadowColor = theme.accent
+  ctx.shadowBlur = 8
   ctx.fillRect(barX, barY, barW * g.progress / 100, barH)
   ctx.shadowBlur = 0
 
-  // HUD
   ctx.font = 'bold 12px monospace'
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.textAlign = 'left'
-  ctx.fillText(`Attempt ${G36.attempts}`, 10, 20)
+  ctx.fillStyle = 'rgba(255,255,255,0.78)'
+  ctx.textAlign = 'left'
+  ctx.fillText(`ATTEMPT ${G36.attempts}`, 12, 25)
   ctx.textAlign = 'right'
-  ctx.fillText(`Best ${Math.floor(G36.bestProg)}%`, W - 10, 20)
+  ctx.fillText(`${Math.floor(g.progress)}%   BEST ${Math.floor(G36.bestProg)}%`, W - 12, 25)
 
   const modeCol = { cube:'#00e5ff', ship:'#ff6b35', wave:'#4ade80' }[g.mode] || '#fff'
-  ctx.fillStyle = modeCol; ctx.shadowColor = modeCol; ctx.shadowBlur = 8
-  ctx.font = `bold ${Math.floor(B*0.45)}px monospace`; ctx.textAlign = 'center'
-  ctx.fillText(g.mode.toUpperCase(), W/2, barY - 10)
-  ctx.shadowBlur = 0; ctx.textAlign = 'left'
+  ctx.fillStyle = modeCol
+  ctx.shadowColor = modeCol
+  ctx.shadowBlur = 8
+  ctx.font = `bold ${Math.floor(B * 0.34)}px monospace`
+  ctx.textAlign = 'center'
+  ctx.fillText(g.mode.toUpperCase(), W / 2, barY + B * 0.72)
+  ctx.shadowBlur = 0
 
-  if (g.gravDir === -1) {
-    ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 11px monospace'
-    ctx.textAlign = 'right'; ctx.fillText('↑ GRAVITY FLIP', W - 10, 36)
-    ctx.textAlign = 'left'
+  if (g.time < 1.1) {
+    const a = Math.min(1, (1.1 - g.time) / 0.45)
+    ctx.globalAlpha = a
+    ctx.fillStyle = '#fff'
+    ctx.font = `bold ${Math.floor(B * 0.8)}px monospace`
+    ctx.fillText(`ATTEMPT ${G36.attempts}`, W / 2, H * 0.33)
+    ctx.globalAlpha = 1
   }
 
-  // Death flash
+  if (g.gravDir === -1) {
+    ctx.fillStyle = '#fde68a'
+    ctx.font = 'bold 12px monospace'
+    ctx.textAlign = 'right'
+    ctx.fillText('REVERSE GRAVITY', W - 12, 43)
+  }
+
+  if (g.portalFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${g.portalFlash * 0.8})`
+    ctx.fillRect(0, 0, W, H)
+  }
+
   if (g.dead) {
     ctx.fillStyle = `rgba(255,40,40,${Math.max(0, (0.7 - g.deathTimer) / 0.7) * 0.35})`
     ctx.fillRect(0, 0, W, H)
   }
+  ctx.textAlign = 'left'
 }
