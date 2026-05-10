@@ -163,7 +163,6 @@ function getBasePath() {
   // Works on both Netlify (/) and GitHub Pages (/some-quantum-games/)
   const segs = window.location.pathname.split('/').filter(Boolean)
   const knownSlugs = new Set(Object.keys(GAME_SLUGS))
-  // If last segment is a game slug, base is everything before it
   if (segs.length && knownSlugs.has(segs[segs.length - 1])) {
     return '/' + segs.slice(0, -1).join('/')
   }
@@ -213,7 +212,6 @@ window.showGame = function(n) {
   if (n === 33) initGame33()
   if (n === 34) initGame34()
   if (n === 35) initGame35()
-  if (n === 36) initGame36()
 }
 
 window.goHome = function() {
@@ -236,7 +234,6 @@ window.goHome = function() {
   if (typeof G33 !== 'undefined') stopGame33()
   if (typeof G34 !== 'undefined') stopGame34()
   if (typeof stopGame35 === 'function') stopGame35()
-  if (typeof stopGame36 === 'function') stopGame36()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
   pushHomeUrl()
@@ -293,7 +290,6 @@ window.restartGame = function(n) {
   if (n === 33) initGame33()
   if (n === 34) initGame34()
   if (n === 35) initGame35()
-  if (n === 36) initGame36()
 }
 
 // ═══════════════════════════════════════════════════════

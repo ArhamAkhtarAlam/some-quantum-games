@@ -36,6 +36,14 @@ window.initGame28 = function() {
 let g28KeyBuf = ''
 function g28KD(e) {
   if (!document.getElementById('game28').classList.contains('active')) return
+  if (e.code === 'Escape') {
+    e.preventDefault()
+    if (typeof G28 !== 'undefined' && G28.pausedWaitingShop) {
+      g28OpenShop()
+      G28.pausedWaitingShop = false
+    }
+    return
+  }
   if (['ArrowLeft','KeyA'].includes(e.code))  g28Keys.left  = true
   if (['ArrowRight','KeyD'].includes(e.code)) g28Keys.right = true
   if (['Space','ArrowUp','KeyW'].includes(e.code)) { e.preventDefault(); g28Keys.up = true }
@@ -71,7 +79,8 @@ function g28TouchEnd(e) {
 
 // ─── level generation ──────────────────────────────────
 // Tile codes: 0=air  1=solid  3=lava  5=goal
-function g28IsLavaLevel(lvl) { return false }
+// Lava levels: enable every 5th level (Lvls 5,10,15,...)
+function g28IsLavaLevel(lvl) { return lvl > 0 && (lvl % 5 === 0) }
 function g28TimeLimit(lvl)   { return Math.max(480, 1500 - lvl * 40) }  // frames; 25s → 8s
 
 function g28GenLevel(lvl) {
@@ -167,6 +176,7 @@ function g28Reset() {
     fade: 255,
     fadeDir: 0,
     nextLevel: -1,
+    pausedWaitingShop: false,
     dead: false,
     scrollX: 0,
     p: { tx: 1.5, ty: G28_ROWS - 4, vtx: 0, vty: 0, onGround: false, jumping: false, jumpCool: 0, jumpsLeft: 2, jumpWasUp: false, facing: 1, runFrame: 0 },
@@ -230,9 +240,11 @@ function g28Update() {
       G28.fadeDir = 0
       if (G28.dead) { g28Over(); return }
       if (G28.nextLevel >= 0) {
+        // don't open shop automatically — wait for user to press ESC
         G28.level = G28.nextLevel
         G28.nextLevel = -1
-        g28OpenShop(); return
+        G28.pausedWaitingShop = true
+        return
       }
     }
     if (G28.fadeDir > 0 && G28.fade >= 255) { G28.fade = 255; G28.fadeDir = 0 }
