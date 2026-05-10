@@ -80,9 +80,8 @@ function _g36BuildLevel() {
       su(30), su(31), su(32),
       su(40), su(41), su(42), su(43),
       bl(48, FLOOR-4, 2, 1),
-      su(50), su(51),
-      bl(52, FLOOR-2, 1, 2),
-      su(55), su(56), su(57),
+      bl(54, FLOOR-2, 2, 2),
+      su(62), su(63),
 
       // ── Section 2: Ship (60–100) ──
       bl(65, 0, 4, 3),
@@ -378,6 +377,16 @@ function _g36Update(dt) {
         const overB = pb - oy
         const overL = (ox + ow) - pl
         const overR = pr2 - ox
+        if (g.vy > 0 && pt < oy && overB < B * 0.45) {
+          g.y = oy - PR2; g.vy = 0
+          if (g.mode === 'cube' && g.gravDir === 1) g.onGround = true
+          continue
+        }
+        if (g.vy < 0 && pb > oy + oh && overT < B * 0.45) {
+          g.y = oy + oh + PR2; g.vy = 0
+          if (g.mode === 'cube' && g.gravDir === -1) g.onGround = true
+          continue
+        }
         const minO  = Math.min(overT, overB, overL, overR)
         if (minO === overT && g.vy < 0) {
           g.y = oy + oh + PR2; g.vy = 0
