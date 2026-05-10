@@ -253,7 +253,8 @@ window.addEventListener('popstate', e => {
 ;(function() {
   const segs = window.location.pathname.split('/').filter(Boolean)
   const slug = segs[segs.length - 1]
-  const gameId = GAME_SLUGS[slug]
+  const routedGame = new URLSearchParams(window.location.search).get('game')
+  const gameId = GAME_SLUGS[slug] || GAME_SLUGS[routedGame]
   if (gameId) {
     window.addEventListener('load', () => showGame(gameId))
   } else if (slug === 'login') {

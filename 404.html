@@ -3,9 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    // Redirect any unknown path back to the root, preserving the hash (for OAuth tokens)
+    // Redirect unknown GitHub Pages routes through the app shell.
     const base = '/some-quantum-games'
-    window.location.replace(base + '/' + window.location.hash)
+    const path = window.location.pathname.replace(base, '').replace(/^\/+|\/+$/g, '')
+    const hash = window.location.hash || ''
+
+    // OAuth callbacks need the token hash untouched at the app root.
+    if (hash.includes('access_token') || path === 'login') {
+      window.location.replace(base + '/' + hash)
+    } else {
+      const search = path ? '?game=' + encodeURIComponent(path) : ''
+      window.location.replace(base + '/' + search + hash)
+    }
   </script>
 </head>
 <body></body>
