@@ -39,6 +39,9 @@ function g28KD(e) {
   if (e.code === 'Escape') {
     e.preventDefault()
     if (typeof G28 !== 'undefined' && G28.pausedWaitingShop) {
+      // remove level-clear hint if present
+      const hint = document.getElementById('g28-level-clear')
+      if (hint) hint.remove()
       g28OpenShop()
       G28.pausedWaitingShop = false
     }
@@ -240,11 +243,12 @@ function g28Update() {
       G28.fadeDir = 0
       if (G28.dead) { g28Over(); return }
       if (G28.nextLevel >= 0) {
-        // don't open shop automatically — wait for user to press ESC
-        G28.level = G28.nextLevel
-        G28.nextLevel = -1
-        G28.pausedWaitingShop = true
-        return
+          // don't open shop automatically — wait for user to press ESC
+          G28.level = G28.nextLevel
+          G28.nextLevel = -1
+          G28.pausedWaitingShop = true
+          g28ShowLevelClearHint()
+          return
       }
     }
     if (G28.fadeDir > 0 && G28.fade >= 255) { G28.fade = 255; G28.fadeDir = 0 }
@@ -383,6 +387,8 @@ function g28Finish() {
 function g28OpenShop() {
   const prev = document.getElementById('g28-shop')
   if (prev) prev.remove()
+  const hint = document.getElementById('g28-level-clear')
+  if (hint) hint.remove()
 
   const overlay = document.createElement('div')
   overlay.id = 'g28-shop'
@@ -511,6 +517,41 @@ function g28SparksTile(tx, ty, col, n) {
     const a = Math.random() * Math.PI * 2, sp = 0.04 + Math.random() * 0.1
     G28.particles.push({ tx, ty, vtx: Math.cos(a)*sp, vty: Math.sin(a)*sp, color: col, life: 18, r: 0.1 + Math.random()*0.08 })
   }
+}
+
+function g28ShowLevelClearHint() {
+  if (document.getElementById('g28-level-clear')) return
+  const el = document.createElement('div')
+  el.id = 'g28-level-clear'
+  el.style.cssText = `position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:9998;
+    background:rgba(10,12,20,0.88);color:#e6edf3;padding:10px 14px;border-radius:10px;border:1px solid rgba(99,102,241,0.12);
+    font-family:monospace;font-size:13px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 30px rgba(2,6,23,0.6);`
+
+  const msg = document.createElement('div')
+  msg.textContent = `LEVEL ${G28.level} CLEAR — press ESC to open shop`
+  el.appendChild(msg)
+
+  const openBtn = document.createElement('button')
+  openBtn.textContent = 'Open Shop'
+  openBtn.style.cssText = 'background:#1d4ed8;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-family:monospace;'
+  openBtn.onclick = () => { el.remove(); G28.pausedWaitingShop = false; g28OpenShop() }
+  el.appendChild(openBtn)
+
+  const contBtn = document.createElement('button')
+  contBtn.textContent = 'Skip Shop'
+  contBtn.style.cssText = 'background:#374151;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-family:monospace;'
+  contBtn.onclick = () => {
+    el.remove()
+    G28.pausedWaitingShop = false
+    G28.timeLeft = g28TimeLimit(G28.level) + G28.bonusTime; G28.bonusTime = 0
+    G28.levelTime = 0; G28.dead = false
+    G28.grid = g28GenLevel(G28.level)
+    g28SpawnPlayer(); G28.scrollX = 0
+    G28.fadeDir = 1
+  }
+  el.appendChild(contBtn)
+
+  document.body.appendChild(el)
 }
 
 // ─── draw ───────────────────────────────────────────────
