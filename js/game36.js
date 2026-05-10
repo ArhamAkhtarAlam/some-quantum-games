@@ -96,11 +96,11 @@ function _g36BuildLevel() {
 
       // ── Section 3: Cube (100–140) ──
       su(105), su(106), su(107), su(108),
-      bl(112, FLOOR-3, 2, 1),
-      su(114), su(115),
-      bl(118, FLOOR-5, 3, 1),
-      su(122), su(123),
-      su(126), su(127), su(128),
+      bl(116, FLOOR-4, 2, 1),
+      su(119), su(120),
+      bl(124, FLOOR-5, 3, 1),
+      su(129), su(130),
+      su(134), su(135), su(136),
 
       // ── Section 4: Anti-gravity Cube (140–175) ──
       sd(143), sd(144),
@@ -132,8 +132,8 @@ function _g36BuildLevel() {
     ],
 
     pads: [
-      { bx: 39,  by: FLOOR-1, color: 'yellow' },  // right before the 40–43 spike run
-      { bx: 104, by: FLOOR-1, color: 'yellow' },  // right before the 105–108 spike run
+      { bx: 39.5,  by: FLOOR-1, color: 'yellow' },  // right before the 40–43 spike run
+      { bx: 104.5, by: FLOOR-1, color: 'yellow' },  // right before the 105–108 spike run
     ],
 
     modeChanges: [
@@ -177,7 +177,7 @@ const G36_SHIP_THR = -22.0   // blocks/sec² thrust
 const G36_SHIP_GRV = 12.0    // blocks/sec² ship gravity
 const G36_SHIP_MAX = 14.0    // blocks/sec max ship speed
 const G36_WAVE_SPD = 8.0     // blocks/sec wave diagonal (45 degrees vs horizontal speed)
-const G36_YPAD_V   = -24.5   // yellow pad launch (blocks/sec)
+const G36_YPAD_V   = -29.0   // yellow pad launch (blocks/sec)
 const G36_PR       = 0.35    // player half-size in blocks
 const G36_TRAIL_MAX = 34
 const G36_THEMES = [
@@ -293,7 +293,9 @@ function _g36Update(dt) {
     if (g._padFired[pad.bx]) continue
     const padWX = pad.bx * B
     const padY  = pad.by * B + B * 0.5
-    if (Math.abs(g.worldX - padWX) < PR * 1.5 && Math.abs(g.y - padY) < B) {
+    const xHit = Math.abs(g.worldX - padWX) < B * 0.72
+    const yHit = Math.abs(g.y - padY) < B * 1.45
+    if (xHit && yHit) {
       g._padFired[pad.bx] = true
       if (pad.color === 'yellow' && g.mode !== 'wave') {
         g.vy = G36_YPAD_V * B * g.gravDir
