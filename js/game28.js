@@ -38,13 +38,10 @@ function g28KD(e) {
   if (!document.getElementById('game28').classList.contains('active')) return
   if (e.code === 'Escape') {
     e.preventDefault()
-    if (typeof G28 !== 'undefined' && G28.pausedWaitingShop) {
-      // remove level-clear hint if present
-      const hint = document.getElementById('g28-level-clear')
-      if (hint) hint.remove()
-      g28OpenShop()
-      G28.pausedWaitingShop = false
-    }
+    // Always open the shop when the player presses ESC during Parkour
+    const hint = document.getElementById('g28-level-clear')
+    if (hint) hint.remove()
+    g28OpenShop()
     return
   }
   if (['ArrowLeft','KeyA'].includes(e.code))  g28Keys.left  = true
@@ -84,7 +81,7 @@ function g28TouchEnd(e) {
 // Tile codes: 0=air  1=solid  3=lava  5=goal
 // Lava levels: enable every 5th level (Lvls 5,10,15,...)
 function g28IsLavaLevel(lvl) { return lvl > 0 && (lvl % 5 === 0) }
-function g28TimeLimit(lvl)   { return Math.max(480, 1500 - lvl * 40) }  // frames; 25s → 8s
+function g28TimeLimit(lvl)   { return Math.max(300, 1500 - lvl * 40) }  // frames; 25s → min 5s
 
 function g28GenLevel(lvl) {
   // use handcrafted level if one exists for this index
@@ -242,14 +239,6 @@ function g28Update() {
     if (G28.fadeDir < 0 && G28.fade <= 0) {
       G28.fadeDir = 0
       if (G28.dead) { g28Over(); return }
-      if (G28.nextLevel >= 0) {
-          // don't open shop automatically — wait for user to press ESC
-          G28.level = G28.nextLevel
-          G28.nextLevel = -1
-          G28.pausedWaitingShop = true
-          g28ShowLevelClearHint()
-          return
-      }
     }
     if (G28.fadeDir > 0 && G28.fade >= 255) { G28.fade = 255; G28.fadeDir = 0 }
   }
@@ -372,7 +361,7 @@ function g28Die() {
 }
 
 function g28Finish() {
-  if (G28.fadeDir !== 0 || G28.nextLevel >= 0) return
+  if (G28.fadeDir !== 0) return
   SFX.win()
   const secsLeft = Math.ceil(G28.timeLeft / 60)
   const bonus = 100 + secsLeft * 25
@@ -380,8 +369,15 @@ function g28Finish() {
   G28.coins += secsLeft
   if (G28.score > G28.bestScore) G28.bestScore = G28.score
   G28.msgs.push({ text: `LVL ${G28.level+1} ✓  +${bonus}  +${secsLeft}🪙`, color: '#fbbf24', frames: 90, big: true })
-  G28.nextLevel = G28.level + 1
-  G28.fadeDir = -1
+
+  // Immediate seamless transition to next level
+  G28.level = G28.level + 1
+  G28.timeLeft = g28TimeLimit(G28.level) + G28.bonusTime
+  G28.bonusTime = 0
+  G28.levelTime = 0
+  G28.dead = false
+  G28.grid = g28GenLevel(G28.level)
+  g28SpawnPlayer(); G28.scrollX = 0
 }
 
 function g28OpenShop() {
