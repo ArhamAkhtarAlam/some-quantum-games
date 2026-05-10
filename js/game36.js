@@ -211,6 +211,7 @@ window.startGDMix = function() {
     bestProg:  G36.bestProg || 0,
     progress:  0,
     time:      0,
+    cubeRot:   0,
     mode:      'cube',
     gravDir:   1,
     cx:        Math.floor(c.width * 0.25),
@@ -310,6 +311,7 @@ function _g36Update(dt) {
 
   // ── Mode physics ──
   if (g.mode === 'cube') {
+    const wasGrounded = g.onGround
     g.vy += G36_GRAVITY * B * g.gravDir * dt
     if (g.gravDir ===  1) g.vy = Math.min(g.vy,  G36_TERM * B)
     else                  g.vy = Math.max(g.vy, -G36_TERM * B)
@@ -325,6 +327,11 @@ function _g36Update(dt) {
       g.onGround = false
     }
     if (_g36Holding && g.onGround) _g36CubeJump()
+    if (!g.onGround) {
+      g.cubeRot += G36_SPEED * dt * (Math.PI / 2) * g.gravDir
+    } else if (!wasGrounded || Math.abs(g.vy) < 0.01) {
+      g.cubeRot = Math.round(g.cubeRot / (Math.PI / 2)) * (Math.PI / 2)
+    }
 
   } else if (g.mode === 'ship') {
     const thr = _g36Holding ? G36_SHIP_THR : G36_SHIP_GRV
@@ -638,7 +645,7 @@ function _g36DrawPlayer(ctx, g) {
   ctx.translate(g.cx, g.y)
 
   if (g.mode === 'cube') {
-    ctx.rotate((g.worldX / B) * (Math.PI / 2) * g.gravDir)
+    ctx.rotate(g.cubeRot)
     ctx.fillStyle = '#00e5ff'
     ctx.strokeStyle = '#ecfeff'
     ctx.shadowColor = '#00e5ff'
