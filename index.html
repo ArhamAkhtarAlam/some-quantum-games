@@ -179,6 +179,12 @@
       <div class="card-desc">GD wave gamemode. Hold to angle up, release to go down. Navigate the quantum corridor — starts wide and slow, gets tighter and faster!</div>
       <span class="card-tag" style="background:rgba(6,182,212,.15);color:#06b6d4;border-color:#06b6d444;">Wave</span>
     </div>
+    <div class="game-card" onclick="showGame(36)" style="border-color:#00e5ff44;">
+      <div class="card-icon">🔷</div>
+      <div class="card-title">GD Mix</div>
+      <div class="card-desc">Geometry Dash-style run with cube, ship, wave, gravity flips, pads, portals, and a full handcrafted course. Hold SPACE / tap to survive.</div>
+      <span class="card-tag" style="background:rgba(0,229,255,.15);color:#00e5ff;border-color:#00e5ff44;">Dash</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -212,6 +218,7 @@
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-33" onclick="switchLbTab('memseq')">Memory</button>
         <button class="lb-tab" style="border-color:#4a7c59;color:#4a7c59;" id="lb-tab-34" onclick="switchLbTab('manualsort')">Manual Sort</button>
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-35" onclick="switchLbTab('wavedash')">Wave Dash</button>
+        <button class="lb-tab" style="border-color:#00e5ff;color:#00e5ff;" id="lb-tab-36" onclick="switchLbTab('gdmix')">GD Mix</button>
       </div>
     </div>
     <div class="lb-list" id="lb-list">
@@ -1359,5 +1366,36 @@
 </section>
 
 <script src="js/game35.js?v=3"></script>
+
+<!-- ══════════════════════════════════════════════════ GAME 36 -->
+<section id="game36" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🔷 GD Mix</span>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <div class="score-badge" style="border-color:#00e5ff;color:#00e5ff;">Progress <span id="g36-score-hud">0%</span></div>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g36-arena">
+    <canvas id="g36-canvas"></canvas>
+    <div class="canvas-overlay" id="g36-overlay">
+      <h3>🔷 GD Mix</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:320px;">Cube jumps, ship thrusts, wave angles. Hold SPACE / click / tap, release to drop, and use the portals and pads to finish the course.</p>
+      <button class="btn-primary" onclick="startGDMix()">Start</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g36-over">
+    <div class="game-over-card">
+      <h2>Complete! 🔷</h2>
+      <div class="final-score" id="g36-final-score" style="color:#00e5ff">100% Complete</div>
+      <div id="g36-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('gdmix')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(36)">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game36.js?v=1"></script>
 </body>
 </html>
