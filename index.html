@@ -179,6 +179,12 @@
       <div class="card-desc">GD wave gamemode. Hold to angle up, release to go down. Navigate the quantum corridor — starts wide and slow, gets tighter and faster!</div>
       <span class="card-tag" style="background:rgba(6,182,212,.15);color:#06b6d4;border-color:#06b6d444;">Wave</span>
     </div>
+    <div class="game-card" onclick="showGame(36)" style="border-color:#6366f144;">
+      <div class="card-icon">🖱️</div>
+      <div class="card-title">CPS Test</div>
+      <div class="card-desc">Click and mash Space as fast as you can for 10 seconds. Both count. Score = clicks per second.</div>
+      <span class="card-tag" style="background:rgba(99,102,241,.15);color:#6366f1;border-color:#6366f144;">Speed</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -1359,6 +1365,34 @@
 </section>
 
 <script src="js/game35.js?v=3"></script>
+
+<section id="game36" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🖱️ CPS Test</span>
+    <div class="score-badge" style="border-color:#6366f1;color:#6366f1;">CPS <span id="g36-score-hud">—</span></div>
+  </div>
+  <div class="canvas-arena" id="g36-arena">
+    <canvas id="g36-canvas"></canvas>
+    <div class="canvas-overlay" id="g36-overlay">
+      <h3>🖱️ CPS Test</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Click or press <b>Space</b> as fast as you can for <b>10 seconds</b>. Both count! Your score is clicks per second (integer).</p>
+      <button class="btn-primary" onclick="startCPS()">Start!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g36-over">
+    <div class="game-over-card">
+      <h2>Time's Up! 🖱️</h2>
+      <div class="final-score" id="g36-final-score" style="color:#6366f1">0 CPS</div>
+      <div id="g36-medal-display"></div>
+      <button class="btn-primary" onclick="openSubmit('cps')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(36)">Try Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game36.js"></script>
 
 </body>
 </html>
