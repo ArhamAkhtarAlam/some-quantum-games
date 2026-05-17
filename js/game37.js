@@ -184,6 +184,9 @@ function _g37StartTile(i) {
 
 // ── lifecycle ──────────────────────────────────────────
 
+const G37_FIRE = '#ff6b35'   // fire ball color
+const G37_ICE  = '#4ecdc4'   // ice ball color
+
 function stopGame37() {
   G37.active = false
   _g37StopAudio()
@@ -198,10 +201,13 @@ window.initGame37 = async function() {
   stopGame37()
   G37 = {
     active: false, tiles: [], headings: [], genHeading: 0,
-    orbitTile: 0, dir: 1, arcStart: 0, arcEnd: 0, arcLen: 0, arcT: 0,
+    orbitTile: 0, staticTile: -1, oddStep: false,
+    dir: 1, arcStart: 0, arcEnd: 0, arcLen: 0, arcT: 0,
     speed: G37_SPD0, health: 3, score: 0, combo: 0, tilesCompleted: 0,
     hits: [], feedback: '', fbColor: '#fff', fbTimer: 0,
-    trail: [], shake: 0, camX: 0, camY: 0, flashIdx: -1, flashT: 0,
+    trail: [], particles: [],
+    shake: 0, bgFlash: 0, ringRot: 0,
+    camX: 0, camY: 0, flashIdx: -1, flashT: 0,
     raf: null, lastTime: 0,
   }
   window._g37Score = 0
@@ -247,6 +253,21 @@ function _g37Press() {
   _g37ApplyResult(diff < G37_PERF ? 'perfect' : diff < G37_GOOD ? 'good' : 'miss')
 }
 
+function _g37Burst(wx, wy, color, count) {
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + Math.random() * 0.5
+    const spd = 55 + Math.random() * 90
+    G37.particles.push({
+      x: wx, y: wy,
+      vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+      color, life: 1,
+      size: 2.5 + Math.random() * 3.5,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 10,
+    })
+  }
+}
+
 function _g37ApplyResult(rating) {
   G37.hits.push(rating)
   G37.feedback = rating
@@ -255,23 +276,29 @@ function _g37ApplyResult(rating) {
   if (rating === 'miss') {
     G37.combo   = 0
     G37.health--
-    G37.shake   = 0.38
+    G37.shake   = 0.44
     G37.fbColor = '#f87171'
     if (_g37AC) _g37Snare(_g37AC.currentTime, 0.55)
     if (G37.health <= 0) { setTimeout(_g37EndGame, 380); return }
   } else {
+    G37.staticTile = G37.orbitTile
+    G37.oddStep    = !G37.oddStep
     G37.combo++
     const mul = Math.min(4, Math.floor(G37.combo / 8) + 1)
     G37.score += (rating === 'perfect' ? 100 : 50) * mul
     G37.tilesCompleted++
     G37.fbColor = rating === 'perfect' ? '#fbbf24' : '#4ade80'
+
+    const ct = G37.tiles[G37.orbitTile]
+    if (ct) _g37Burst(ct.x, ct.y, rating === 'perfect' ? '#fbbf24' : '#4ade80', rating === 'perfect' ? 12 : 7)
+
     if (rating === 'perfect') {
       G37.flashIdx = G37.orbitTile
-      G37.flashT   = 0.28
+      G37.flashT   = 0.30
+      G37.bgFlash  = 0.25
       if (_g37AC) _g37Ding(_g37AC.currentTime, 880 + (G37.tilesCompleted % 8) * 110, 0.22)
     }
     document.getElementById('g37-score-hud').textContent = G37.score.toLocaleString()
-    // speed ramp: 60→120 BPM over first 60 tiles
     G37.speed = G37_SPD0 + (G37_SPD_MAX - G37_SPD0) * Math.min(1, G37.tilesCompleted / 60)
   }
 
@@ -286,165 +313,222 @@ function _g37Loop(ts) {
   const dt = Math.min((ts - G37.lastTime) / 1000, 0.05)
   G37.lastTime = ts
 
-  G37.fbTimer = Math.max(0, G37.fbTimer - dt)
-  G37.shake   = Math.max(0, G37.shake   - dt * 3.5)
-  G37.flashT  = Math.max(0, G37.flashT  - dt * 3.5)
+  G37.fbTimer  = Math.max(0, G37.fbTimer  - dt)
+  G37.shake    = Math.max(0, G37.shake    - dt * 3.5)
+  G37.flashT   = Math.max(0, G37.flashT   - dt * 3.5)
+  G37.bgFlash  = Math.max(0, G37.bgFlash  - dt * 4)
+  G37.ringRot += dt * Math.PI   // half-turn/sec, like Circle.ts
+
+  for (let i = G37.particles.length - 1; i >= 0; i--) {
+    const p = G37.particles[i]
+    p.x += p.vx * dt; p.y += p.vy * dt
+    p.vy += 140 * dt
+    p.vx *= 0.88; p.vy *= 0.88
+    p.rot += p.rotV * dt
+    p.life -= dt * 2.2
+    if (p.life <= 0) G37.particles.splice(i, 1)
+  }
 
   G37.arcT += G37.speed * dt
   if (G37.arcT > G37.arcLen + G37_AUTO) _g37ApplyResult('miss')
 
-  // Planet world pos
   const angle = ((G37.arcStart + G37.arcT * G37.dir) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2)
   const ct = G37.tiles[G37.orbitTile]
   const px = ct.x + G37_ORBITR * Math.cos(angle)
   const py = ct.y + G37_ORBITR * Math.sin(angle)
 
   G37.trail.push({ x: px, y: py })
-  if (G37.trail.length > 55) G37.trail.shift()
+  if (G37.trail.length > 60) G37.trail.shift()
 
-  // Camera: smooth follow, biased toward upcoming tiles
   const ahead = Math.min(G37.orbitTile + 4, G37.tiles.length - 1)
   G37.camX += (G37.tiles[ahead].x - G37.camX) * 0.07
   G37.camY += (G37.tiles[ahead].y - G37.camY) * 0.07
 
-  _g37Draw(px, py)
+  _g37Draw(px, py, angle)
   G37.raf = requestAnimationFrame(_g37Loop)
 }
 
 // ── draw ───────────────────────────────────────────────
 
-function _g37Draw(px, py) {
+function _g37Draw(px, py, angle) {
   const c   = document.getElementById('g37-canvas')
   const ctx = c.getContext('2d')
   const W = c.width, H = c.height
 
-  ctx.fillStyle = '#05050d'
+  ctx.fillStyle = '#03030a'
   ctx.fillRect(0, 0, W, H)
+  if (G37.bgFlash > 0) {
+    ctx.fillStyle = `rgba(251,191,36,${G37.bgFlash * 0.10})`
+    ctx.fillRect(0, 0, W, H)
+  }
 
   const shk = G37.shake
-  const sx = shk > 0 ? (Math.random() - .5) * shk * 14 : 0
-  const sy = shk > 0 ? (Math.random() - .5) * shk * 14 : 0
+  const sx = shk > 0 ? (Math.random() - .5) * shk * 18 : 0
+  const sy = shk > 0 ? (Math.random() - .5) * shk * 18 : 0
   const toX = wx => (wx - G37.camX) + W / 2 + sx
   const toY = wy => (wy - G37.camY) + H / 2 + sy
 
   const oi    = G37.orbitTile
   const tiles = G37.tiles
   const n     = tiles.length
-  const vS    = Math.max(0, oi - 6)
-  const vE    = Math.min(n - 1, oi + 24)
+  const vS    = Math.max(0, oi - 8)
+  const vE    = Math.min(n - 1, oi + 28)
   const now   = Date.now()
 
   // ── path lines ──
   for (let i = vS; i < vE; i++) {
-    const done = i < oi
-    const col  = _g37TileColor(i)
+    const done  = i < oi
+    const isCur = i === oi
     ctx.strokeStyle = done
-      ? `rgba(79,70,229,0.55)`
-      : i === oi
-        ? `rgba(255,255,255,0.25)`
-        : `rgba(255,255,255,0.10)`
-    ctx.lineWidth = done ? 2 : 1.5
+      ? 'rgba(67,56,202,0.5)'
+      : isCur ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.11)'
+    ctx.lineWidth = done ? 2.5 : isCur ? 2 : 1.5
     ctx.beginPath()
     ctx.moveTo(toX(tiles[i].x),   toY(tiles[i].y))
     ctx.lineTo(toX(tiles[i+1].x), toY(tiles[i+1].y))
     ctx.stroke()
   }
 
-  // ── orbit ghost ring ──
+  // ── rotating dashed ring around current tile (Circle.ts style) ──
   if (oi < n) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
-    ctx.lineWidth = 1
-    ctx.beginPath(); ctx.arc(toX(tiles[oi].x), toY(tiles[oi].y), G37_ORBITR, 0, Math.PI * 2); ctx.stroke()
+    ctx.save()
+    ctx.translate(toX(tiles[oi].x), toY(tiles[oi].y))
+    ctx.rotate(G37.ringRot)
+    ctx.strokeStyle = 'rgba(255,255,255,0.20)'
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([6, 5])
+    ctx.beginPath(); ctx.arc(0, 0, G37_ORBITR, 0, Math.PI * 2); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+  }
+
+  // ── dashed remaining sweep arc (shows how far left to hit point) ──
+  if (oi < n - 1 && G37.arcLen - G37.arcT > 0.08) {
+    ctx.save()
+    ctx.translate(toX(tiles[oi].x), toY(tiles[oi].y))
+    ctx.strokeStyle = 'rgba(251,191,36,0.28)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([3, 6])
+    ctx.beginPath()
+    if (G37.dir > 0) {
+      ctx.arc(0, 0, G37_ORBITR, angle, G37.arcEnd)
+    } else {
+      ctx.arc(0, 0, G37_ORBITR, angle, G37.arcEnd, true)
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
   }
 
   // ── tiles (rotating diamonds) ──
   for (let i = vS; i <= vE && i < n; i++) {
     const tx = toX(tiles[i].x), ty = toY(tiles[i].y)
-    const isCur  = i === oi
-    const isDone = i < oi
-    const isNext = i === oi + 1
-    const col    = _g37TileColor(i)
-    const sz     = isCur ? 11 : isNext ? 9 : isDone ? 4 : 7
-    const rot    = now * 0.001 * (isCur ? 1.5 : 0.4) * (i % 2 ? 1 : -1)
+    const isCur    = i === oi
+    const isNext   = i === oi + 1
+    const isDone   = i < oi
+    const isStatic = i === G37.staticTile
+    const col = _g37TileColor(i)
+    const sz  = isCur ? 13 : isStatic ? 11 : isNext ? 10 : isDone ? 5 : 8
+    const spd = isCur ? 2.0 : isStatic ? 1.2 : 0.45
+    const rot = now * 0.001 * spd * (i % 2 ? 1 : -1)
 
     let flash = 0
-    if (i === G37.flashIdx && G37.flashT > 0) flash = G37.flashT / 0.28
+    if (i === G37.flashIdx && G37.flashT > 0) flash = G37.flashT / 0.30
 
     ctx.save()
     ctx.translate(tx, ty)
     ctx.rotate(Math.PI / 4 + rot)
 
     if (flash > 0) {
-      ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 40 * flash
+      ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 55 * flash
+    } else if (isCur || isStatic) {
+      ctx.shadowColor = col; ctx.shadowBlur = isCur ? 30 : 18
+    } else if (isNext) {
+      ctx.shadowColor = col; ctx.shadowBlur = 12
     } else {
-      ctx.shadowColor = col
-      ctx.shadowBlur = isCur ? 22 : isNext ? 10 : 0
+      ctx.shadowBlur = 0
     }
-    ctx.globalAlpha = isDone ? 0.4 : 1
-    ctx.fillStyle = isDone ? '#3730a3' : col
 
-    // outer diamond
+    ctx.globalAlpha = isDone ? 0.30 : 1
+    ctx.fillStyle   = isDone ? '#312e81' : col
     ctx.fillRect(-sz, -sz, sz * 2, sz * 2)
 
-    // inner highlight for current tile
-    if (isCur) {
-      ctx.fillStyle = 'rgba(255,255,255,0.45)'
-      ctx.fillRect(-sz * 0.42, -sz * 0.42, sz * 0.84, sz * 0.84)
+    if (isCur || isStatic) {
+      ctx.fillStyle = 'rgba(255,255,255,0.28)'
+      ctx.fillRect(-sz * 0.44, -sz * 0.44, sz * 0.88, sz * 0.88)
     }
     if (flash > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${flash * 0.6})`
-      ctx.fillRect(-sz * 1.4, -sz * 1.4, sz * 2.8, sz * 2.8)
+      ctx.fillStyle = `rgba(255,255,255,${flash * 0.65})`
+      ctx.fillRect(-sz * 1.6, -sz * 1.6, sz * 3.2, sz * 3.2)
     }
-
     ctx.restore()
     ctx.shadowBlur = 0; ctx.globalAlpha = 1
   }
 
-  // ── target indicator (pulsing gold ring) ──
+  // ── pulsing gold target ring ──
   if (oi < n - 1) {
-    const pulse = 0.55 + Math.sin(now / 120) * 0.45
+    const pulse = 0.6 + Math.sin(now / 110) * 0.4
     const ex = toX(tiles[oi].x + G37_ORBITR * Math.cos(G37.arcEnd))
     const ey = toY(tiles[oi].y + G37_ORBITR * Math.sin(G37.arcEnd))
-    ctx.strokeStyle = `rgba(251,191,36,${pulse * 0.9})`
+    ctx.strokeStyle = `rgba(251,191,36,${0.65 + pulse * 0.35})`
     ctx.lineWidth = 2.5
-    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 12 * pulse
-    ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.stroke()
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 20 * pulse
+    ctx.beginPath(); ctx.arc(ex, ey, 7, 0, Math.PI * 2); ctx.stroke()
     ctx.shadowBlur = 0
   }
 
+  // ── particles ──
+  for (const p of G37.particles) {
+    ctx.save()
+    ctx.translate(toX(p.x), toY(p.y))
+    ctx.rotate(p.rot)
+    ctx.globalAlpha = p.life * p.life
+    ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 7
+    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
+    ctx.restore()
+  }
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0
+
   // ── trail ──
-  const tcol = _g37TileColor(oi)
+  const ballCol = G37.oddStep ? G37_ICE : G37_FIRE
   ctx.lineCap = 'round'
   for (let i = 1; i < G37.trail.length; i++) {
-    const a  = i / G37.trail.length
-    const tx1 = toX(G37.trail[i-1].x), ty1 = toY(G37.trail[i-1].y)
-    const tx2 = toX(G37.trail[i].x),   ty2 = toY(G37.trail[i].y)
-    ctx.globalAlpha = a * a * 0.75
-    ctx.strokeStyle = tcol
-    ctx.lineWidth = 1.5 + a * 3.5
-    ctx.beginPath(); ctx.moveTo(tx1, ty1); ctx.lineTo(tx2, ty2); ctx.stroke()
+    const a = i / G37.trail.length
+    ctx.globalAlpha = a * a * 0.80
+    ctx.strokeStyle = ballCol
+    ctx.lineWidth = 1.5 + a * 4
+    ctx.beginPath()
+    ctx.moveTo(toX(G37.trail[i-1].x), toY(G37.trail[i-1].y))
+    ctx.lineTo(toX(G37.trail[i].x),   toY(G37.trail[i].y))
+    ctx.stroke()
   }
   ctx.globalAlpha = 1
 
-  // ── planet ──
-  if (oi < n) {
-    const spx = toX(px), spy = toY(py)
-    // outer glow ring
-    ctx.fillStyle = tcol
-    ctx.shadowColor = tcol; ctx.shadowBlur = 22
-    ctx.beginPath(); ctx.arc(spx, spy, 9, 0, Math.PI * 2); ctx.fill()
-    // white core
-    ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 10
-    ctx.beginPath(); ctx.arc(spx, spy, 5.5, 0, Math.PI * 2); ctx.fill()
+  // ── static ball (sits on last-completed tile, opposite color) ──
+  if (G37.staticTile >= 0 && G37.staticTile < tiles.length) {
+    const st  = tiles[G37.staticTile]
+    const sbx = toX(st.x), sby = toY(st.y)
+    const sbc = G37.oddStep ? G37_FIRE : G37_ICE
+    ctx.fillStyle = sbc; ctx.shadowColor = sbc; ctx.shadowBlur = 22
+    ctx.beginPath(); ctx.arc(sbx, sby, 8, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 8
+    ctx.beginPath(); ctx.arc(sbx, sby, 4.5, 0, Math.PI * 2); ctx.fill()
     ctx.shadowBlur = 0
   }
+
+  // ── orbiting ball ──
+  const spx = toX(px), spy = toY(py)
+  ctx.fillStyle = ballCol; ctx.shadowColor = ballCol; ctx.shadowBlur = 28
+  ctx.beginPath(); ctx.arc(spx, spy, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 12
+  ctx.beginPath(); ctx.arc(spx, spy, 5.5, 0, Math.PI * 2); ctx.fill()
+  ctx.shadowBlur = 0
 
   // ── HUD ──
   for (let i = 0; i < 3; i++) {
     const alive = i < G37.health
-    ctx.fillStyle = alive ? '#f472b6' : 'rgba(255,255,255,0.1)'
-    ctx.shadowColor = '#f472b6'; ctx.shadowBlur = alive ? 9 : 0
+    ctx.fillStyle = alive ? '#f472b6' : 'rgba(255,255,255,0.10)'
+    ctx.shadowColor = '#f472b6'; ctx.shadowBlur = alive ? 10 : 0
     ctx.font = '18px sans-serif'; ctx.textAlign = 'left'
     ctx.fillText('♥', 10 + i * 24, 28)
   }
@@ -460,29 +544,26 @@ function _g37Draw(px, py) {
     ctx.fillText(`${G37.combo}× COMBO${mul > 1 ? ' ×'+mul : ''}`, W - 10, 44)
   }
 
-  // speed indicator (fills as game speeds up)
   const spd = (G37.speed - G37_SPD0) / (G37_SPD_MAX - G37_SPD0)
   if (spd > 0) {
-    const barW = 80, barH = 4
+    const barW = 80, barH = 4, bx = W / 2 - 40, by = 8
+    const tcol = _g37TileColor(oi)
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
-    ctx.fillRect(W/2 - barW/2, 8, barW, barH)
-    ctx.fillStyle = tcol
-    ctx.shadowColor = tcol; ctx.shadowBlur = 6
-    ctx.fillRect(W/2 - barW/2, 8, barW * spd, barH)
+    ctx.fillRect(bx, by, barW, barH)
+    ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 6
+    ctx.fillRect(bx, by, barW * spd, barH)
     ctx.shadowBlur = 0
   }
 
   if (G37.fbTimer > 0) {
     const a   = G37.fbTimer / 0.65
     const txt = G37.feedback === 'perfect' ? 'PERFECT!'
-              : G37.feedback === 'good'    ? 'GOOD'
-              : 'MISS'
+              : G37.feedback === 'good'    ? 'GOOD' : 'MISS'
     ctx.globalAlpha = a
-    ctx.fillStyle = G37.fbColor
+    ctx.fillStyle = G37.fbColor; ctx.shadowColor = G37.fbColor; ctx.shadowBlur = 20
     ctx.font = `bold ${G37.feedback === 'perfect' ? 28 : 22}px monospace`
     ctx.textAlign = 'center'
-    ctx.shadowColor = G37.fbColor; ctx.shadowBlur = 16
-    ctx.fillText(txt, W / 2, H * 0.17 - (1 - a) * 18)
+    ctx.fillText(txt, W / 2, H * 0.17 - (1 - a) * 20)
     ctx.shadowBlur = 0; ctx.globalAlpha = 1
   }
 
