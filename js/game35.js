@@ -5,6 +5,12 @@
 // ═══════════════════════════════════════════════════════
 const G35_WAVE_SPD = 255
 const G35_PR       = 7
+const G35_SERVER   = 'https://some-quantum-games.onrender.com'
+
+let G35_socket       = null
+let G35_roomCode     = null
+let G35_oppScore     = null
+let G35_oppDone      = false
 
 const G35 = {
   active: false,
@@ -62,6 +68,49 @@ function _g35MakePat(ctx) {
   return _g35WallPat
 }
 
+function _g35RoomStatus(html, isError = false) {
+  const el = document.getElementById('g35-room-status')
+  if (!el) return
+  el.style.color = isError ? 'var(--danger)' : 'var(--muted)'
+  el.innerHTML = html
+}
+
+function g35GetSocket() {
+  if (G35_socket && G35_socket.connected) return G35_socket
+  G35_socket = io(G35_SERVER)
+  G35_socket.on('room-created', code => {
+    G35_roomCode = code
+    _g35RoomStatus(`Room created! Share code: <b style="color:#67e8f9;letter-spacing:3px;">${code}</b><br>Waiting for friend…`)
+  })
+  G35_socket.on('game-ready', () => {
+    _g35RoomStatus('Friend joined! Starting…')
+    setTimeout(() => startWaveDash(), 800)
+  })
+  G35_socket.on('join-error', msg => _g35RoomStatus(`❌ ${msg}`, true))
+  G35_socket.on('opponent-score', score => { G35_oppScore = score })
+  G35_socket.on('opponent-done',  score => { G35_oppScore = score; G35_oppDone = true })
+  G35_socket.on('opponent-left',  () => { G35_oppScore = null; _g35RoomStatus('Opponent disconnected.', true) })
+  return G35_socket
+}
+
+window.g35CreateRoom = function() {
+  _g35RoomStatus('Connecting…')
+  const sock = g35GetSocket()
+  sock.once('connect', () => sock.emit('create-room'))
+  if (sock.connected) sock.emit('create-room')
+}
+
+window.g35JoinRoom = function() {
+  const code = document.getElementById('g35-room-input').value.trim().toUpperCase()
+  if (!code || code.length < 4) { _g35RoomStatus('Enter a valid room code.', true); return }
+  _g35RoomStatus('Joining…')
+  G35_roomCode = code
+  const sock = g35GetSocket()
+  const doJoin = () => sock.emit('join-room', code)
+  sock.once('connect', doJoin)
+  if (sock.connected) doJoin()
+}
+
 function stopGame35() {
   G35.active = false
   if (G35.raf) { cancelAnimationFrame(G35.raf); G35.raf = null }
@@ -86,10 +135,13 @@ function _g35TU(e) { e.preventDefault(); G35.holding = false }
 
 async function initGame35() {
   stopGame35()
-  _g35Canvas = null
+  _g35Canvas  = null
   _g35WallPat = null
+  G35_oppScore = null
+  G35_oppDone  = false
   document.getElementById('g35-over').classList.remove('show')
   document.getElementById('g35-overlay').style.display = 'flex'
+  _g35RoomStatus('')
   await initCurby()
 }
 
@@ -211,6 +263,9 @@ function g35Loop(ts) {
   if (newScore !== G35.score) {
     G35.score = newScore
     document.getElementById('g35-score-hud').textContent = G35.score
+    if (G35_socket && G35_roomCode && G35.score % 5 === 0) {
+      G35_socket.emit('score-update', { code: G35_roomCode, score: G35.score })
+    }
   }
 
   // Wave physics — instant direction change (authentic GD feel)
@@ -312,6 +367,16 @@ function g35Draw(ctx, w, h) {
       ctx.stroke()
     }
   }
+  // Opponent score (multiplayer)
+  if (G35_roomCode && G35_oppScore !== null) {
+    ctx.shadowBlur = 0
+    ctx.fillStyle = 'rgba(103,232,249,0.7)'
+    ctx.font = `bold ${Math.min(w / 28, 16)}px monospace`
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top'
+    ctx.fillText(`Opponent: ${G35_oppScore} blocks`, w - 12, 12)
+    ctx.textAlign = 'left'
+  }
+
   ctx.shadowBlur = 0
 
   // Player — arrow chevron pointing in direction of travel
@@ -339,7 +404,24 @@ function endGame35() {
   SFX.die()
   stopGame35()
   window._g35Score = G35.score
+
+  if (G35_socket && G35_roomCode) {
+    G35_socket.emit('game-over', { code: G35_roomCode, score: G35.score })
+  }
+
   document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
   renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
+
+  const mpEl = document.getElementById('g35-mp-result')
+  if (mpEl && G35_roomCode && G35_oppScore !== null) {
+    const oppTxt = G35_oppDone ? G35_oppScore : '…'
+    const verdict = G35_oppDone
+      ? (G35.score > G35_oppScore ? '🏆 You win!' : G35.score < G35_oppScore ? '😔 They win!' : '🤝 Tie!')
+      : ''
+    mpEl.textContent = `Opponent: ${oppTxt} blocks ${verdict}`
+  } else if (mpEl) {
+    mpEl.textContent = ''
+  }
+
   document.getElementById('g35-over').classList.add('show')
 }
