@@ -15,7 +15,7 @@ function randomCode() {
 io.on('connection', socket => {
   socket.on('create-room', () => {
     const code = randomCode()
-    rooms[code] = { players: [socket.id] }
+    rooms[code] = { players: [socket.id], scores: {} }
     socket.join(code)
     socket.emit('room-created', code)
   })
@@ -35,8 +35,14 @@ io.on('connection', socket => {
     socket.to(code).emit('opponent-score', score)
   })
 
+  // Natural game end (CPS timer, Typing rounds finish)
   socket.on('game-over', ({ code, score }) => {
     socket.to(code).emit('opponent-done', score)
+  })
+
+  // Player crashed mid-game (Wave Dash, Parkour) — force-end the opponent's game
+  socket.on('player-died', ({ code, score }) => {
+    socket.to(code).emit('force-end', { loserScore: score })
   })
 
   socket.on('disconnecting', () => {

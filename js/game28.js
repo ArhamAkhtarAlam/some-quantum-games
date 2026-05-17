@@ -36,6 +36,19 @@ function g28GetSocket() {
   G28_socket.on('opponent-score', score => { G28_oppScore = score })
   G28_socket.on('opponent-done',  score => { G28_oppScore = score; G28_oppDone = true })
   G28_socket.on('opponent-left',  ()    => { G28_oppScore = null; _g28RoomStatus('Opponent disconnected.', true) })
+  G28_socket.on('force-end', ({ loserScore }) => {
+    // Opponent died — stop our game and show win
+    G28.active = false
+    if (g28Raf) { cancelAnimationFrame(g28Raf); g28Raf = null }
+    window._g28Score = G28.score
+    document.getElementById('g28-final-score').textContent = G28.score.toLocaleString()
+    const m = G28.score >= 3000 ? '🥇 Gold' : G28.score >= 1200 ? '🥈 Silver' : G28.score >= 400 ? '🥉 Bronze' : ''
+    document.getElementById('g28-medal').textContent = m
+    document.getElementById('g28-mp-result').innerHTML =
+      `Opponent died at ${loserScore.toLocaleString()} pts! 🏆 <b>You win!</b>`
+    document.getElementById('g28-over').classList.add('show')
+    if (typeof recordMpResult === 'function') recordMpResult('parkour', true)
+  })
   return G28_socket
 }
 
@@ -849,19 +862,20 @@ function g28Over() {
   window.removeEventListener('keydown', g28KD)
   window.removeEventListener('keyup',   g28KU)
 
-  if (G28_socket && G28_roomCode) G28_socket.emit('game-over', { code: G28_roomCode, score: G28.score })
+  if (G28_socket && G28_roomCode) {
+    G28_socket.emit('player-died', { code: G28_roomCode, score: G28.score })
+    if (typeof recordMpResult === 'function') recordMpResult('parkour', false)
+  }
 
   document.getElementById('g28-final-score').textContent = G28.score.toLocaleString()
   const m = G28.score >= 3000 ? '🥇 Gold' : G28.score >= 1200 ? '🥈 Silver' : G28.score >= 400 ? '🥉 Bronze' : ''
   document.getElementById('g28-medal').textContent = m
 
   const mpEl = document.getElementById('g28-mp-result')
-  if (mpEl && G28_roomCode && G28_oppScore !== null) {
-    const oppTxt = G28_oppDone ? G28_oppScore.toLocaleString() : '…'
-    const verdict = G28_oppDone
-      ? (G28.score > G28_oppScore ? '🏆 You win!' : G28.score < G28_oppScore ? '😔 They win!' : '🤝 Tie!')
+  if (mpEl && G28_roomCode) {
+    mpEl.innerHTML = G28_oppScore !== null
+      ? `Opponent was at ${G28_oppScore.toLocaleString()} pts. 😔 <b>You died first!</b>`
       : ''
-    mpEl.textContent = `Opponent: ${oppTxt} pts ${verdict}`
   } else if (mpEl) {
     mpEl.textContent = ''
   }

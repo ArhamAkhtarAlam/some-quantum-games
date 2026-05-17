@@ -86,10 +86,21 @@ function g35GetSocket() {
     _g35RoomStatus('Friend joined! Starting…')
     setTimeout(() => startWaveDash(), 800)
   })
-  G35_socket.on('join-error', msg => _g35RoomStatus(`❌ ${msg}`, true))
+  G35_socket.on('join-error',     msg   => _g35RoomStatus(`❌ ${msg}`, true))
   G35_socket.on('opponent-score', score => { G35_oppScore = score })
   G35_socket.on('opponent-done',  score => { G35_oppScore = score; G35_oppDone = true })
-  G35_socket.on('opponent-left',  () => { G35_oppScore = null; _g35RoomStatus('Opponent disconnected.', true) })
+  G35_socket.on('opponent-left',  ()    => { G35_oppScore = null; _g35RoomStatus('Opponent disconnected.', true) })
+  G35_socket.on('force-end', ({ loserScore }) => {
+    // Opponent crashed — we win
+    stopGame35()
+    window._g35Score = G35.score
+    document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
+    renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
+    document.getElementById('g35-mp-result').innerHTML =
+      `Opponent crashed at ${loserScore} blocks! 🏆 <b>You win!</b>`
+    document.getElementById('g35-over').classList.add('show')
+    if (typeof recordMpResult === 'function') recordMpResult('wavedash', true)
+  })
   return G35_socket
 }
 
@@ -406,21 +417,18 @@ function endGame35() {
   window._g35Score = G35.score
 
   if (G35_socket && G35_roomCode) {
-    G35_socket.emit('game-over', { code: G35_roomCode, score: G35.score })
+    G35_socket.emit('player-died', { code: G35_roomCode, score: G35.score })
+    if (typeof recordMpResult === 'function') recordMpResult('wavedash', false)
   }
 
   document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
   renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
 
   const mpEl = document.getElementById('g35-mp-result')
-  if (mpEl && G35_roomCode && G35_oppScore !== null) {
-    const oppTxt = G35_oppDone ? G35_oppScore : '…'
-    const verdict = G35_oppDone
-      ? (G35.score > G35_oppScore ? '🏆 You win!' : G35.score < G35_oppScore ? '😔 They win!' : '🤝 Tie!')
+  if (mpEl && G35_roomCode) {
+    mpEl.innerHTML = G35_oppScore !== null
+      ? `Opponent was at ${G35_oppScore} blocks. 😔 <b>You crashed first!</b>`
       : ''
-    mpEl.textContent = `Opponent: ${oppTxt} blocks ${verdict}`
-  } else if (mpEl) {
-    mpEl.textContent = ''
   }
 
   document.getElementById('g35-over').classList.add('show')

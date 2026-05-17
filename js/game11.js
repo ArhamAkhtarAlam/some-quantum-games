@@ -246,10 +246,13 @@ function endGame11() {
   const mpEl = document.getElementById('g11-mp-result')
   if (mpEl && G11_roomCode && G11_oppWpm !== null) {
     const oppTxt = G11_oppDone ? G11_oppWpm : '…'
+    const won    = G11_oppDone && avgWpm > G11_oppWpm
+    const lost   = G11_oppDone && avgWpm < G11_oppWpm
     const verdict = G11_oppDone
-      ? (avgWpm > G11_oppWpm ? '🏆 You win!' : avgWpm < G11_oppWpm ? '😔 They win!' : '🤝 Tie!')
+      ? (won ? '🏆 You win!' : lost ? '😔 They win!' : '🤝 Tie!')
       : ''
-    mpEl.textContent = `Opponent: ${oppTxt} WPM ${verdict}`
+    if (G11_oppDone && typeof recordMpResult === 'function') recordMpResult('typing', won)
+    mpEl.innerHTML = `Opponent: ${oppTxt} WPM <b>${verdict}</b>`
   } else if (mpEl) {
     mpEl.textContent = ''
   }

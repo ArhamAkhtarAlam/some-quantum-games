@@ -170,9 +170,12 @@ function _g36End() {
   let resultHtml = `${cps} CPS  (${G36.clicks} clicks)`
   if (G36_roomCode && G36_opponentCPS !== null) {
     const oppFinal = G36_opponentDone ? G36_opponentCPS : '…'
+    const won      = G36_opponentDone && cps > G36_opponentCPS
+    const lost     = G36_opponentDone && cps < G36_opponentCPS
     const winner   = G36_opponentDone
-      ? (cps > G36_opponentCPS ? '🏆 You win!' : cps < G36_opponentCPS ? '😔 They win!' : '🤝 Tie!')
+      ? (won ? '🏆 You win!' : lost ? '😔 They win!' : '🤝 Tie!')
       : ''
+    if (G36_opponentDone && typeof recordMpResult === 'function') recordMpResult('cps', won)
     resultHtml += `<br><span style="font-size:.9rem;color:#a5b4fc;">Opponent: ${oppFinal} CPS ${winner}</span>`
   }
 

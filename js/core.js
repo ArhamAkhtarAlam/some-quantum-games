@@ -511,6 +511,12 @@ const LB_TABS = [
 
 window.switchLbTab = function(game) {
   lbCurrentGame = game
+  // MP wins tab is special
+  const mpBtn = document.getElementById('lb-tab-mp')
+  if (mpBtn) mpBtn.style.cssText = game === 'mp'
+    ? 'background:#a78bfa;border-color:#a78bfa;color:#fff;'
+    : 'border-color:#a78bfa;color:#a78bfa;'
+  if (game === 'mp') { loadMpLeaderboard(); return }
   for (const tab of LB_TABS) {
     const el = document.getElementById(tab.id)
     if (!el) continue
@@ -608,6 +614,72 @@ async function loadLeaderboard(game) {
   } catch (e) {
     list.innerHTML = '<div class="lb-empty">Could not load scores: ' + (e.message || 'Unknown error') + '</div>'
     console.warn('Leaderboard load failed:', e)
+  }
+}
+
+// ── Multiplayer win tracking ──────────────────────────
+window.recordMpResult = async function(game, won) {
+  if (!_sb || !AUTH.user || !AUTH.profile) return
+  try {
+    const uid  = AUTH.user.id
+    const name = AUTH.profile.display_name
+    const { data } = await _sb.from('mp_wins')
+      .select('wins,losses').eq('user_id', uid).eq('game', game).maybeSingle()
+    if (data) {
+      await _sb.from('mp_wins')
+        .update(won ? { wins: data.wins + 1 } : { losses: data.losses + 1 })
+        .eq('user_id', uid).eq('game', game)
+    } else {
+      await _sb.from('mp_wins')
+        .insert({ user_id: uid, display_name: name, game, wins: won ? 1 : 0, losses: won ? 0 : 1 })
+    }
+  } catch(e) { console.warn('recordMpResult failed:', e) }
+}
+
+async function loadMpLeaderboard() {
+  const list = document.getElementById('lb-list')
+  list.innerHTML = '<div class="lb-loading"><div class="spinner"></div> Loading…</div>'
+  try {
+    const rows = await sbFetch('/rest/v1/mp_wins?select=display_name,game,wins,losses&order=wins.desc')
+    if (!rows || rows.length === 0) {
+      list.innerHTML = '<div class="lb-empty">No multiplayer matches yet — go play!</div>'
+      return
+    }
+    // Aggregate per player
+    const players = {}
+    for (const r of rows) {
+      if (!players[r.display_name]) players[r.display_name] = { wins: 0, losses: 0, games: {} }
+      players[r.display_name].wins   += r.wins
+      players[r.display_name].losses += r.losses
+      players[r.display_name].games[r.game] = { wins: r.wins, losses: r.losses }
+    }
+    const sorted = Object.entries(players)
+      .sort((a, b) => b[1].wins - a[1].wins)
+      .slice(0, 10)
+    const rankLabels = ['🥇', '🥈', '🥉']
+    const gameLabels = { cps: '🖱️CPS', typing: '⌨️Type', wavedash: '〰️Wave', parkour: '🏃Park' }
+    list.innerHTML = sorted.map(([name, p], i) => {
+      const total  = p.wins + p.losses
+      const rate   = total > 0 ? Math.round(p.wins / total * 100) : 0
+      const detail = Object.entries(p.games)
+        .map(([g, s]) => `${gameLabels[g] || g} ${s.wins}W/${s.losses}L`)
+        .join(' · ')
+      return `
+        <div class="lb-row">
+          <span class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${rankLabels[i] || i+1}</span>
+          <span class="lb-name" style="flex-direction:column;align-items:flex-start;gap:.1rem;">
+            ${escHtml(name)}
+            <span style="font-size:.72rem;color:var(--muted);font-weight:400;">${detail}</span>
+          </span>
+          <span class="lb-score" style="color:#a78bfa;flex-direction:column;align-items:flex-end;gap:.1rem;">
+            <span>${p.wins}W / ${p.losses}L</span>
+            <span style="font-size:.75rem;color:var(--muted);">${rate}% win rate</span>
+          </span>
+        </div>`
+    }).join('')
+  } catch(e) {
+    list.innerHTML = '<div class="lb-empty">Could not load MP stats.</div>'
+    console.warn('loadMpLeaderboard failed:', e)
   }
 }
 
