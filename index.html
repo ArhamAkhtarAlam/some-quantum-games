@@ -669,14 +669,8 @@
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">A quantum word appears — type it exactly as fast as you can. 5 rounds. Score is average WPM. No typos count!</p>
       <button class="btn-primary" onclick="startTyping()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
-        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or race a friend —</div>
-        <button class="btn-primary" style="width:100%;background:#34d399;" onclick="g11CreateRoom()">Create Room</button>
-        <div style="display:flex;gap:.4rem;width:100%;">
-          <input id="g11-room-input" placeholder="Room code" maxlength="6"
-            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
-          <button class="btn-primary" style="background:#34d399;" onclick="g11JoinRoom()">Join</button>
-        </div>
-        <div id="g11-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+        <button class="btn-primary" style="width:100%;background:#34d399;" id="g11-queue-btn" onclick="g11FindMatch()">⚔️ Find Match</button>
+        <div id="g11-queue-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
       </div>
     </div>
   </div>
@@ -1066,6 +1060,12 @@
     <div id="g28-opp-hud" style="display:none;position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(10,10,26,.82);border-bottom:1px solid rgba(251,146,60,.35);padding:.35rem .8rem;font-size:.82rem;font-family:monospace;color:#fdba74;display:flex;justify-content:space-between;align-items:center;">
       <span>👤 Opponent</span><span id="g28-opp-stat">— pts</span>
     </div>
+    <div id="g28-spectate" style="display:none;position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;color:#fdba74;font-family:monospace;">
+      <div style="font-size:1.5rem;font-weight:700;">💀 You died!</div>
+      <div style="font-size:1rem;">Your score: <b id="g28-spec-your-score">0</b> pts</div>
+      <div style="font-size:.9rem;color:var(--muted);">Waiting for opponent…</div>
+      <div style="font-size:1.1rem;">Opponent: <b id="g28-spec-opp-score">—</b> pts</div>
+    </div>
     <canvas id="g28-canvas"></canvas>
     <div class="canvas-overlay" id="g28-overlay" style="display:none;">
       <h3>🏃 Parkour</h3>
@@ -1073,13 +1073,8 @@
       <button class="btn-primary" onclick="g28StartSolo()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
         <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or race a friend —</div>
-        <button class="btn-primary" style="width:100%;background:#fb923c;" onclick="g28CreateRoom()">Create Room</button>
-        <div style="display:flex;gap:.4rem;width:100%;">
-          <input id="g28-room-input" placeholder="Room code" maxlength="6"
-            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
-          <button class="btn-primary" style="background:#fb923c;" onclick="g28JoinRoom()">Join</button>
-        </div>
-        <div id="g28-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+        <button class="btn-primary" style="width:100%;background:#fb923c;" id="g28-queue-btn" onclick="g28FindMatch()">⚔️ Find Match</button>
+        <div id="g28-queue-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
       </div>
     </div>
   </div>
@@ -1392,14 +1387,8 @@
       <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">A 3-second countdown gives you time to adapt before it moves</div>
       <button class="btn-primary" onclick="startWaveDash()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
-        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or race a friend —</div>
-        <button class="btn-primary" style="width:100%;background:#06b6d4;" onclick="g35CreateRoom()">Create Room</button>
-        <div style="display:flex;gap:.4rem;width:100%;">
-          <input id="g35-room-input" placeholder="Room code" maxlength="6"
-            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
-          <button class="btn-primary" style="background:#06b6d4;" onclick="g35JoinRoom()">Join</button>
-        </div>
-        <div id="g35-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+        <button class="btn-primary" style="width:100%;background:#06b6d4;" id="g35-queue-btn" onclick="g35FindMatch()">⚔️ Find Match</button>
+        <div id="g35-queue-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
       </div>
     </div>
   </div>
@@ -1434,14 +1423,8 @@
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Click or press <b>Space</b> as fast as you can for <b>10 seconds</b>. Both count! Your score is clicks per second (integer).</p>
       <button class="btn-primary" onclick="startCPS()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
-        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or play vs a friend —</div>
-        <button class="btn-primary" style="width:100%;background:#6366f1;" onclick="g36CreateRoom()">Create Room</button>
-        <div style="display:flex;gap:.4rem;width:100%;">
-          <input id="g36-room-input" placeholder="Room code" maxlength="6"
-            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
-          <button class="btn-primary" style="background:#6366f1;" onclick="g36JoinRoom()">Join</button>
-        </div>
-        <div id="g36-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+        <button class="btn-primary" style="width:100%;background:#6366f1;" id="g36-queue-btn" onclick="g36FindMatch()">⚔️ Find Match</button>
+        <div id="g36-queue-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
       </div>
     </div>
   </div>

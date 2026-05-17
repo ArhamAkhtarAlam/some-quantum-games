@@ -8,11 +8,25 @@ let G28 = {}
 let g28Canvas, g28Ctx, g28Raf
 let g28Keys = {}
 
-const G28_SERVER = 'https://some-quantum-games.onrender.com'
-let G28_socket   = null
-let G28_roomCode = null
-let G28_oppScore = null
-let G28_oppDone  = false
+let G28_roomCode  = null
+let G28_sideBySide = false
+let G28_oppScore  = null
+let G28_oppDone   = false
+let G28_iDied     = false   // I died first, now watching opponent
+let G28_oppPos    = null    // { x, y } tile pos for ghost rendering
+
+function _g28ShowFinalResult(myScore, oppScore, won) {
+  document.getElementById('g28-final-score').textContent = myScore.toLocaleString()
+  const m = myScore >= 3000 ? '🥇 Gold' : myScore >= 1200 ? '🥈 Silver' : myScore >= 400 ? '🥉 Bronze' : ''
+  document.getElementById('g28-medal').textContent = m
+  document.getElementById('g28-mp-result').innerHTML = won
+    ? `Opponent: ${oppScore.toLocaleString()} pts. 🏆 <b>You win!</b>`
+    : myScore === oppScore
+    ? `🤝 Tie! Both ${myScore.toLocaleString()} pts`
+    : `Opponent: ${oppScore.toLocaleString()} pts. 😔 <b>They win!</b>`
+  document.getElementById('g28-over').classList.add('show')
+  SFX.win()
+}
 
 function _g28UpdateOppHud() {
   const hud  = document.getElementById('g28-opp-hud')
@@ -22,66 +36,49 @@ function _g28UpdateOppHud() {
     hud.style.display = 'flex'
     stat.textContent  = G28_oppScore.toLocaleString() + ' pts'
   }
+  // Update spectate overlay too
+  const specOpp = document.getElementById('g28-spec-opp-score')
+  if (specOpp && G28_oppScore !== null) specOpp.textContent = G28_oppScore.toLocaleString()
 }
 
-function _g28RoomStatus(html, isError = false) {
-  const el = document.getElementById('g28-room-status')
-  if (!el) return
-  el.style.color = isError ? 'var(--danger)' : 'var(--muted)'
-  el.innerHTML = html
-}
+window.g28FindMatch = function() {
+  mpFindMatch('parkour', {
+    statusEl: document.getElementById('g28-queue-status'),
+    btnEl:    document.getElementById('g28-queue-btn'),
+    onMatched: ({ code, sideBySide }) => {
+      G28_roomCode   = code
+      G28_sideBySide = sideBySide
+      G28_oppScore   = 0
+      G28_iDied      = false
+      G28_oppPos     = null
+      const sock = mpGetSocket()
+      sock.off('opponent-score'); sock.off('opponent-state'); sock.off('opponent-died')
+      sock.off('opponent-left'); sock.off('force-end')
 
-function g28GetSocket() {
-  if (G28_socket && G28_socket.connected) return G28_socket
-  G28_socket = io(G28_SERVER)
-  G28_socket.on('room-created', code => {
-    G28_roomCode = code
-    _g28RoomStatus(`Room created! Share code: <b style="color:#fdba74;letter-spacing:3px;">${code}</b><br>Waiting for friend…`)
+      sock.on('opponent-score', score => { G28_oppScore = score; _g28UpdateOppHud() })
+      sock.on('opponent-state', ({ x, y }) => { G28_oppPos = { x, y } })
+
+      // Parkour: opponent died — they're spectating us now. We keep playing!
+      sock.on('opponent-died', score => {
+        G28_oppScore = score
+        _g28UpdateOppHud()
+        // Show a brief message that opponent died
+        G28.msgs?.push({ text: `Opponent died! ${score.toLocaleString()} pts`, color: '#fdba74', frames: 120, big: false })
+      })
+
+      sock.on('opponent-left', () => {
+        G28_oppScore = null
+        document.getElementById('g28-queue-status').textContent = 'Opponent disconnected.'
+      })
+
+      g28StartSolo()
+    }
   })
-  G28_socket.on('game-ready', () => {
-    _g28RoomStatus('Friend joined! Starting…')
-    setTimeout(() => g28StartSolo(), 800)
-  })
-  G28_socket.on('join-error',     msg   => _g28RoomStatus(`❌ ${msg}`, true))
-  G28_socket.on('opponent-score', score => { G28_oppScore = score; _g28UpdateOppHud() })
-  G28_socket.on('opponent-done',  score => { G28_oppScore = score; G28_oppDone = true; _g28UpdateOppHud() })
-  G28_socket.on('opponent-left',  ()    => { G28_oppScore = null; _g28RoomStatus('Opponent disconnected.', true) })
-  G28_socket.on('force-end', ({ loserScore }) => {
-    // Opponent died — stop our game and show win
-    G28.active = false
-    if (g28Raf) { cancelAnimationFrame(g28Raf); g28Raf = null }
-    window._g28Score = G28.score
-    document.getElementById('g28-final-score').textContent = G28.score.toLocaleString()
-    const m = G28.score >= 3000 ? '🥇 Gold' : G28.score >= 1200 ? '🥈 Silver' : G28.score >= 400 ? '🥉 Bronze' : ''
-    document.getElementById('g28-medal').textContent = m
-    document.getElementById('g28-mp-result').innerHTML =
-      `Opponent died at ${loserScore.toLocaleString()} pts! 🏆 <b>You win!</b>`
-    document.getElementById('g28-over').classList.add('show')
-    if (typeof recordMpResult === 'function') recordMpResult('parkour', true)
-  })
-  return G28_socket
-}
-
-window.g28CreateRoom = function() {
-  _g28RoomStatus('Connecting…')
-  const sock = g28GetSocket()
-  sock.once('connect', () => sock.emit('create-room'))
-  if (sock.connected) sock.emit('create-room')
-}
-
-window.g28JoinRoom = function() {
-  const code = document.getElementById('g28-room-input').value.trim().toUpperCase()
-  if (!code || code.length < 4) { _g28RoomStatus('Enter a valid room code.', true); return }
-  _g28RoomStatus('Joining…')
-  G28_roomCode = code
-  const sock = g28GetSocket()
-  const doJoin = () => sock.emit('join-room', code)
-  sock.once('connect', doJoin)
-  if (sock.connected) doJoin()
 }
 
 window.g28StartSolo = function() {
   document.getElementById('g28-overlay').style.display = 'none'
+  document.getElementById('g28-spectate').style.display = 'none'
   if (G28_roomCode) {
     const hud = document.getElementById('g28-opp-hud')
     if (hud) hud.style.display = 'flex'
@@ -99,8 +96,11 @@ window.initGame28 = function() {
   g28Canvas = document.getElementById('g28-canvas')
   g28Ctx    = g28Canvas.getContext('2d')
   g28Keys   = {}
-  G28_oppScore = null
-  G28_oppDone  = false
+  G28_roomCode  = null
+  G28_oppScore  = null
+  G28_oppDone   = false
+  G28_iDied     = false
+  G28_oppPos    = null
   const arena = document.getElementById('g28-arena')
   g28Canvas.width  = Math.max(arena.clientWidth,  300)
   g28Canvas.height = Math.max(arena.clientHeight, 240)
@@ -112,7 +112,12 @@ window.initGame28 = function() {
   g28Canvas.ontouchstart = e => { e.preventDefault(); g28TouchStart(e) }
   g28Canvas.ontouchend   = e => { e.preventDefault(); g28TouchEnd(e) }
 
-  _g28RoomStatus('')
+  const hud = document.getElementById('g28-opp-hud')
+  if (hud) hud.style.display = 'none'
+  const spec = document.getElementById('g28-spectate')
+  if (spec) spec.style.display = 'none'
+  const st = document.getElementById('g28-queue-status')
+  if (st) st.textContent = ''
   document.getElementById('g28-overlay').style.display = 'flex'
 }
 
@@ -451,7 +456,7 @@ function g28Finish() {
   G28.score += bonus
   G28.coins += secsLeft
   if (G28.score > G28.bestScore) G28.bestScore = G28.score
-  if (G28_socket && G28_roomCode) G28_socket.emit('score-update', { code: G28_roomCode, score: G28.score })
+  if (G28_roomCode) mpGetSocket().emit('score-update', { code: G28_roomCode, score: G28.score })
   G28.msgs.push({ text: `LVL ${G28.level+1} ✓  +${bonus}  +${secsLeft}🪙`, color: '#fbbf24', frames: 90, big: true })
 
   // Immediate seamless transition to next level
@@ -876,24 +881,34 @@ function g28Over() {
   window.removeEventListener('keydown', g28KD)
   window.removeEventListener('keyup',   g28KU)
 
-  if (G28_socket && G28_roomCode) {
-    G28_socket.emit('player-died', { code: G28_roomCode, score: G28.score })
-    if (typeof recordMpResult === 'function') recordMpResult('parkour', false)
+  if (G28_roomCode) {
+    mpGetSocket().emit('player-died', { code: G28_roomCode, score: G28.score })
+    G28_iDied = true
+
+    // Show spectate overlay — wait for opponent to finish
+    const spec = document.getElementById('g28-spectate')
+    const myScoreEl = document.getElementById('g28-spec-your-score')
+    if (spec) { spec.style.display = 'flex' }
+    if (myScoreEl) myScoreEl.textContent = G28.score.toLocaleString()
+    _g28UpdateOppHud()
+
+    // Wait for opponent to die too, then show full result
+    const sock = mpGetSocket()
+    sock.off('opponent-died-final')
+    sock.on('opponent-died', oppScore => {
+      const won = G28.score > oppScore
+      const spec2 = document.getElementById('g28-spectate')
+      if (spec2) spec2.style.display = 'none'
+      _g28ShowFinalResult(G28.score, oppScore, won)
+      if (typeof recordMpResult === 'function') recordMpResult('parkour', won)
+    })
+    return  // don't show game-over yet
   }
 
   document.getElementById('g28-final-score').textContent = G28.score.toLocaleString()
   const m = G28.score >= 3000 ? '🥇 Gold' : G28.score >= 1200 ? '🥈 Silver' : G28.score >= 400 ? '🥉 Bronze' : ''
   document.getElementById('g28-medal').textContent = m
-
-  const mpEl = document.getElementById('g28-mp-result')
-  if (mpEl && G28_roomCode) {
-    mpEl.innerHTML = G28_oppScore !== null
-      ? `Opponent was at ${G28_oppScore.toLocaleString()} pts. 😔 <b>You died first!</b>`
-      : ''
-  } else if (mpEl) {
-    mpEl.textContent = ''
-  }
-
+  document.getElementById('g28-mp-result').textContent = ''
   document.getElementById('g28-over').classList.add('show')
 }
 

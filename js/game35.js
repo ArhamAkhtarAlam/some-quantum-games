@@ -5,12 +5,12 @@
 // ═══════════════════════════════════════════════════════
 const G35_WAVE_SPD = 255
 const G35_PR       = 7
-const G35_SERVER   = 'https://some-quantum-games.onrender.com'
 
-let G35_socket       = null
-let G35_roomCode     = null
-let G35_oppScore     = null
-let G35_oppDone      = false
+let G35_roomCode   = null
+let G35_sideBySide = false
+let G35_oppScore   = null
+let G35_oppY       = null   // opponent Y for side-by-side ghost
+let G35_oppDone    = false
 
 const G35 = {
   active: false,
@@ -78,58 +78,38 @@ function _g35UpdateOppHud() {
   }
 }
 
-function _g35RoomStatus(html, isError = false) {
-  const el = document.getElementById('g35-room-status')
-  if (!el) return
-  el.style.color = isError ? 'var(--danger)' : 'var(--muted)'
-  el.innerHTML = html
-}
-
-function g35GetSocket() {
-  if (G35_socket && G35_socket.connected) return G35_socket
-  G35_socket = io(G35_SERVER)
-  G35_socket.on('room-created', code => {
-    G35_roomCode = code
-    _g35RoomStatus(`Room created! Share code: <b style="color:#67e8f9;letter-spacing:3px;">${code}</b><br>Waiting for friend…`)
+window.g35FindMatch = function() {
+  mpFindMatch('wavedash', {
+    statusEl: document.getElementById('g35-queue-status'),
+    btnEl:    document.getElementById('g35-queue-btn'),
+    onMatched: ({ code, sideBySide }) => {
+      G35_roomCode   = code
+      G35_sideBySide = sideBySide
+      G35_oppScore   = 0
+      G35_oppY       = null
+      const sock = mpGetSocket()
+      sock.off('opponent-score'); sock.off('opponent-state'); sock.off('opponent-done')
+      sock.off('force-end'); sock.off('opponent-left')
+      sock.on('opponent-score', score => { G35_oppScore = score; _g35UpdateOppHud() })
+      sock.on('opponent-state', ({ y }) => { G35_oppY = y })
+      sock.on('opponent-done',  score  => { G35_oppScore = score; G35_oppDone = true; _g35UpdateOppHud() })
+      sock.on('force-end', ({ loserScore }) => {
+        stopGame35()
+        window._g35Score = G35.score
+        document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
+        renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
+        document.getElementById('g35-mp-result').innerHTML =
+          `Opponent crashed at ${loserScore} blocks! 🏆 <b>You win!</b>`
+        document.getElementById('g35-over').classList.add('show')
+        if (typeof recordMpResult === 'function') recordMpResult('wavedash', true)
+      })
+      sock.on('opponent-left', () => {
+        G35_oppScore = null
+        document.getElementById('g35-queue-status').textContent = 'Opponent disconnected.'
+      })
+      startWaveDash()
+    }
   })
-  G35_socket.on('game-ready', () => {
-    _g35RoomStatus('Friend joined! Starting…')
-    setTimeout(() => startWaveDash(), 800)
-  })
-  G35_socket.on('join-error',     msg   => _g35RoomStatus(`❌ ${msg}`, true))
-  G35_socket.on('opponent-score', score => { G35_oppScore = score; _g35UpdateOppHud() })
-  G35_socket.on('opponent-done',  score => { G35_oppScore = score; G35_oppDone = true; _g35UpdateOppHud() })
-  G35_socket.on('opponent-left',  ()    => { G35_oppScore = null; _g35RoomStatus('Opponent disconnected.', true) })
-  G35_socket.on('force-end', ({ loserScore }) => {
-    // Opponent crashed — we win
-    stopGame35()
-    window._g35Score = G35.score
-    document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
-    renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
-    document.getElementById('g35-mp-result').innerHTML =
-      `Opponent crashed at ${loserScore} blocks! 🏆 <b>You win!</b>`
-    document.getElementById('g35-over').classList.add('show')
-    if (typeof recordMpResult === 'function') recordMpResult('wavedash', true)
-  })
-  return G35_socket
-}
-
-window.g35CreateRoom = function() {
-  _g35RoomStatus('Connecting…')
-  const sock = g35GetSocket()
-  sock.once('connect', () => sock.emit('create-room'))
-  if (sock.connected) sock.emit('create-room')
-}
-
-window.g35JoinRoom = function() {
-  const code = document.getElementById('g35-room-input').value.trim().toUpperCase()
-  if (!code || code.length < 4) { _g35RoomStatus('Enter a valid room code.', true); return }
-  _g35RoomStatus('Joining…')
-  G35_roomCode = code
-  const sock = g35GetSocket()
-  const doJoin = () => sock.emit('join-room', code)
-  sock.once('connect', doJoin)
-  if (sock.connected) doJoin()
 }
 
 function stopGame35() {
@@ -156,13 +136,19 @@ function _g35TU(e) { e.preventDefault(); G35.holding = false }
 
 async function initGame35() {
   stopGame35()
-  _g35Canvas  = null
-  _g35WallPat = null
+  _g35Canvas   = null
+  _g35WallPat  = null
+  G35_roomCode = null
+  G35_sideBySide = false
   G35_oppScore = null
+  G35_oppY     = null
   G35_oppDone  = false
   document.getElementById('g35-over').classList.remove('show')
   document.getElementById('g35-overlay').style.display = 'flex'
-  _g35RoomStatus('')
+  const hud = document.getElementById('g35-opp-hud')
+  if (hud) hud.style.display = 'none'
+  const st = document.getElementById('g35-queue-status')
+  if (st) st.textContent = ''
   await initCurby()
 }
 
@@ -288,8 +274,11 @@ function g35Loop(ts) {
   if (newScore !== G35.score) {
     G35.score = newScore
     document.getElementById('g35-score-hud').textContent = G35.score
-    if (G35_socket && G35_roomCode && G35.score % 5 === 0) {
-      G35_socket.emit('score-update', { code: G35_roomCode, score: G35.score })
+    if (G35_roomCode && G35.score % 5 === 0) {
+      mpGetSocket().emit('score-update', { code: G35_roomCode, score: G35.score })
+    }
+    if (G35_sideBySide && G35_roomCode) {
+      mpGetSocket().emit('state-sync', { code: G35_roomCode, state: { y: G35.y } })
     }
   }
 
@@ -392,6 +381,14 @@ function g35Draw(ctx, w, h) {
       ctx.stroke()
     }
   }
+  // Opponent ghost dot (side-by-side mode: their Y on our corridor)
+  if (G35_sideBySide && G35_oppY !== null) {
+    ctx.shadowColor = '#f87171'; ctx.shadowBlur = 14
+    ctx.fillStyle = 'rgba(248,113,113,0.85)'
+    ctx.beginPath(); ctx.arc(G35.cx + 24, G35_oppY, G35_PR * 0.85, 0, Math.PI*2); ctx.fill()
+    ctx.shadowBlur = 0
+  }
+
   ctx.shadowBlur = 0
 
   // Player — arrow chevron pointing in direction of travel
@@ -420,8 +417,8 @@ function endGame35() {
   stopGame35()
   window._g35Score = G35.score
 
-  if (G35_socket && G35_roomCode) {
-    G35_socket.emit('player-died', { code: G35_roomCode, score: G35.score })
+  if (G35_roomCode) {
+    mpGetSocket().emit('player-died', { code: G35_roomCode, score: G35.score })
     if (typeof recordMpResult === 'function') recordMpResult('wavedash', false)
   }
 

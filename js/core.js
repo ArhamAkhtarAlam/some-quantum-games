@@ -1,4 +1,80 @@
 // ═══════════════════════════════════════════════════════
+//  MULTIPLAYER — shared queue + ping utilities
+// ═══════════════════════════════════════════════════════
+const MP_SERVER = 'https://some-quantum-games.onrender.com'
+let _mpSocket = null
+
+function mpGetSocket() {
+  if (_mpSocket && _mpSocket.connected) return _mpSocket
+  _mpSocket = io(MP_SERVER)
+  return _mpSocket
+}
+
+// Joins queue for a game. Calls onMatched({ code, sideBySide }) when matched.
+window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btnEl }) {
+  const sock = mpGetSocket()
+  const setStatus = (html, color = 'var(--muted)') => {
+    if (statusEl) { statusEl.style.color = color; statusEl.innerHTML = html }
+  }
+  if (btnEl) { btnEl.textContent = '⏳ Searching…'; btnEl.disabled = true }
+  setStatus('Connecting to server…')
+
+  const doJoin = () => {
+    sock.emit('join-queue', { game })
+    if (onQueued) onQueued()
+  }
+  sock.once('connect', doJoin)
+  if (sock.connected) doJoin()
+
+  sock.off('queue-joined'); sock.off('matched'); sock.off('opponent-left')
+
+  sock.on('queue-joined', ({ position }) => {
+    setStatus(position === 1 ? '🔍 Waiting for opponent…' : '⚡ Match found!')
+  })
+
+  sock.on('matched', async ({ code }) => {
+    setStatus('⚡ Opponent found! Measuring connection…')
+    // Measure ping (3 samples)
+    const pings = []
+    for (let i = 0; i < 3; i++) {
+      const t = await new Promise(res => {
+        const start = Date.now()
+        sock.emit('ping-check', start)
+        sock.once('pong-check', () => res(Date.now() - start))
+        setTimeout(() => res(999), 2000)
+      })
+      pings.push(t)
+    }
+    const avgPing = Math.round(pings.reduce((a, b) => a + b) / pings.length)
+    const sideBySide = avgPing < 1000
+    setStatus(sideBySide
+      ? `✅ ${avgPing}ms ping — side-by-side mode!`
+      : `📡 ${avgPing}ms ping — standard mode`)
+    if (btnEl) { btnEl.textContent = '⚔️ Find Match'; btnEl.disabled = false }
+    setTimeout(() => onMatched({ code, sideBySide, ping: avgPing }), 600)
+  })
+
+  sock.on('opponent-left', () => {
+    setStatus('Opponent disconnected.', 'var(--danger)')
+    if (btnEl) { btnEl.textContent = '⚔️ Find Match'; btnEl.disabled = false }
+    if (onLeft) onLeft()
+  })
+
+  // Cancel button behaviour
+  if (btnEl) {
+    btnEl.onclick = () => {
+      if (btnEl.disabled) {
+        sock.emit('leave-queue')
+        btnEl.textContent = '⚔️ Find Match'; btnEl.disabled = false
+        setStatus('')
+      } else {
+        window['mp_findMatch_' + game]?.()
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
 //  CURBy quantum entropy client (dynamic import)
 // ═══════════════════════════════════════════════════════
 let curbyClient = null
