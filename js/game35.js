@@ -14,6 +14,7 @@ let G35_oppWallCy  = null   // opponent wall centre Y
 let G35_oppWallGap = null   // opponent wall gap height
 let G35_oppPanelH  = null   // opponent panel height (so we can scale correctly)
 let G35_oppDone    = false
+let G35_oppHistory = []  // ring buffer of { cy, gap } samples, newest at index 0
 
 const G35 = {
   active: false,
@@ -90,6 +91,7 @@ window.g35FindMatch = function() {
       G35_oppWallCy  = null
       G35_oppWallGap = null
       G35_oppPanelH  = null
+      G35_oppHistory = []
       const sock = mpGetSocket()
       sock.off('opponent-score'); sock.off('opponent-state'); sock.off('opponent-done')
       sock.off('force-end'); sock.off('opponent-left')
@@ -99,6 +101,8 @@ window.g35FindMatch = function() {
         G35_oppWallCy  = wallCy
         G35_oppWallGap = wallGap
         G35_oppPanelH  = panelH
+        G35_oppHistory.unshift({ cy: wallCy, gap: wallGap })
+        if (G35_oppHistory.length > 500) G35_oppHistory.length = 500
       })
       sock.on('opponent-done',  score  => { G35_oppScore = score; G35_oppDone = true; _g35UpdateOppHud() })
       sock.on('force-end', ({ loserScore }) => {
@@ -148,12 +152,13 @@ async function initGame35() {
   _g35WallPat  = null
   G35_roomCode = null
   G35_sideBySide = false
-  G35_oppScore = null
-  G35_oppY     = null
-  G35_oppWallCy = null
+  G35_oppScore   = null
+  G35_oppY       = null
+  G35_oppWallCy  = null
   G35_oppWallGap = null
-  G35_oppPanelH = null
-  G35_oppDone  = false
+  G35_oppPanelH  = null
+  G35_oppHistory = []
+  G35_oppDone    = false
   document.getElementById('g35-over').classList.remove('show')
   document.getElementById('g35-overlay').style.display = 'flex'
   const hud = document.getElementById('g35-opp-hud')
@@ -443,45 +448,87 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   }
 }
 
-// Draw opponent corridor in the top half
+// Draw opponent corridor in the top half using history buffer
 function _g35DrawOpp(ctx, w, HH) {
   ctx.fillStyle = '#07030f'
   ctx.fillRect(0, 0, w, HH)
 
-  if (G35_oppY !== null && G35_oppWallCy !== null && G35_oppWallGap !== null) {
-    const srcH  = G35_oppPanelH ?? HH  // opponent's panel height
-    const scale = HH / srcH             // scale to our top-half height
+  if (G35_oppHistory.length > 1) {
+    const srcH  = G35_oppPanelH ?? HH
+    const scale = HH / srcH
+    const n     = G35_oppHistory.length
 
-    const cy  = G35_oppWallCy  * scale
-    const gap = G35_oppWallGap * scale
-    const top = Math.max(0, cy - gap / 2)
-    const bot = Math.min(HH, cy + gap / 2)
-    const oppY = G35_oppY * scale
+    // Build per-pixel top/bottom arrays by interpolating history
+    // x = w-1 is newest (opponent's current pos), x = 0 is oldest
+    const topY = new Float32Array(w)
+    const botY = new Float32Array(w)
+    for (let x = 0; x < w; x++) {
+      const t       = (w - 1 - x) / (w - 1)          // 0=newest, 1=oldest
+      const fi      = t * (n - 1)
+      const lo      = Math.floor(fi)
+      const hi      = Math.min(lo + 1, n - 1)
+      const frac    = fi - lo
+      const cy  = (G35_oppHistory[lo].cy  + (G35_oppHistory[hi].cy  - G35_oppHistory[lo].cy)  * frac) * scale
+      const gap = (G35_oppHistory[lo].gap + (G35_oppHistory[hi].gap - G35_oppHistory[lo].gap) * frac) * scale
+      topY[x] = Math.max(0, cy - gap / 2)
+      botY[x] = Math.min(HH, cy + gap / 2)
+    }
 
-    // Top wall
     const pat = _g35MakePat(ctx, 'red')
-    ctx.fillStyle = pat
-    ctx.fillRect(0, 0, w, top)
 
-    // Bottom wall
-    ctx.fillStyle = pat
-    ctx.fillRect(0, bot, w, HH - bot)
+    // Top wall filled polygon
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    for (let x = 0; x < w; x++) ctx.lineTo(x, topY[x])
+    ctx.lineTo(w, 0)
+    ctx.closePath()
+    ctx.fillStyle = pat; ctx.fill()
 
-    // Edge lines (red)
-    ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2.5
+    // Bottom wall filled polygon
+    ctx.beginPath()
+    ctx.moveTo(0, HH)
+    for (let x = 0; x < w; x++) ctx.lineTo(x, botY[x])
+    ctx.lineTo(w, HH)
+    ctx.closePath()
+    ctx.fillStyle = pat; ctx.fill()
+
+    // Edge lines with glow
+    ctx.lineWidth = 2.5
+    ctx.strokeStyle = '#f87171'
     ctx.shadowColor = '#f87171'; ctx.shadowBlur = 10
-    ctx.beginPath(); ctx.moveTo(0, top); ctx.lineTo(w, top); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(0, bot); ctx.lineTo(w, bot); ctx.stroke()
+    ctx.beginPath()
+    for (let x = 0; x < w; x++) { x === 0 ? ctx.moveTo(x, topY[x]) : ctx.lineTo(x, topY[x]) }
+    ctx.stroke()
+    ctx.beginPath()
+    for (let x = 0; x < w; x++) { x === 0 ? ctx.moveTo(x, botY[x]) : ctx.lineTo(x, botY[x]) }
+    ctx.stroke()
     ctx.shadowBlur = 0
 
-    // Opponent dot
-    ctx.fillStyle = '#f87171'
-    ctx.shadowColor = '#f87171'; ctx.shadowBlur = 14
-    ctx.beginPath(); ctx.arc(G35.cx, oppY, G35_PR, 0, Math.PI * 2); ctx.fill()
+    // Opponent dot at their current position (rightmost, x = cx)
+    if (G35_oppY !== null) {
+      const oppY = G35_oppY * scale
+      ctx.fillStyle = '#f87171'
+      ctx.shadowColor = '#f87171'; ctx.shadowBlur = 16
+      ctx.beginPath(); ctx.arc(G35.cx, oppY, G35_PR, 0, Math.PI * 2); ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  } else if (G35_oppY !== null && G35_oppWallCy !== null) {
+    // Not enough history yet — fall back to flat corridor
+    const srcH  = G35_oppPanelH ?? HH
+    const scale = HH / srcH
+    const cy    = G35_oppWallCy  * scale
+    const gap   = G35_oppWallGap * scale
+    ctx.fillStyle = _g35MakePat(ctx, 'red')
+    ctx.fillRect(0, 0, w, Math.max(0, cy - gap / 2))
+    ctx.fillRect(0, cy + gap / 2, w, HH - (cy + gap / 2))
+    ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2.5
+    ctx.shadowColor = '#f87171'; ctx.shadowBlur = 10
+    ctx.beginPath(); ctx.moveTo(0, cy - gap/2); ctx.lineTo(w, cy - gap/2); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, cy + gap/2); ctx.lineTo(w, cy + gap/2); ctx.stroke()
     ctx.shadowBlur = 0
   }
 
-  // Opponent label + score
+  // Label + score
   ctx.fillStyle = 'rgba(248,113,113,0.6)'
   ctx.font = `bold ${Math.min(w/24, 14)}px monospace`
   ctx.textAlign = 'center'
