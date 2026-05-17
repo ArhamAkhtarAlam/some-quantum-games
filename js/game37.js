@@ -340,9 +340,9 @@ function _g37Loop(ts) {
   G37.trail.push({ x: px, y: py })
   if (G37.trail.length > 60) G37.trail.shift()
 
-  const ahead = Math.min(G37.orbitTile + 4, G37.tiles.length - 1)
-  G37.camX += (G37.tiles[ahead].x - G37.camX) * 0.07
-  G37.camY += (G37.tiles[ahead].y - G37.camY) * 0.07
+  const ahead = Math.min(G37.orbitTile + 1, G37.tiles.length - 1)
+  G37.camX += (G37.tiles[ahead].x - G37.camX) * 0.12
+  G37.camY += (G37.tiles[ahead].y - G37.camY) * 0.12
 
   _g37Draw(px, py, angle)
   G37.raf = requestAnimationFrame(_g37Loop)
