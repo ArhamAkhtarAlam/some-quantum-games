@@ -30,12 +30,20 @@ const AUTH = {
     }
 
     // Restore / process session from URL hash
-    const { data: { session } } = await _sb.auth.getSession()
+    let session = null
+    try {
+      const { data, error } = await _sb.auth.getSession()
+      if (error) throw error
+      session = data.session
+    } catch (e) {
+      console.error('Supabase getSession failed:', e)
+      const wrap = document.getElementById('auth-header-wrap')
+      if (wrap) wrap.innerHTML = `<span style="color:var(--danger);font-size:.75rem;">⚠ Auth unavailable</span>`
+      return
+    }
     if (session) {
       AUTH.user = session.user
       await AUTH._loadProfile()
-      // If this is a fresh OAuth redirect, handle navigation here —
-      // onAuthStateChange fires before the listener is registered so we can't rely on it
       if (isOAuthCallback) {
         if (!AUTH.profile) {
           AUTH._openUsernamePicker()
@@ -102,10 +110,17 @@ const AUTH = {
   // ── auth actions ─────────────────────────────────────
   async signInEmail(email, password) {
     if (!_sb) throw new Error('Auth unavailable.')
-    const { error } = await _sb.auth.signInWithPassword({ email, password })
+    let error
+    try {
+      ({ error } = await _sb.auth.signInWithPassword({ email, password }))
+    } catch (e) {
+      throw new Error('Could not reach server — is your internet on? (Supabase may also be paused)')
+    }
     if (error) throw new Error(
       error.message.includes('Email not confirmed')
         ? 'Email not confirmed yet — check your inbox (or resend below).'
+        : error.message.includes('Invalid login')
+        ? 'Wrong email or password.'
         : error.message
     )
   },
