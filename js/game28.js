@@ -61,6 +61,7 @@ window.g28FindMatch = function() {
       // Parkour: opponent died — they're spectating us now. We keep playing!
       sock.on('opponent-died', score => {
         G28_oppScore = score
+        G28_oppDone  = true
         _g28UpdateOppHud()
         // Show a brief message that opponent died
         G28.msgs?.push({ text: `Opponent died! ${score.toLocaleString()} pts`, color: '#fdba74', frames: 120, big: false })
@@ -885,6 +886,14 @@ function g28Over() {
     mpGetSocket().emit('player-died', { code: G28_roomCode, score: G28.score })
     G28_iDied = true
 
+    // If opponent already died while we were still playing, compare immediately
+    if (G28_oppDone && G28_oppScore !== null) {
+      const won = G28.score > G28_oppScore
+      _g28ShowFinalResult(G28.score, G28_oppScore, won)
+      if (typeof recordMpResult === 'function') recordMpResult('parkour', won)
+      return
+    }
+
     // Show spectate overlay — wait for opponent to finish
     const spec = document.getElementById('g28-spectate')
     const myScoreEl = document.getElementById('g28-spec-your-score')
@@ -894,11 +903,10 @@ function g28Over() {
 
     // Wait for opponent to die too, then show full result
     const sock = mpGetSocket()
-    sock.off('opponent-died-final')
     sock.on('opponent-died', oppScore => {
-      const won = G28.score > oppScore
       const spec2 = document.getElementById('g28-spectate')
       if (spec2) spec2.style.display = 'none'
+      const won = G28.score > oppScore
       _g28ShowFinalResult(G28.score, oppScore, won)
       if (typeof recordMpResult === 'function') recordMpResult('parkour', won)
     })
