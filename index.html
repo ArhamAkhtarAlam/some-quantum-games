@@ -185,6 +185,12 @@
       <div class="card-desc">Click and mash Space as fast as you can for 10 seconds. Both count. Score = clicks per second.</div>
       <span class="card-tag" style="background:rgba(99,102,241,.15);color:#6366f1;border-color:#6366f144;">Speed</span>
     </div>
+    <div class="game-card" onclick="showGame(37)" style="border-color:#f472b644;">
+      <div class="card-icon">🪐</div>
+      <div class="card-title">Quantum Rhythm</div>
+      <div class="card-desc">ADOFAI-inspired one-button rhythm game. A planet orbits each tile — press SPACE or click when it aligns with the next tile. 3 hearts, 21 tiles.</div>
+      <span class="card-tag" style="background:rgba(244,114,182,.15);color:#f472b6;border-color:#f472b644;">Rhythm</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -219,6 +225,7 @@
         <button class="lb-tab" style="border-color:#4a7c59;color:#4a7c59;" id="lb-tab-34" onclick="switchLbTab('manualsort')">Manual Sort</button>
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-35" onclick="switchLbTab('wavedash')">Wave Dash</button>
         <button class="lb-tab" style="border-color:#6366f1;color:#6366f1;" id="lb-tab-36" onclick="switchLbTab('cps')">CPS</button>
+        <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-37" onclick="switchLbTab('rhythm')">Rhythm</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-mp" onclick="switchLbTab('mp')">⚔️ MP Wins</button>
       </div>
     </div>
@@ -1441,6 +1448,39 @@
 </section>
 
 <script src="js/game36.js"></script>
+
+<section id="game37" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🪐 Quantum Rhythm</span>
+    <div class="score-badge" style="border-color:#f472b6;color:#f472b6;">Score <span id="g37-score-hud">—</span></div>
+  </div>
+  <div class="canvas-arena" id="g37-arena">
+    <canvas id="g37-canvas"></canvas>
+    <div class="canvas-overlay" id="g37-overlay">
+      <h3>🪐 Quantum Rhythm</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
+        A planet orbits each tile along the path.<br>
+        Press <b>SPACE</b> or <b>click/tap</b> when the planet aligns with the next tile.<br>
+        <span style="color:#fbbf24;">Gold ring</span> = target spot. 3 hearts. 21 tiles.
+      </p>
+      <button class="btn-primary" style="background:#f472b6;border-color:#f472b6;" onclick="startRhythm()">▶ Play</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g37-over">
+    <div class="game-over-card">
+      <h2>🪐 Rhythm Complete!</h2>
+      <div class="final-score" id="g37-final-score" style="color:#f472b6;">0 pts</div>
+      <div id="g37-over-stats" style="color:var(--muted);font-size:.9rem;margin:.4rem 0;"></div>
+      <div id="g37-medal-display"></div>
+      <button class="btn-primary" style="background:#f472b6;" onclick="openSubmit('rhythm')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame37()">Try Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game37.js"></script>
 
 </body>
 </html>
