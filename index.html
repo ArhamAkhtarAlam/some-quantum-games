@@ -659,10 +659,21 @@
     <div id="g11-typed-display" class="g11-typed"></div>
     <input id="g11-input" class="g11-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="start typing…" />
     <div id="g11-feedback" class="g11-feedback"></div>
+    <div id="g11-opp-wpm" style="color:rgba(52,211,153,0.6);font-size:.8rem;min-height:1em;"></div>
     <div id="g11-overlay-start" class="canvas-overlay" style="position:absolute;border-radius:12px;">
       <h3>⌨️ Quantum Type</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">A quantum word appears — type it exactly as fast as you can. 5 rounds. Score is average WPM. No typos count!</p>
-      <button class="btn-primary" onclick="startTyping()">Start Game</button>
+      <button class="btn-primary" onclick="startTyping()">Solo</button>
+      <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
+        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or race a friend —</div>
+        <button class="btn-primary" style="width:100%;background:#34d399;" onclick="g11CreateRoom()">Create Room</button>
+        <div style="display:flex;gap:.4rem;width:100%;">
+          <input id="g11-room-input" placeholder="Room code" maxlength="6"
+            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
+          <button class="btn-primary" style="background:#34d399;" onclick="g11JoinRoom()">Join</button>
+        </div>
+        <div id="g11-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+      </div>
     </div>
   </div>
   <div class="game-over-overlay" id="g11-over">
@@ -671,6 +682,7 @@
       <div class="final-score" id="g11-final-score" style="color:#34d399">0 WPM</div>
       <div id="g11-medal-display"></div>
       <p id="g11-over-stats">—</p>
+      <div id="g11-mp-result" style="color:#34d399;font-size:.95rem;margin-bottom:.3rem;"></div>
       <button class="btn-primary" onclick="openSubmit('typing')">Submit Score</button>
       <br><br>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(11)">Play Again</button>
@@ -1046,12 +1058,30 @@
       <div class="score-badge" style="border-color:#fb923c;color:#fb923c;">Score <span id="g28-score-hud">0</span></div>
     </div>
   </div>
-  <div class="canvas-arena" id="g28-arena"><canvas id="g28-canvas"></canvas></div>
+  <div class="canvas-arena" id="g28-arena">
+    <canvas id="g28-canvas"></canvas>
+    <div class="canvas-overlay" id="g28-overlay" style="display:none;">
+      <h3>🏃 Parkour</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Jump through levels, avoid spikes, reach the star. Score = points earned.</p>
+      <button class="btn-primary" onclick="g28StartSolo()">Solo</button>
+      <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
+        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or race a friend —</div>
+        <button class="btn-primary" style="width:100%;background:#fb923c;" onclick="g28CreateRoom()">Create Room</button>
+        <div style="display:flex;gap:.4rem;width:100%;">
+          <input id="g28-room-input" placeholder="Room code" maxlength="6"
+            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
+          <button class="btn-primary" style="background:#fb923c;" onclick="g28JoinRoom()">Join</button>
+        </div>
+        <div id="g28-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
   <div class="game-over-overlay" id="g28-over">
     <div class="game-over-card">
       <h2>Wiped Out! 🏃</h2>
       <div class="final-score" id="g28-final-score" style="color:#fb923c">0</div>
       <div id="g28-medal" style="font-size:1.3rem;margin:.3rem 0"></div>
+      <div id="g28-mp-result" style="color:#fb923c;font-size:.95rem;margin-bottom:.3rem;"></div>
       <button class="btn-primary" onclick="openSubmit('parkour')">Submit Score</button><br><br>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="restartGame(28)">Play Again</button>
       <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>

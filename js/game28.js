@@ -8,6 +8,60 @@ let G28 = {}
 let g28Canvas, g28Ctx, g28Raf
 let g28Keys = {}
 
+const G28_SERVER = 'https://some-quantum-games.onrender.com'
+let G28_socket   = null
+let G28_roomCode = null
+let G28_oppScore = null
+let G28_oppDone  = false
+
+function _g28RoomStatus(html, isError = false) {
+  const el = document.getElementById('g28-room-status')
+  if (!el) return
+  el.style.color = isError ? 'var(--danger)' : 'var(--muted)'
+  el.innerHTML = html
+}
+
+function g28GetSocket() {
+  if (G28_socket && G28_socket.connected) return G28_socket
+  G28_socket = io(G28_SERVER)
+  G28_socket.on('room-created', code => {
+    G28_roomCode = code
+    _g28RoomStatus(`Room created! Share code: <b style="color:#fdba74;letter-spacing:3px;">${code}</b><br>Waiting for friend…`)
+  })
+  G28_socket.on('game-ready', () => {
+    _g28RoomStatus('Friend joined! Starting…')
+    setTimeout(() => g28StartSolo(), 800)
+  })
+  G28_socket.on('join-error',     msg   => _g28RoomStatus(`❌ ${msg}`, true))
+  G28_socket.on('opponent-score', score => { G28_oppScore = score })
+  G28_socket.on('opponent-done',  score => { G28_oppScore = score; G28_oppDone = true })
+  G28_socket.on('opponent-left',  ()    => { G28_oppScore = null; _g28RoomStatus('Opponent disconnected.', true) })
+  return G28_socket
+}
+
+window.g28CreateRoom = function() {
+  _g28RoomStatus('Connecting…')
+  const sock = g28GetSocket()
+  sock.once('connect', () => sock.emit('create-room'))
+  if (sock.connected) sock.emit('create-room')
+}
+
+window.g28JoinRoom = function() {
+  const code = document.getElementById('g28-room-input').value.trim().toUpperCase()
+  if (!code || code.length < 4) { _g28RoomStatus('Enter a valid room code.', true); return }
+  _g28RoomStatus('Joining…')
+  G28_roomCode = code
+  const sock = g28GetSocket()
+  const doJoin = () => sock.emit('join-room', code)
+  sock.once('connect', doJoin)
+  if (sock.connected) doJoin()
+}
+
+window.g28StartSolo = function() {
+  document.getElementById('g28-overlay').style.display = 'none'
+  g28Reset()
+}
+
 // Fixed tile grid: 20 cols × 12 rows. One tile = S px (computed per draw).
 const G28_COLS = 20
 const G28_ROWS = 12
@@ -18,7 +72,8 @@ window.initGame28 = function() {
   g28Canvas = document.getElementById('g28-canvas')
   g28Ctx    = g28Canvas.getContext('2d')
   g28Keys   = {}
-  // Size canvas from container right now so it has a real size
+  G28_oppScore = null
+  G28_oppDone  = false
   const arena = document.getElementById('g28-arena')
   g28Canvas.width  = Math.max(arena.clientWidth,  300)
   g28Canvas.height = Math.max(arena.clientHeight, 240)
@@ -30,7 +85,8 @@ window.initGame28 = function() {
   g28Canvas.ontouchstart = e => { e.preventDefault(); g28TouchStart(e) }
   g28Canvas.ontouchend   = e => { e.preventDefault(); g28TouchEnd(e) }
 
-  g28Reset()
+  _g28RoomStatus('')
+  document.getElementById('g28-overlay').style.display = 'flex'
 }
 
 let g28KeyBuf = ''
@@ -368,6 +424,7 @@ function g28Finish() {
   G28.score += bonus
   G28.coins += secsLeft
   if (G28.score > G28.bestScore) G28.bestScore = G28.score
+  if (G28_socket && G28_roomCode) G28_socket.emit('score-update', { code: G28_roomCode, score: G28.score })
   G28.msgs.push({ text: `LVL ${G28.level+1} ✓  +${bonus}  +${secsLeft}🪙`, color: '#fbbf24', frames: 90, big: true })
 
   // Immediate seamless transition to next level
@@ -791,9 +848,24 @@ function g28Over() {
   window._g28Score = G28.score
   window.removeEventListener('keydown', g28KD)
   window.removeEventListener('keyup',   g28KU)
+
+  if (G28_socket && G28_roomCode) G28_socket.emit('game-over', { code: G28_roomCode, score: G28.score })
+
   document.getElementById('g28-final-score').textContent = G28.score.toLocaleString()
   const m = G28.score >= 3000 ? '🥇 Gold' : G28.score >= 1200 ? '🥈 Silver' : G28.score >= 400 ? '🥉 Bronze' : ''
   document.getElementById('g28-medal').textContent = m
+
+  const mpEl = document.getElementById('g28-mp-result')
+  if (mpEl && G28_roomCode && G28_oppScore !== null) {
+    const oppTxt = G28_oppDone ? G28_oppScore.toLocaleString() : '…'
+    const verdict = G28_oppDone
+      ? (G28.score > G28_oppScore ? '🏆 You win!' : G28.score < G28_oppScore ? '😔 They win!' : '🤝 Tie!')
+      : ''
+    mpEl.textContent = `Opponent: ${oppTxt} pts ${verdict}`
+  } else if (mpEl) {
+    mpEl.textContent = ''
+  }
+
   document.getElementById('g28-over').classList.add('show')
 }
 
