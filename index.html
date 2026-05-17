@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum Games — Powered by CURBy</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -190,6 +191,12 @@
       <div class="card-title">Quantum Rhythm</div>
       <div class="card-desc">ADOFAI-inspired one-button rhythm game. A planet orbits each tile — press SPACE or click when it aligns with the next tile. 3 hearts, 21 tiles.</div>
       <span class="card-tag" style="background:rgba(244,114,182,.15);color:#f472b6;border-color:#f472b644;">Rhythm</span>
+    </div>
+    <div class="game-card" onclick="showGame(38)" style="border-color:#4ade8044;">
+      <div class="card-icon">🐸</div>
+      <div class="card-title">Quantum Crossy</div>
+      <div class="card-desc">Hop across quantum-random traffic, rivers, and trains. Quantum lanes flicker — cars are passthrough when transparent. How far can you go?</div>
+      <span class="card-tag" style="background:rgba(74,222,128,.15);color:#4ade80;border-color:#4ade8044;">Quantum Traffic</span>
     </div>
   </div>
 
@@ -1481,6 +1488,38 @@
 </section>
 
 <script src="js/game37.js"></script>
+
+<section id="game38" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🐸 Quantum Crossy</span>
+    <div class="score-badge" style="border-color:#4ade80;color:#4ade80;">Score <span id="g38-score-hud">0</span></div>
+  </div>
+  <div class="canvas-arena" id="g38-arena">
+    <canvas id="g38-canvas"></canvas>
+    <div class="canvas-overlay" id="g38-overlay">
+      <h3>🐸 Quantum Crossy</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
+        Hop across traffic, water, and trains.<br>
+        <b>Arrow keys / WASD</b> or <b>swipe</b> to move.<br>
+        <span style="color:#a855f7;">Purple lanes</span> = Quantum zone — cars flicker between solid and passthrough. Time your crossing!
+      </p>
+      <button class="btn-primary" style="background:#4ade80;border-color:#4ade80;color:#0f172a;" onclick="startCrossy()">▶ Play</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g38-over">
+    <div class="game-over-card">
+      <h2>🐸 Game Over!</h2>
+      <div class="final-score" id="g38-final-score" style="color:#4ade80;">0 rows</div>
+      <div id="g38-medal-display"></div>
+      <button class="btn-primary" style="background:#4ade80;color:#0f172a;" onclick="openSubmit('crossy')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame38()">Try Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game38.js"></script>
 
 </body>
 </html>
