@@ -1266,6 +1266,7 @@
 
 <!-- Scripts — core must load first, then game files -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/sfx.js"></script>
 <script src="js/core.js?v=5"></script>
 <script src="js/auth.js"></script>
@@ -1377,7 +1378,17 @@
     <div class="canvas-overlay" id="g36-overlay">
       <h3>🖱️ CPS Test</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">Click or press <b>Space</b> as fast as you can for <b>10 seconds</b>. Both count! Your score is clicks per second (integer).</p>
-      <button class="btn-primary" onclick="startCPS()">Start!</button>
+      <button class="btn-primary" onclick="startCPS()">Solo</button>
+      <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
+        <div style="color:var(--muted);font-size:.8rem;margin-bottom:.2rem;">— or play vs a friend —</div>
+        <button class="btn-primary" style="width:100%;background:#6366f1;" onclick="g36CreateRoom()">Create Room</button>
+        <div style="display:flex;gap:.4rem;width:100%;">
+          <input id="g36-room-input" placeholder="Room code" maxlength="6"
+            style="flex:1;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem;text-transform:uppercase;letter-spacing:2px;">
+          <button class="btn-primary" style="background:#6366f1;" onclick="g36JoinRoom()">Join</button>
+        </div>
+        <div id="g36-room-status" style="color:var(--muted);font-size:.82rem;min-height:1.2em;text-align:center;"></div>
+      </div>
     </div>
   </div>
   <div class="game-over-overlay" id="g36-over">

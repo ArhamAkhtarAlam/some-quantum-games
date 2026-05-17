@@ -4,14 +4,82 @@
 // ═══════════════════════════════════════════════════════
 
 const G36_DURATION = 10
-let G36 = { active: false, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: 0 }
-window._g36Score = 0
+const G36_SERVER   = 'https://some-quantum-games.onrender.com'
 
+let G36 = { active: false, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: 0 }
+let G36_socket     = null
+let G36_roomCode   = null
+let G36_opponentCPS = null
+let G36_opponentDone = false
+window._g36Score   = 0
+
+// ── socket ───────────────────────────────────────────
+function g36GetSocket() {
+  if (G36_socket && G36_socket.connected) return G36_socket
+  G36_socket = io(G36_SERVER)
+
+  G36_socket.on('room-created', code => {
+    G36_roomCode = code
+    _g36RoomStatus(`Room created! Share code: <b style="color:#a5b4fc;letter-spacing:3px;">${code}</b><br>Waiting for friend…`)
+  })
+
+  G36_socket.on('game-ready', () => {
+    _g36RoomStatus('Friend joined! Starting…')
+    setTimeout(() => startCPS(), 800)
+  })
+
+  G36_socket.on('join-error', msg => {
+    _g36RoomStatus(`❌ ${msg}`, true)
+  })
+
+  G36_socket.on('opponent-score', score => {
+    G36_opponentCPS = score
+  })
+
+  G36_socket.on('opponent-done', score => {
+    G36_opponentCPS  = score
+    G36_opponentDone = true
+  })
+
+  G36_socket.on('opponent-left', () => {
+    G36_opponentCPS = null
+    _g36RoomStatus('Opponent disconnected.', true)
+  })
+
+  return G36_socket
+}
+
+function _g36RoomStatus(html, isError = false) {
+  const el = document.getElementById('g36-room-status')
+  if (!el) return
+  el.style.color = isError ? 'var(--danger)' : 'var(--muted)'
+  el.innerHTML = html
+}
+
+window.g36CreateRoom = function() {
+  _g36RoomStatus('Connecting…')
+  const sock = g36GetSocket()
+  sock.once('connect', () => sock.emit('create-room'))
+  if (sock.connected) sock.emit('create-room')
+}
+
+window.g36JoinRoom = function() {
+  const code = document.getElementById('g36-room-input').value.trim().toUpperCase()
+  if (!code || code.length < 4) { _g36RoomStatus('Enter a valid room code.', true); return }
+  _g36RoomStatus('Joining…')
+  G36_roomCode = code
+  const sock = g36GetSocket()
+  const doJoin = () => sock.emit('join-room', code)
+  sock.once('connect', doJoin)
+  if (sock.connected) doJoin()
+}
+
+// ── game lifecycle ────────────────────────────────────
 function stopGame36() {
   if (G36.raf) { cancelAnimationFrame(G36.raf); G36.raf = null }
   G36.active = false
   const c = document.getElementById('g36-canvas')
-  if (c) { c.onclick = null }
+  if (c) c.onclick = null
   document.removeEventListener('keydown', _g36Key)
 }
 window.stopGame36 = stopGame36
@@ -19,9 +87,12 @@ window.stopGame36 = stopGame36
 window.initGame36 = async function() {
   stopGame36()
   G36 = { active: false, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: 0 }
+  G36_opponentCPS  = null
+  G36_opponentDone = false
   window._g36Score = 0
   document.getElementById('g36-over').classList.remove('show')
   document.getElementById('g36-overlay').style.display = 'flex'
+  _g36RoomStatus('')
   await initCurby()
 }
 
@@ -32,6 +103,8 @@ window.startCPS = function() {
   c.width  = c.parentElement.clientWidth
   c.height = c.parentElement.clientHeight
   G36 = { active: true, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: performance.now() }
+  G36_opponentCPS  = G36_roomCode ? (G36_opponentCPS ?? 0) : null
+  G36_opponentDone = false
   c.onclick = e => _g36Click(e.offsetX, e.offsetY)
   document.addEventListener('keydown', _g36Key)
   G36.raf = requestAnimationFrame(_g36Loop)
@@ -50,7 +123,6 @@ function _g36Click(x, y) {
   if (x !== null) {
     G36.ripples.push({ x, y, r: 0, maxR: 60, alpha: 1, t: 0 })
   } else {
-    // spacebar — ripple from center
     const c = document.getElementById('g36-canvas')
     G36.ripples.push({ x: c.width/2, y: c.height/2, r: 0, maxR: 80, alpha: 1, t: 0 })
   }
@@ -64,6 +136,13 @@ function _g36Loop(ts) {
   if (G36.startTime > 0 && !G36.done) {
     G36.timeLeft = Math.max(0, G36_DURATION - (ts - G36.startTime) / 1000)
     if (G36.timeLeft === 0) { _g36End(); return }
+
+    // broadcast score to opponent every ~500ms via a simple frame counter trick
+    if (G36_socket && G36_roomCode && Math.round(ts / 500) !== Math.round((ts - dt*1000) / 500)) {
+      const elapsed = (ts - G36.startTime) / 1000
+      const liveCPS = elapsed > 0.3 ? Math.round(G36.clicks / elapsed) : 0
+      G36_socket.emit('score-update', { code: G36_roomCode, score: liveCPS })
+    }
   }
 
   G36.ripples = G36.ripples.filter(r => {
@@ -76,16 +155,28 @@ function _g36Loop(ts) {
 }
 
 function _g36End() {
-  G36.done = true
+  G36.done   = true
   G36.active = false
   cancelAnimationFrame(G36.raf); G36.raf = null
   document.removeEventListener('keydown', _g36Key)
 
-  const elapsed = G36_DURATION
-  const cps = Math.round(G36.clicks / elapsed)
+  const cps = Math.round(G36.clicks / G36_DURATION)
   window._g36Score = cps
 
-  document.getElementById('g36-final-score').textContent = `${cps} CPS  (${G36.clicks} clicks)`
+  if (G36_socket && G36_roomCode) {
+    G36_socket.emit('game-over', { code: G36_roomCode, score: cps })
+  }
+
+  let resultHtml = `${cps} CPS  (${G36.clicks} clicks)`
+  if (G36_roomCode && G36_opponentCPS !== null) {
+    const oppFinal = G36_opponentDone ? G36_opponentCPS : '…'
+    const winner   = G36_opponentDone
+      ? (cps > G36_opponentCPS ? '🏆 You win!' : cps < G36_opponentCPS ? '😔 They win!' : '🤝 Tie!')
+      : ''
+    resultHtml += `<br><span style="font-size:.9rem;color:#a5b4fc;">Opponent: ${oppFinal} CPS ${winner}</span>`
+  }
+
+  document.getElementById('g36-final-score').innerHTML = resultHtml
   renderMedalDisplay('g36-medal-display', 'cps', cps)
   document.getElementById('g36-over').classList.add('show')
   SFX.win()
@@ -96,11 +187,9 @@ function _g36Draw() {
   const ctx = c.getContext('2d')
   const W = c.width, H = c.height
 
-  // Background
   ctx.fillStyle = '#0a0a1a'
   ctx.fillRect(0, 0, W, H)
 
-  // Big click zone hint
   const notStarted = G36.startTime === 0
   if (notStarted) {
     ctx.strokeStyle = 'rgba(99,102,241,0.2)'
@@ -115,37 +204,36 @@ function _g36Draw() {
     ctx.fillText('CLICK OR SPACE TO START', W/2, H/2 + 60)
   }
 
-  // Ripples
   for (const r of G36.ripples) {
     ctx.strokeStyle = `rgba(129,140,248,${r.alpha})`
     ctx.lineWidth = 2
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2); ctx.stroke()
   }
 
-  // Timer arc
   const cx = W/2, cy = H * 0.38, arcR = Math.min(W, H) * 0.28
   const progress = G36.startTime === 0 ? 1 : G36.timeLeft / G36_DURATION
-  // bg ring
   ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 10; ctx.lineCap = 'round'
   ctx.beginPath(); ctx.arc(cx, cy, arcR, -Math.PI/2, Math.PI*2 - Math.PI/2); ctx.stroke()
-  // progress ring
   const col = progress > 0.5 ? '#6366f1' : progress > 0.25 ? '#f59e0b' : '#ef4444'
   ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18
   ctx.beginPath(); ctx.arc(cx, cy, arcR, -Math.PI/2, Math.PI*2 * progress - Math.PI/2); ctx.stroke()
   ctx.shadowBlur = 0
 
-  // Timer number inside arc
   ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.floor(arcR * 0.7)}px monospace`
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   ctx.fillText(G36.startTime === 0 ? G36_DURATION : Math.ceil(G36.timeLeft), cx, cy)
 
-  // CPS live
-  const elapsed = G36.startTime > 0 ? (performance.now() - G36.startTime) / 1000 : 0
-  const liveCPS = elapsed > 0.3 ? Math.round(G36.clicks / elapsed) : 0
+  const elapsed  = G36.startTime > 0 ? (performance.now() - G36.startTime) / 1000 : 0
+  const liveCPS  = elapsed > 0.3 ? Math.round(G36.clicks / elapsed) : 0
   ctx.fillStyle = '#a5b4fc'; ctx.font = `bold ${Math.floor(arcR * 0.25)}px monospace`
   ctx.fillText(G36.startTime === 0 ? 'CPS' : `${liveCPS} CPS`, cx, cy + arcR * 0.55)
 
-  // Click count big
+  // opponent CPS (if in a room)
+  if (G36_roomCode && G36_opponentCPS !== null) {
+    ctx.fillStyle = 'rgba(165,180,252,0.6)'; ctx.font = `${Math.floor(arcR * 0.22)}px monospace`
+    ctx.fillText(`Opponent: ${G36_opponentCPS} CPS`, cx, cy + arcR * 0.85)
+  }
+
   ctx.fillStyle = '#ffffff'
   ctx.font = `bold ${Math.min(W/5, 90)}px monospace`
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
