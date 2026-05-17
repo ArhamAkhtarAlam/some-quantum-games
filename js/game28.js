@@ -14,6 +14,16 @@ let G28_roomCode = null
 let G28_oppScore = null
 let G28_oppDone  = false
 
+function _g28UpdateOppHud() {
+  const hud  = document.getElementById('g28-opp-hud')
+  const stat = document.getElementById('g28-opp-stat')
+  if (!hud || !stat) return
+  if (G28_roomCode && G28_oppScore !== null) {
+    hud.style.display = 'flex'
+    stat.textContent  = G28_oppScore.toLocaleString() + ' pts'
+  }
+}
+
 function _g28RoomStatus(html, isError = false) {
   const el = document.getElementById('g28-room-status')
   if (!el) return
@@ -33,8 +43,8 @@ function g28GetSocket() {
     setTimeout(() => g28StartSolo(), 800)
   })
   G28_socket.on('join-error',     msg   => _g28RoomStatus(`❌ ${msg}`, true))
-  G28_socket.on('opponent-score', score => { G28_oppScore = score })
-  G28_socket.on('opponent-done',  score => { G28_oppScore = score; G28_oppDone = true })
+  G28_socket.on('opponent-score', score => { G28_oppScore = score; _g28UpdateOppHud() })
+  G28_socket.on('opponent-done',  score => { G28_oppScore = score; G28_oppDone = true; _g28UpdateOppHud() })
   G28_socket.on('opponent-left',  ()    => { G28_oppScore = null; _g28RoomStatus('Opponent disconnected.', true) })
   G28_socket.on('force-end', ({ loserScore }) => {
     // Opponent died — stop our game and show win
@@ -72,6 +82,10 @@ window.g28JoinRoom = function() {
 
 window.g28StartSolo = function() {
   document.getElementById('g28-overlay').style.display = 'none'
+  if (G28_roomCode) {
+    const hud = document.getElementById('g28-opp-hud')
+    if (hud) hud.style.display = 'flex'
+  }
   g28Reset()
 }
 

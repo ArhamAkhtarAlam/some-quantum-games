@@ -661,7 +661,9 @@
     <div id="g11-typed-display" class="g11-typed"></div>
     <input id="g11-input" class="g11-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="start typing…" />
     <div id="g11-feedback" class="g11-feedback"></div>
-    <div id="g11-opp-wpm" style="color:rgba(52,211,153,0.6);font-size:.8rem;min-height:1em;"></div>
+    <div id="g11-opp-hud" style="display:none;width:100%;max-width:420px;background:rgba(10,10,26,.7);border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:.4rem .8rem;font-size:.82rem;font-family:monospace;color:#6ee7b7;display:flex;justify-content:space-between;align-items:center;">
+      <span>👤 Opponent</span><span id="g11-opp-stat">— WPM</span>
+    </div>
     <div id="g11-overlay-start" class="canvas-overlay" style="position:absolute;border-radius:12px;">
       <h3>⌨️ Quantum Type</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:280px;">A quantum word appears — type it exactly as fast as you can. 5 rounds. Score is average WPM. No typos count!</p>
@@ -1060,7 +1062,10 @@
       <div class="score-badge" style="border-color:#fb923c;color:#fb923c;">Score <span id="g28-score-hud">0</span></div>
     </div>
   </div>
-  <div class="canvas-arena" id="g28-arena">
+  <div class="canvas-arena" id="g28-arena" style="position:relative;">
+    <div id="g28-opp-hud" style="display:none;position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(10,10,26,.82);border-bottom:1px solid rgba(251,146,60,.35);padding:.35rem .8rem;font-size:.82rem;font-family:monospace;color:#fdba74;display:flex;justify-content:space-between;align-items:center;">
+      <span>👤 Opponent</span><span id="g28-opp-stat">— pts</span>
+    </div>
     <canvas id="g28-canvas"></canvas>
     <div class="canvas-overlay" id="g28-overlay" style="display:none;">
       <h3>🏃 Parkour</h3>
@@ -1376,7 +1381,10 @@
       <div class="score-badge" style="border-color:#06b6d4;color:#06b6d4;">Blocks <span id="g35-score-hud">0</span></div>
     </div>
   </div>
-  <div class="canvas-arena" id="g35-arena">
+  <div class="canvas-arena" id="g35-arena" style="position:relative;">
+    <div id="g35-opp-hud" style="display:none;position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(3,7,16,.82);border-bottom:1px solid rgba(6,182,212,.35);padding:.35rem .8rem;font-size:.82rem;font-family:monospace;color:#67e8f9;display:flex;justify-content:space-between;align-items:center;">
+      <span>👤 Opponent</span><span id="g35-opp-stat">— blocks</span>
+    </div>
     <canvas id="g35-canvas"></canvas>
     <div class="canvas-overlay" id="g35-overlay">
       <h3>〰️ Wave Dash</h3>
@@ -1416,7 +1424,10 @@
     <span class="game-title">🖱️ CPS Test</span>
     <div class="score-badge" style="border-color:#6366f1;color:#6366f1;">CPS <span id="g36-score-hud">—</span></div>
   </div>
-  <div class="canvas-arena" id="g36-arena">
+  <div class="canvas-arena" id="g36-arena" style="position:relative;">
+    <div id="g36-opp-hud" style="display:none;position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(10,10,26,.82);border-bottom:1px solid rgba(99,102,241,.35);padding:.35rem .8rem;font-size:.82rem;font-family:monospace;color:#a5b4fc;display:flex;justify-content:space-between;align-items:center;">
+      <span>👤 Opponent</span><span id="g36-opp-stat">— CPS</span>
+    </div>
     <canvas id="g36-canvas"></canvas>
     <div class="canvas-overlay" id="g36-overlay">
       <h3>🖱️ CPS Test</h3>

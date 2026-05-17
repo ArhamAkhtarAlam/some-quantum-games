@@ -63,8 +63,13 @@ window.g11JoinRoom = function() {
 }
 
 function _g11UpdateOppDisplay() {
-  const el = document.getElementById('g11-opp-wpm')
-  if (el && G11_oppWpm !== null) el.textContent = `Opponent: ${G11_oppWpm} WPM`
+  const hud  = document.getElementById('g11-opp-hud')
+  const stat = document.getElementById('g11-opp-stat')
+  if (!hud || !stat) return
+  if (G11_roomCode && G11_oppWpm !== null) {
+    hud.style.display = 'flex'
+    stat.textContent  = G11_oppWpm + ' WPM'
+  }
 }
 
 const G11 = {
@@ -120,6 +125,10 @@ async function initGame11() {
 window.startTyping = function() {
   SFX.resume(); SFX.click()
   document.getElementById('g11-overlay-start').style.display = 'none'
+  if (G11_roomCode) {
+    const hud = document.getElementById('g11-opp-hud')
+    if (hud) hud.style.display = 'flex'
+  }
   G11.active = true
   const inp = _g11GetInput()
   inp.value = ''

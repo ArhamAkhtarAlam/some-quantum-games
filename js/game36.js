@@ -34,11 +34,13 @@ function g36GetSocket() {
 
   G36_socket.on('opponent-score', score => {
     G36_opponentCPS = score
+    _g36UpdateOppHud()
   })
 
   G36_socket.on('opponent-done', score => {
     G36_opponentCPS  = score
     G36_opponentDone = true
+    _g36UpdateOppHud()
   })
 
   G36_socket.on('opponent-left', () => {
@@ -47,6 +49,18 @@ function g36GetSocket() {
   })
 
   return G36_socket
+}
+
+function _g36UpdateOppHud() {
+  const hud  = document.getElementById('g36-opp-hud')
+  const stat = document.getElementById('g36-opp-stat')
+  if (!hud || !stat) return
+  if (G36_roomCode && G36_opponentCPS !== null) {
+    hud.style.display = 'flex'
+    stat.textContent  = G36_opponentCPS + ' CPS'
+  } else {
+    hud.style.display = 'none'
+  }
 }
 
 function _g36RoomStatus(html, isError = false) {
@@ -99,6 +113,10 @@ window.initGame36 = async function() {
 window.startCPS = function() {
   SFX.resume()
   document.getElementById('g36-overlay').style.display = 'none'
+  if (G36_roomCode) {
+    const hud = document.getElementById('g36-opp-hud')
+    if (hud) hud.style.display = 'flex'
+  }
   const c = document.getElementById('g36-canvas')
   c.width  = c.parentElement.clientWidth
   c.height = c.parentElement.clientHeight
@@ -230,12 +248,6 @@ function _g36Draw() {
   const liveCPS  = elapsed > 0.3 ? Math.round(G36.clicks / elapsed) : 0
   ctx.fillStyle = '#a5b4fc'; ctx.font = `bold ${Math.floor(arcR * 0.25)}px monospace`
   ctx.fillText(G36.startTime === 0 ? 'CPS' : `${liveCPS} CPS`, cx, cy + arcR * 0.55)
-
-  // opponent CPS (if in a room)
-  if (G36_roomCode && G36_opponentCPS !== null) {
-    ctx.fillStyle = 'rgba(165,180,252,0.6)'; ctx.font = `${Math.floor(arcR * 0.22)}px monospace`
-    ctx.fillText(`Opponent: ${G36_opponentCPS} CPS`, cx, cy + arcR * 0.85)
-  }
 
   ctx.fillStyle = '#ffffff'
   ctx.font = `bold ${Math.min(W/5, 90)}px monospace`

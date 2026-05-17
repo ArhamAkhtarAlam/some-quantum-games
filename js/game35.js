@@ -68,6 +68,16 @@ function _g35MakePat(ctx) {
   return _g35WallPat
 }
 
+function _g35UpdateOppHud() {
+  const hud  = document.getElementById('g35-opp-hud')
+  const stat = document.getElementById('g35-opp-stat')
+  if (!hud || !stat) return
+  if (G35_roomCode && G35_oppScore !== null) {
+    hud.style.display = 'flex'
+    stat.textContent  = G35_oppScore + ' blocks'
+  }
+}
+
 function _g35RoomStatus(html, isError = false) {
   const el = document.getElementById('g35-room-status')
   if (!el) return
@@ -87,8 +97,8 @@ function g35GetSocket() {
     setTimeout(() => startWaveDash(), 800)
   })
   G35_socket.on('join-error',     msg   => _g35RoomStatus(`❌ ${msg}`, true))
-  G35_socket.on('opponent-score', score => { G35_oppScore = score })
-  G35_socket.on('opponent-done',  score => { G35_oppScore = score; G35_oppDone = true })
+  G35_socket.on('opponent-score', score => { G35_oppScore = score; _g35UpdateOppHud() })
+  G35_socket.on('opponent-done',  score => { G35_oppScore = score; G35_oppDone = true; _g35UpdateOppHud() })
   G35_socket.on('opponent-left',  ()    => { G35_oppScore = null; _g35RoomStatus('Opponent disconnected.', true) })
   G35_socket.on('force-end', ({ loserScore }) => {
     // Opponent crashed — we win
@@ -158,6 +168,10 @@ async function initGame35() {
 
 window.startWaveDash = function() {
   SFX.resume(); SFX.click()
+  if (G35_roomCode) {
+    const hud = document.getElementById('g35-opp-hud')
+    if (hud) hud.style.display = 'flex'
+  }
   const c = _g35C()
   c.width  = c.parentElement.clientWidth
   c.height = c.parentElement.clientHeight
@@ -378,16 +392,6 @@ function g35Draw(ctx, w, h) {
       ctx.stroke()
     }
   }
-  // Opponent score (multiplayer)
-  if (G35_roomCode && G35_oppScore !== null) {
-    ctx.shadowBlur = 0
-    ctx.fillStyle = 'rgba(103,232,249,0.7)'
-    ctx.font = `bold ${Math.min(w / 28, 16)}px monospace`
-    ctx.textAlign = 'right'; ctx.textBaseline = 'top'
-    ctx.fillText(`Opponent: ${G35_oppScore} blocks`, w - 12, 12)
-    ctx.textAlign = 'left'
-  }
-
   ctx.shadowBlur = 0
 
   // Player — arrow chevron pointing in direction of travel
