@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 //  GAME 34 — MANUAL SORT
-//  Click a bar to select it, click another to swap.
-//  Timer starts on your first swap. Sort ascending.
+//  Drag a bar onto another to swap, or tap one then tap
+//  another. Timer starts on first swap. Sort ascending.
 // ═══════════════════════════════════════════════════════
 
 const G34 = {
@@ -25,13 +25,21 @@ function _g34C() {
   return _g34Canvas
 }
 
+// drag state: idx = bar being dragged, curX = current pointer x in client coords
+const _g34Drag = { on: false, idx: -1, startX: 0, curX: 0 }
+
 function stopGame34() {
   G34.active = false
   if (G34.raf) { cancelAnimationFrame(G34.raf); G34.raf = null }
   const c = _g34C()
   if (c) {
-    c.removeEventListener('click',    _g34Click)
-    c.removeEventListener('touchend', _g34Touch)
+    c.removeEventListener('mousedown',  _g34MouseDown)
+    c.removeEventListener('mousemove',  _g34MouseMove)
+    c.removeEventListener('mouseup',    _g34MouseUp)
+    c.removeEventListener('mouseleave', _g34MouseLeave)
+    c.removeEventListener('touchstart', _g34TouchStart)
+    c.removeEventListener('touchmove',  _g34TouchMove)
+    c.removeEventListener('touchend',   _g34TouchEnd)
   }
 }
 window.stopGame34 = stopGame34
@@ -75,13 +83,19 @@ window.startManualSort = function(n) {
   G34.started  = false
   G34.sorted   = false
   G34.active   = true
+  _g34Drag.on  = false
 
   document.getElementById('g34-moves-hud').textContent = '0'
   document.getElementById('g34-time-hud').textContent  = '00:00.00'
   document.getElementById('g34-best-hud').textContent  = G34.bestMs !== null ? _g34FmtTime(G34.bestMs) : '--'
 
-  c.addEventListener('click',    _g34Click)
-  c.addEventListener('touchend', _g34Touch, { passive: false })
+  c.addEventListener('mousedown',  _g34MouseDown)
+  c.addEventListener('mousemove',  _g34MouseMove)
+  c.addEventListener('mouseup',    _g34MouseUp)
+  c.addEventListener('mouseleave', _g34MouseLeave)
+  c.addEventListener('touchstart', _g34TouchStart, { passive: false })
+  c.addEventListener('touchmove',  _g34TouchMove,  { passive: false })
+  c.addEventListener('touchend',   _g34TouchEnd,   { passive: false })
 
   G34.lastTime = performance.now()
   G34.raf = requestAnimationFrame(g34Loop)
@@ -93,15 +107,69 @@ function _g34HitIdx(clientX, c) {
   return Math.max(0, Math.min(G34.n - 1, Math.floor(x / (c.width / G34.n))))
 }
 
-function _g34Click(e) {
+// ── mouse ─────────────────────────────────────────────
+function _g34MouseDown(e) {
   if (!G34.active || G34.sorted) return
-  _g34TrySelect(_g34HitIdx(e.clientX, _g34C()))
+  _g34Drag.on     = true
+  _g34Drag.idx    = _g34HitIdx(e.clientX, _g34C())
+  _g34Drag.startX = e.clientX
+  _g34Drag.curX   = e.clientX
+}
+function _g34MouseMove(e) {
+  if (!_g34Drag.on) return
+  _g34Drag.curX = e.clientX
+}
+function _g34MouseUp(e) {
+  if (!_g34Drag.on) return
+  _g34PointerEnd(e.clientX)
+}
+function _g34MouseLeave() {
+  if (_g34Drag.on) { _g34Drag.on = false; _g34Drag.curX = _g34Drag.startX }
 }
 
-function _g34Touch(e) {
+// ── touch ─────────────────────────────────────────────
+function _g34TouchStart(e) {
   if (!G34.active || G34.sorted) return
   e.preventDefault()
-  _g34TrySelect(_g34HitIdx(e.changedTouches[0].clientX, _g34C()))
+  const t = e.changedTouches[0]
+  _g34Drag.on     = true
+  _g34Drag.idx    = _g34HitIdx(t.clientX, _g34C())
+  _g34Drag.startX = t.clientX
+  _g34Drag.curX   = t.clientX
+}
+function _g34TouchMove(e) {
+  if (!_g34Drag.on) return
+  e.preventDefault()
+  _g34Drag.curX = e.changedTouches[0].clientX
+}
+function _g34TouchEnd(e) {
+  if (!_g34Drag.on) return
+  e.preventDefault()
+  _g34PointerEnd(e.changedTouches[0].clientX)
+}
+
+// ── unified pointer-end ───────────────────────────────
+function _g34PointerEnd(clientX) {
+  _g34Drag.on = false
+  const moved = Math.abs(clientX - _g34Drag.startX)
+  if (moved > 12) {
+    const toIdx = _g34HitIdx(clientX, _g34C())
+    if (toIdx !== _g34Drag.idx) _g34DoSwap(_g34Drag.idx, toIdx)
+  } else {
+    _g34TrySelect(_g34Drag.idx)
+  }
+  _g34Drag.curX = 0
+}
+
+// ── selection / swap ──────────────────────────────────
+function _g34DoSwap(from, to) {
+  if (!G34.started) { G34.started = true; G34.lastTime = performance.now() }
+  ;[G34.bars[from], G34.bars[to]] = [G34.bars[to], G34.bars[from]]
+  G34.moves++
+  document.getElementById('g34-moves-hud').textContent = G34.moves
+  G34.selected = -1
+  SFX.coin()
+  if (_g34IsSorted(G34.bars)) G34.sorted = true
 }
 
 function _g34TrySelect(idx) {
@@ -111,13 +179,7 @@ function _g34TrySelect(idx) {
   } else if (G34.selected === idx) {
     G34.selected = -1
   } else {
-    if (!G34.started) { G34.started = true; G34.lastTime = performance.now() }
-    ;[G34.bars[G34.selected], G34.bars[idx]] = [G34.bars[idx], G34.bars[G34.selected]]
-    G34.moves++
-    document.getElementById('g34-moves-hud').textContent = G34.moves
-    G34.selected = -1
-    SFX.coin()
-    if (_g34IsSorted(G34.bars)) G34.sorted = true
+    _g34DoSwap(G34.selected, idx)
   }
 }
 
@@ -160,20 +222,31 @@ function g34Draw() {
   const areaH  = h - labelH - 8
   const bw     = Math.floor(barW - gap)
 
-  for (let i = 0; i < n; i++) {
-    const val   = G34.bars[i]
-    const bh    = Math.max(4, Math.floor((val / maxVal) * (areaH - 10)))
-    const x     = Math.floor(i * barW + gap / 2)
-    const y     = areaH - bh + 4
-    const isSel = i === G34.selected
+  // Compute drag target column (only when actually dragging)
+  const isDragging = _g34Drag.on && Math.abs(_g34Drag.curX - _g34Drag.startX) > 12
+  const dragTarget = isDragging ? _g34HitIdx(_g34Drag.curX, c) : -1
 
-    // Bar glow for selected
-    if (isSel) {
+  for (let i = 0; i < n; i++) {
+    const val      = G34.bars[i]
+    const bh       = Math.max(4, Math.floor((val / maxVal) * (areaH - 10)))
+    const x        = Math.floor(i * barW + gap / 2)
+    const y        = areaH - bh + 4
+    const isSel    = i === G34.selected
+    const isDragSrc = isDragging && i === _g34Drag.idx
+    const isDragTgt = isDragging && i === dragTarget && dragTarget !== _g34Drag.idx
+
+    // Glow column
+    if (isSel || isDragSrc) {
       ctx.fillStyle = 'rgba(245,158,11,0.15)'
       ctx.fillRect(x - 2, 0, bw + 4, areaH + 4)
     }
+    if (isDragTgt) {
+      ctx.fillStyle = 'rgba(99,102,241,0.18)'
+      ctx.fillRect(x - 2, 0, bw + 4, areaH + 4)
+    }
 
-    ctx.fillStyle = isSel ? '#f59e0b' : '#4a7c59'
+    const barColor = isDragSrc ? '#f59e0b' : isDragTgt ? '#818cf8' : isSel ? '#f59e0b' : '#4a7c59'
+    ctx.fillStyle = barColor
     const r = Math.min(3, bw / 2)
     ctx.beginPath()
     ctx.moveTo(x + r, y)
@@ -187,15 +260,33 @@ function g34Draw() {
     ctx.fill()
 
     if (n <= 30) {
-      ctx.fillStyle = isSel ? '#fbbf24' : '#6aab7c'
+      ctx.fillStyle = (isSel || isDragSrc) ? '#fbbf24' : isDragTgt ? '#a5b4fc' : '#6aab7c'
       ctx.font = `${Math.max(9, Math.min(13, bw - 3))}px monospace`
       ctx.textAlign = 'center'
       ctx.fillText(val, x + bw / 2, h - 6)
     }
   }
 
-  // Selection indicator triangle at top
-  if (G34.selected !== -1) {
+  // Arrow from drag source to drag target
+  if (isDragging && dragTarget !== -1 && dragTarget !== _g34Drag.idx) {
+    const srcX = (_g34Drag.idx + 0.5) * barW
+    const tgtX = (dragTarget + 0.5) * barW
+    ctx.strokeStyle = 'rgba(245,158,11,0.5)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([4, 4])
+    ctx.beginPath(); ctx.moveTo(srcX, 18); ctx.lineTo(tgtX, 18); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = '#f59e0b'
+    const dir = tgtX > srcX ? 1 : -1
+    ctx.beginPath()
+    ctx.moveTo(tgtX + dir * 7, 18)
+    ctx.lineTo(tgtX - dir * 4, 12)
+    ctx.lineTo(tgtX - dir * 4, 24)
+    ctx.closePath(); ctx.fill()
+  }
+
+  // Tap-selected indicator triangle at top
+  if (G34.selected !== -1 && !isDragging) {
     const x = (G34.selected + 0.5) * barW
     ctx.fillStyle = '#f59e0b'
     ctx.beginPath()
