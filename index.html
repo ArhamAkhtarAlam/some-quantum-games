@@ -1399,6 +1399,10 @@
       <h3>〰️ Wave Dash</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> SPACE / click / tap to angle <b>up</b>. <b>Release</b> to angle down. Navigate the corridor — starts easy, gets tighter and faster!</p>
       <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">A 3-second countdown gives you time to adapt before it moves</div>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer;margin-bottom:.3rem">
+        <input type="checkbox" id="g35-limbo50" onchange="_g35LimboInterval = this.checked ? 50 : 100" style="accent-color:#fbbf24">
+        LIMBO every 50 blocks (hard mode)
+      </label>
       <button class="btn-primary" onclick="startWaveDash()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
         <button class="btn-primary" style="width:100%;background:#06b6d4;" id="g35-queue-btn" onclick="g35FindMatch()">⚔️ Find Match</button>

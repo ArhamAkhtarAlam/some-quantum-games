@@ -75,7 +75,8 @@ const G35_LSHUFFLE_DUR  = 14
 const G35_LNEUTRAL      = '#7070a0'  // all-same colour during shuffle
 
 let G35_limbo          = null
-let _g35LimboTriggered = false
+let _g35LimboNextScore = 100   // score that next triggers LIMBO
+let _g35LimboInterval  = 100   // gap between triggers (100 or 50)
 let _g35LimboResume    = false
 let _g35LimboAudio     = null
 
@@ -164,8 +165,7 @@ window.g35FindMatch = function() {
 function stopGame35() {
   G35.active = false
   if (G35.raf) { cancelAnimationFrame(G35.raf); G35.raf = null }
-  G35_limbo = null
-  _g35LimboTriggered = false
+  G35_limbo          = null
   _g35LimboResume    = false
   _g35LimboStopMusic()
   document.removeEventListener('keydown',  _g35KD)
@@ -240,7 +240,7 @@ window.startWaveDash = function() {
   G35.lastSyncTime = 0
   _g35WallPat   = null
   G35_limbo          = null
-  _g35LimboTriggered = false
+  _g35LimboNextScore = _g35LimboInterval
   _g35LimboResume    = false
 
   G35.wallBuf       = []
@@ -345,9 +345,9 @@ function g35Loop(ts) {
     }
   }
 
-  // Trigger LIMBO at score 100
-  if (!_g35LimboTriggered && G35.score >= 100) {
-    _g35LimboTriggered = true
+  // Trigger LIMBO every _g35LimboInterval score
+  if (!G35_limbo && G35.score >= _g35LimboNextScore) {
+    _g35LimboNextScore += _g35LimboInterval
     _g35LimboStart()
   }
 
@@ -414,13 +414,17 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.fillRect(0, yOff, w, panelH)
 
   const pat = _g35MakePat(ctx, null)
+  // During LIMBO open/done: expand corridor visually; walls fade to ghost
+  const lmOpen = (G35_limbo && G35_limbo.phase !== 'shuffle') ? (G35_limbo.openT ?? 0) : 0
+  const getGap = e => e.gapH + (panelH * 2.5 - e.gapH) * lmOpen
+  if (lmOpen > 0) ctx.globalAlpha = Math.max(0.18, 1 - lmOpen * 0.82)
 
   // Top wall
   ctx.beginPath()
   ctx.moveTo(0, yOff)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy - e.gapH / 2)
+    ctx.lineTo(x, yOff + e.cy - getGap(e) / 2)
   }
   ctx.lineTo(w, yOff)
   ctx.closePath()
@@ -432,7 +436,7 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.moveTo(0, yOff + panelH)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy + e.gapH / 2)
+    ctx.lineTo(x, yOff + e.cy + getGap(e) / 2)
   }
   ctx.lineTo(w, yOff + panelH)
   ctx.closePath()
@@ -445,18 +449,19 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy - e.gapH / 2
+    const y = yOff + e.cy - getGap(e) / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy + e.gapH / 2
+    const y = yOff + e.cy + getGap(e) / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
   ctx.shadowBlur = 0
+  if (lmOpen > 0) ctx.globalAlpha = 1
 
   // Trail
   if (G35.trail.length > 1) {
@@ -659,6 +664,7 @@ function _g35LimboStart() {
     animFrom: null, animTo: null,
     animT: 0, animDur: 0.7, isAnimating: false,
     permStep: -1,
+    openT: 0,
     openStep: 'arrange',
     arrangeT: 0, arrangeFrom: null, arrangeTo: null,
     lineX: 0, lineSpd: 0, lineOrder: null,
@@ -733,6 +739,7 @@ function _g35LimboUpdate(dt) {
     if (lm.t >= G35_LSHUFFLE_DUR) _g35LOpenKeys()
 
   } else if (lm.phase === 'open') {
+    lm.openT = Math.min(1, lm.openT + dt * 1.4)
     if (lm.openStep === 'arrange') {
       lm.arrangeT = Math.min(1, lm.arrangeT + dt / 0.45)
       const e = eio(lm.arrangeT)
@@ -773,13 +780,16 @@ function _g35LimboUpdate(dt) {
 
   if (lm.phase === 'done') {
     lm.resultT += dt
-    if (lm.resultT >= 1.0) {
-      // Snap player to corridor centre so they don't resume inside a wall
-      const wall = G35.wallBuf[Math.min(G35.cx, G35.wallBuf.length - 1)]
-      if (wall) G35.y = wall.cy
-      G35_limbo = null
-      G35.grace = 1.0   // longer grace so player can see what's ahead
-      _g35LimboResume = true
+    // Hold result banner for 0.5s then close corridor
+    if (lm.resultT > 0.5) {
+      lm.openT = Math.max(0, lm.openT - dt * 1.4)
+      if (lm.openT <= 0) {
+        const wall = G35.wallBuf[Math.min(G35.cx, G35.wallBuf.length - 1)]
+        if (wall) G35.y = wall.cy   // snap to corridor centre before collision resumes
+        G35_limbo = null
+        G35.grace = 1.2
+        _g35LimboResume = true
+      }
     }
   }
 }
