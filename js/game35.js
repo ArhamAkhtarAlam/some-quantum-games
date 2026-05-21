@@ -345,8 +345,8 @@ function g35Loop(ts) {
     }
   }
 
-  // Trigger LIMBO at score 200
-  if (!_g35LimboTriggered && G35.score >= 200) {
+  // Trigger LIMBO at score 100
+  if (!_g35LimboTriggered && G35.score >= 100) {
     _g35LimboTriggered = true
     _g35LimboStart()
   }
@@ -789,18 +789,27 @@ function _g35LimboUpdate(dt) {
           document.getElementById('g35-score-hud').textContent = G35.score
           window._g35Score = G35.score
         }
-        setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
         return
       }
       if (lm.t - G35_LSHUFFLE_DUR > 9) {
         lm.result = 'timeout'; lm.phase = 'done'
         _g35LimboStopMusic()
-        setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
       }
     }
   }
 
-  if (lm.phase === 'done') lm.resultT += dt
+  if (lm.phase === 'done') {
+    lm.resultT += dt
+    // After brief pause, close corridor at same rate it opened
+    if (lm.resultT > 0.6) {
+      lm.openT = Math.max(0, lm.openT - dt * 0.5)
+      if (lm.openT <= 0) {
+        G35_limbo = null
+        G35.grace = 0.5
+        _g35LimboResume = true
+      }
+    }
+  }
 }
 
 function _g35LimboDrawKeys(ctx, w, yOff) {
@@ -854,8 +863,8 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
               : inHint && isCorrect ? '#4ade80'
               : G35_LNEUTRAL
     _g35LDrawKey(ctx, kp.x, yOff + kp.y, col, 14,
-      inHint && isCorrect,        // glow during hint
-      isSlide && isCorrect)       // glow correct during slide
+      inHint && isCorrect,        // glow during hint only
+      false)                      // no reveal during slide — pure memory
   }
 }
 
