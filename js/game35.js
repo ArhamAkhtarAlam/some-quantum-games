@@ -69,9 +69,10 @@ const G35_LPERMS = [
   [0,2,1,4,3,7,5,6],   // minor finalise
   [2,0,4,1,6,3,7,5],   // complex finish
 ]
-// 2s hint at start, then 1.2s between each of 10 perms, shuffle ends at 14s (song cue)
-const G35_LPERM_T       = [2.0,3.2,4.4,5.6,6.8,8.0,9.2,10.4,11.6,12.8]
+// 5s hint, then 10 shuffles at 0.9s apart (t=5 to t=14.1), pick at t=14
+const G35_LPERM_T       = [5.0,5.9,6.8,7.7,8.6,9.5,10.4,11.3,12.2,13.1]
 const G35_LSHUFFLE_DUR  = 14
+const G35_LNEUTRAL      = '#7070a0'  // all-same colour during shuffle
 
 let G35_limbo          = null
 let _g35LimboTriggered = false
@@ -631,11 +632,6 @@ function _g35LSlotPx(i, w, pH) {
   return { x: s.x * w, y: s.y * pH }
 }
 
-function _g35LColPx(i, w, pH) {
-  // right-side column: 8 keys evenly spaced vertically
-  return { x: w * 0.82, y: pH * 0.05 + i * (pH * 0.90 / 7) }
-}
-
 function _g35LimboPlayMusic() {
   try {
     _g35LimboAudio = new Audio('limbo-keys-made-with-Voicemod.mp3')
@@ -663,13 +659,15 @@ function _g35LimboStart() {
     keyToSlot: [0,1,2,3,4,5,6,7],
     keyPx,
     animFrom: null, animTo: null,
-    animT: 0, animDur: 0.8, isAnimating: false,
+    animT: 0, animDur: 0.7, isAnimating: false,
     permStep: -1,
     openT: 0,
-    openStep: 'arrange',  // 'arrange' | 'slide'
+    openStep: 'arrange',
     arrangeT: 0, arrangeFrom: null, arrangeTo: null,
-    slideX: 0, slideSpeed: 0,
-    canvasW: w,
+    // circle slide state
+    circleX: 0, circleY: 0, circleR: 0,
+    circleRot: 0, circleSpd: 0, circleRotSpd: 0,
+    circleOrder: null,  // circleOrder[i] = key index at ring position i
     result: null, resultT: 0,
   }
   _g35LimboPlayMusic()
@@ -697,17 +695,36 @@ function _g35LOpenKeys() {
   const c = _g35C()
   const w = c.width, pH = G35.panelH
   const lm = G35_limbo
-  lm.phase       = 'open'
-  lm.openStep    = 'arrange'
-  lm.arrangeT    = 0
-  lm.arrangeFrom = lm.keyPx.map(p => ({...p}))
-  // Sort keys by current y so they stack into column without crossing
+  const R  = Math.min(pH * 0.32, 90)
+  lm.phase        = 'open'
+  lm.openStep     = 'arrange'
+  lm.arrangeT     = 0
+  lm.arrangeFrom  = lm.keyPx.map(p => ({...p}))
+  lm.circleX      = w * 0.80
+  lm.circleY      = pH / 2
+  lm.circleR      = R
+  lm.circleRot    = 0
+  lm.circleSpd    = (w * 0.80 - G35.cx) / 3.2
+  lm.circleRotSpd = (Math.PI * 2 * 0.75) / 3.2  // 0.75 rotations during slide
+
+  // Assign ring positions sorted by current y to avoid crossing lines
   const order = Array.from({length: 8}, (_, k) => k)
     .sort((a, b) => lm.keyPx[a].y - lm.keyPx[b].y)
+  lm.circleOrder = order
   lm.arrangeTo = new Array(8)
-  for (let i = 0; i < 8; i++) lm.arrangeTo[order[i]] = _g35LColPx(i, w, pH)
-  lm.slideX     = w * 0.82
-  lm.slideSpeed = (w * 0.82 - G35.cx) / 3.0
+  for (let i = 0; i < 8; i++) {
+    const angle = (2 * Math.PI * i / 8) - Math.PI / 2
+    lm.arrangeTo[order[i]] = {
+      x: lm.circleX + Math.cos(angle) * R,
+      y: lm.circleY + Math.sin(angle) * R,
+    }
+  }
+}
+
+function _g35LCircleKeyPx(lm, i) {
+  const angle = (2 * Math.PI * i / 8) - Math.PI / 2 + lm.circleRot
+  return { x: lm.circleX + Math.cos(angle) * lm.circleR,
+           y: lm.circleY + Math.sin(angle) * lm.circleR }
 }
 
 function _g35LimboUpdate(dt) {
@@ -741,27 +758,29 @@ function _g35LimboUpdate(dt) {
     lm.openT = Math.min(1, lm.openT + dt * 0.5)
 
     if (lm.openStep === 'arrange') {
-      lm.arrangeT = Math.min(1, lm.arrangeT + dt / 0.4)
+      lm.arrangeT = Math.min(1, lm.arrangeT + dt / 0.45)
       const e = eio(lm.arrangeT)
       for (let k = 0; k < 8; k++) {
         const f = lm.arrangeFrom[k], to = lm.arrangeTo[k]
         lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e }
       }
-      if (lm.arrangeT >= 1) {
-        for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.arrangeTo[k]}
-        lm.openStep = 'slide'
-      }
+      if (lm.arrangeT >= 1) lm.openStep = 'slide'
 
     } else if (lm.openStep === 'slide') {
-      lm.slideX -= lm.slideSpeed * dt
-      for (let k = 0; k < 8; k++) lm.keyPx[k].x = lm.slideX
+      lm.circleX   -= lm.circleSpd   * dt
+      lm.circleRot += lm.circleRotSpd * dt
+      // Update keyPx from circle geometry
+      for (let i = 0; i < 8; i++) {
+        lm.keyPx[lm.circleOrder[i]] = _g35LCircleKeyPx(lm, i)
+      }
 
-      if (lm.slideX <= G35.cx) {
-        // Auto-pick the key at the player's y position
+      if (lm.circleX <= G35.cx) {
+        // Pick the ring position closest to player y
         let picked = 0, minDist = Infinity
-        for (let k = 0; k < 8; k++) {
-          const dy = Math.abs(G35.y - lm.keyPx[k].y)
-          if (dy < minDist) { minDist = dy; picked = k }
+        for (let i = 0; i < 8; i++) {
+          const p = _g35LCircleKeyPx(lm, i)
+          const dy = Math.abs(G35.y - p.y)
+          if (dy < minDist) { minDist = dy; picked = lm.circleOrder[i] }
         }
         lm.result = (picked === lm.correct) ? 'correct' : 'wrong'
         lm.phase  = 'done'
@@ -770,12 +789,10 @@ function _g35LimboUpdate(dt) {
           document.getElementById('g35-score-hud').textContent = G35.score
           window._g35Score = G35.score
         }
-        // Music keeps playing after pick
         setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
         return
       }
-      // Fallback timeout
-      if (lm.t - G35_LSHUFFLE_DUR > 8) {
+      if (lm.t - G35_LSHUFFLE_DUR > 9) {
         lm.result = 'timeout'; lm.phase = 'done'
         _g35LimboStopMusic()
         setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
@@ -806,13 +823,13 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
     ctx.fillText('LIMBO', w / 2, yOff + 30)
     ctx.shadowBlur = 0
     ctx.font = '13px monospace'
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    ctx.fillText(lm.t < 2.0 ? 'remember the glowing key!' : 'watch the key...', w / 2, yOff + 50)
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.fillText(lm.t < 5.0 ? 'remember the glowing key!' : 'track it...', w / 2, yOff + 50)
   } else if (lm.phase === 'open') {
     ctx.font = 'bold 20px monospace'
     ctx.fillStyle = '#4ade80'
     ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 14
-    ctx.fillText('NAVIGATE TO YOUR KEY!', w / 2, yOff + 30)
+    ctx.fillText('ALIGN WITH YOUR KEY!', w / 2, yOff + 30)
     ctx.shadowBlur = 0
   } else if (lm.phase === 'done') {
     const label = lm.result === 'correct' ? '+150  CORRECT!' : lm.result === 'timeout' ? 'TIME UP' : 'WRONG KEY'
@@ -827,12 +844,18 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
   ctx.textAlign = 'left'
   ctx.restore()
 
+  const isSlide = lm.phase === 'open' && lm.openStep === 'slide'
   for (let k = 0; k < 8; k++) {
     const kp = lm.keyPx[k]
     const isCorrect = k === lm.correct
-    _g35LDrawKey(ctx, kp.x, yOff + kp.y, G35_LCOLORS[k], 14,
-      isCorrect && lm.t < 2.0 && lm.phase === 'shuffle',
-      lm.phase === 'open' && lm.openStep === 'slide' && isCorrect)
+    const inHint    = lm.t < 5.0 && lm.phase === 'shuffle'
+    // Colour: green for correct during hint; neutral for all during shuffle; colours in slide
+    const col = isSlide ? G35_LCOLORS[k]
+              : inHint && isCorrect ? '#4ade80'
+              : G35_LNEUTRAL
+    _g35LDrawKey(ctx, kp.x, yOff + kp.y, col, 14,
+      inHint && isCorrect,        // glow during hint
+      isSlide && isCorrect)       // glow correct during slide
   }
 }
 
