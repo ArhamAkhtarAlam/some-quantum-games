@@ -705,7 +705,7 @@ function _g35LOpenKeys() {
   lm.circleR      = R
   lm.circleRot    = 0
   lm.circleSpd    = (w * 0.80 - G35.cx) / 3.2
-  lm.circleRotSpd = (Math.PI * 2 * 0.75) / 3.2  // 0.75 rotations during slide
+  lm.circleRotSpd = 0
 
   // Assign ring positions sorted by current y to avoid crossing lines
   const order = Array.from({length: 8}, (_, k) => k)
@@ -729,7 +729,7 @@ function _g35LCircleKeyPx(lm, i) {
 
 function _g35LimboUpdate(dt) {
   const lm = G35_limbo
-  if (!lm || lm.phase === 'done') return
+  if (!lm) return
   lm.t += dt
 
   const eio = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t
@@ -816,6 +816,8 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
   const lm = G35_limbo
   if (!lm) return
   const pH = G35.panelH
+  ctx.save()
+  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'  // clear any wave glow bleed
 
   const dimAlpha = lm.phase === 'shuffle' ? 0.55 : Math.max(0, 0.55 * (1 - lm.openT))
   if (dimAlpha > 0) {
@@ -858,14 +860,15 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
     const kp = lm.keyPx[k]
     const isCorrect = k === lm.correct
     const inHint    = lm.t < 5.0 && lm.phase === 'shuffle'
-    // Colour: green for correct during hint; neutral for all during shuffle; colours in slide
+    // Hint: gold (not wave-green) for correct key; neutral for all during shuffle; colours in slide
     const col = isSlide ? G35_LCOLORS[k]
-              : inHint && isCorrect ? '#4ade80'
+              : inHint && isCorrect ? '#fbbf24'
               : G35_LNEUTRAL
     _g35LDrawKey(ctx, kp.x, yOff + kp.y, col, 14,
-      inHint && isCorrect,        // glow during hint only
-      false)                      // no reveal during slide — pure memory
+      inHint && isCorrect,   // gold glow during hint
+      false)                 // no reveal during slide
   }
+  ctx.restore()
 }
 
 function _g35LDrawKey(ctx, x, y, color, r, highlighted, phase2correct) {
