@@ -414,15 +414,13 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.fillRect(0, yOff, w, panelH)
 
   const pat = _g35MakePat(ctx, null)
-  const lmOpen = (G35_limbo && G35_limbo.phase !== 'shuffle') ? G35_limbo.openT : 0
-  const getGap = e => lmOpen > 0 ? e.gapH + (panelH * 2.5 - e.gapH) * lmOpen : e.gapH
 
   // Top wall
   ctx.beginPath()
   ctx.moveTo(0, yOff)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy - getGap(e) / 2)
+    ctx.lineTo(x, yOff + e.cy - e.gapH / 2)
   }
   ctx.lineTo(w, yOff)
   ctx.closePath()
@@ -434,7 +432,7 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.moveTo(0, yOff + panelH)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy + getGap(e) / 2)
+    ctx.lineTo(x, yOff + e.cy + e.gapH / 2)
   }
   ctx.lineTo(w, yOff + panelH)
   ctx.closePath()
@@ -447,14 +445,14 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy - getGap(e) / 2
+    const y = yOff + e.cy - e.gapH / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy + getGap(e) / 2
+    const y = yOff + e.cy + e.gapH / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
@@ -661,13 +659,9 @@ function _g35LimboStart() {
     animFrom: null, animTo: null,
     animT: 0, animDur: 0.7, isAnimating: false,
     permStep: -1,
-    openT: 0,
     openStep: 'arrange',
     arrangeT: 0, arrangeFrom: null, arrangeTo: null,
-    // circle slide state
-    circleX: 0, circleY: 0, circleR: 0,
-    circleRot: 0, circleSpd: 0, circleRotSpd: 0,
-    circleOrder: null,  // circleOrder[i] = key index at ring position i
+    lineX: 0, lineSpd: 0, lineOrder: null,
     result: null, resultT: 0,
   }
   _g35LimboPlayMusic()
@@ -695,36 +689,20 @@ function _g35LOpenKeys() {
   const c = _g35C()
   const w = c.width, pH = G35.panelH
   const lm = G35_limbo
-  const R  = Math.min(pH * 0.32, 90)
-  lm.phase        = 'open'
-  lm.openStep     = 'arrange'
-  lm.arrangeT     = 0
-  lm.arrangeFrom  = lm.keyPx.map(p => ({...p}))
-  lm.circleX      = w * 0.80
-  lm.circleY      = pH / 2
-  lm.circleR      = R
-  lm.circleRot    = 0
-  lm.circleSpd    = (w * 0.80 - G35.cx) / 3.2
-  lm.circleRotSpd = 0
-
-  // Assign ring positions sorted by current y to avoid crossing lines
+  lm.phase       = 'open'
+  lm.openStep    = 'arrange'
+  lm.arrangeT    = 0
+  lm.arrangeFrom = lm.keyPx.map(p => ({...p}))
+  // Sort by current y so they form a clean vertical line
   const order = Array.from({length: 8}, (_, k) => k)
     .sort((a, b) => lm.keyPx[a].y - lm.keyPx[b].y)
-  lm.circleOrder = order
+  lm.lineOrder = order
+  lm.lineX     = w * 0.85
+  lm.lineSpd   = (w * 0.85 - G35.cx) / 3.0
   lm.arrangeTo = new Array(8)
   for (let i = 0; i < 8; i++) {
-    const angle = (2 * Math.PI * i / 8) - Math.PI / 2
-    lm.arrangeTo[order[i]] = {
-      x: lm.circleX + Math.cos(angle) * R,
-      y: lm.circleY + Math.sin(angle) * R,
-    }
+    lm.arrangeTo[order[i]] = { x: lm.lineX, y: pH * 0.05 + i * (pH * 0.90 / 7) }
   }
-}
-
-function _g35LCircleKeyPx(lm, i) {
-  const angle = (2 * Math.PI * i / 8) - Math.PI / 2 + lm.circleRot
-  return { x: lm.circleX + Math.cos(angle) * lm.circleR,
-           y: lm.circleY + Math.sin(angle) * lm.circleR }
 }
 
 function _g35LimboUpdate(dt) {
@@ -755,8 +733,6 @@ function _g35LimboUpdate(dt) {
     if (lm.t >= G35_LSHUFFLE_DUR) _g35LOpenKeys()
 
   } else if (lm.phase === 'open') {
-    lm.openT = Math.min(1, lm.openT + dt * 0.5)
-
     if (lm.openStep === 'arrange') {
       lm.arrangeT = Math.min(1, lm.arrangeT + dt / 0.45)
       const e = eio(lm.arrangeT)
@@ -764,23 +740,20 @@ function _g35LimboUpdate(dt) {
         const f = lm.arrangeFrom[k], to = lm.arrangeTo[k]
         lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e }
       }
-      if (lm.arrangeT >= 1) lm.openStep = 'slide'
-
-    } else if (lm.openStep === 'slide') {
-      lm.circleX   -= lm.circleSpd   * dt
-      lm.circleRot += lm.circleRotSpd * dt
-      // Update keyPx from circle geometry
-      for (let i = 0; i < 8; i++) {
-        lm.keyPx[lm.circleOrder[i]] = _g35LCircleKeyPx(lm, i)
+      if (lm.arrangeT >= 1) {
+        for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.arrangeTo[k]}
+        lm.openStep = 'slide'
       }
 
-      if (lm.circleX <= G35.cx) {
-        // Pick the ring position closest to player y
+    } else if (lm.openStep === 'slide') {
+      lm.lineX -= lm.lineSpd * dt
+      for (let k = 0; k < 8; k++) lm.keyPx[k].x = lm.lineX
+
+      if (lm.lineX <= G35.cx) {
         let picked = 0, minDist = Infinity
-        for (let i = 0; i < 8; i++) {
-          const p = _g35LCircleKeyPx(lm, i)
-          const dy = Math.abs(G35.y - p.y)
-          if (dy < minDist) { minDist = dy; picked = lm.circleOrder[i] }
+        for (let k = 0; k < 8; k++) {
+          const dy = Math.abs(G35.y - lm.keyPx[k].y)
+          if (dy < minDist) { minDist = dy; picked = k }
         }
         lm.result = (picked === lm.correct) ? 'correct' : 'wrong'
         lm.phase  = 'done'
@@ -800,14 +773,13 @@ function _g35LimboUpdate(dt) {
 
   if (lm.phase === 'done') {
     lm.resultT += dt
-    // After brief pause, close corridor at same rate it opened
-    if (lm.resultT > 0.6) {
-      lm.openT = Math.max(0, lm.openT - dt * 0.5)
-      if (lm.openT <= 0) {
-        G35_limbo = null
-        G35.grace = 0.5
-        _g35LimboResume = true
-      }
+    if (lm.resultT >= 1.0) {
+      // Snap player to corridor centre so they don't resume inside a wall
+      const wall = G35.wallBuf[Math.min(G35.cx, G35.wallBuf.length - 1)]
+      if (wall) G35.y = wall.cy
+      G35_limbo = null
+      G35.grace = 1.0   // longer grace so player can see what's ahead
+      _g35LimboResume = true
     }
   }
 }
@@ -819,9 +791,8 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
   ctx.save()
   ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'  // clear any wave glow bleed
 
-  const dimAlpha = lm.phase === 'shuffle' ? 0.55 : Math.max(0, 0.55 * (1 - lm.openT))
-  if (dimAlpha > 0) {
-    ctx.fillStyle = `rgba(3,7,16,${dimAlpha})`
+  if (lm.phase === 'shuffle') {
+    ctx.fillStyle = 'rgba(3,7,16,0.38)'
     ctx.fillRect(0, yOff, w, pH)
   }
 
