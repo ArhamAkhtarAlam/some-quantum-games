@@ -42,6 +42,54 @@ const G35 = {
 }
 window._g35Score = 0
 
+// ── LIMBO KEY MINIGAME ─────────────────────────────────
+// Triggers at score 200. Fixed choreography, random correct key.
+
+const G35_LCOLORS = ['#ff2020','#20ff20','#44fcfc','#9404d4','#fcfc84','#84fcb4','#445ccc','#f45cfc']
+
+// 8 slot positions: 2 cols × 4 rows (normalised 0-1 of canvas w / panelH)
+const G35_LSLOTS = [
+  {x:0.30,y:0.14},{x:0.70,y:0.14},
+  {x:0.30,y:0.38},{x:0.70,y:0.38},
+  {x:0.30,y:0.62},{x:0.70,y:0.62},
+  {x:0.30,y:0.86},{x:0.70,y:0.86},
+]
+
+// Fixed permutation sequence (from LimboKeys shuffle patterns, 0-indexed).
+// perm[i] = destination slot for whatever key is currently in slot i.
+const G35_LPERMS = [
+  [1,3,0,2,5,7,4,6],   // clockwise both blocks
+  [4,5,6,7,0,1,2,3],   // full block-swap top↔bottom
+  [2,0,1,4,3,6,5,7],   // minor local swaps
+  [1,3,0,5,2,7,4,6],   // cross swaps
+  [6,7,0,1,2,3,4,5],   // 2-step rotate up
+  [3,2,1,0,7,6,5,4],   // X-reversal per block
+  [2,3,4,5,6,7,0,1],   // 2-step shift down
+  [1,3,0,2,6,4,7,5],   // mixed
+  [0,2,1,4,3,7,5,6],   // minor finalise
+  [2,0,4,1,6,3,7,5],   // complex finish
+]
+const G35_LPERM_T       = [0.0,0.68,1.36,2.04,2.72,3.40,4.08,4.76,5.44,6.12]
+const G35_LSHUFFLE_DUR  = 6.8   // seconds (last perm at 6.12 + 0.44s anim = 6.56)
+
+// Synthesised Isolation melody (Nighthawk22 key-section approximation)
+const G35_LTUNE = (() => {
+  const b = 60/132/2  // 8th note at 132 BPM ≈ 0.227 s
+  const q = b * 2
+  return [
+    [294,b],[349,b],[440,b],[523,b],[659,b],[523,b],[440,b],[349,b],
+    [466,b],[440,q],[392,b],[349,b],[392,b],[440,q],
+    [587,b],[659,b],[698,b],[659,b],[587,b],[523,b],[466,b],[440,b],
+    [392,q],[349,b],[294,b],[294,q],
+  ]
+})()
+
+let G35_limbo          = null
+let _g35LimboTriggered = false
+let _g35LimboResume    = false
+let _g35LimboAC        = null
+let _g35LimboMusicTO   = null
+
 let _g35Canvas = null
 let _g35WallPat = null
 
@@ -127,6 +175,10 @@ window.g35FindMatch = function() {
 function stopGame35() {
   G35.active = false
   if (G35.raf) { cancelAnimationFrame(G35.raf); G35.raf = null }
+  G35_limbo = null
+  _g35LimboTriggered = false
+  _g35LimboResume    = false
+  _g35LimboStopMusic()
   document.removeEventListener('keydown',  _g35KD)
   document.removeEventListener('keyup',    _g35KU)
   const c = _g35C()
@@ -198,6 +250,9 @@ window.startWaveDash = function() {
   G35.panelH    = panelH
   G35.lastSyncTime = 0
   _g35WallPat   = null
+  G35_limbo          = null
+  _g35LimboTriggered = false
+  _g35LimboResume    = false
 
   G35.wallBuf       = []
   G35.wallGenCy     = panelH / 2
@@ -262,20 +317,22 @@ function g35Loop(ts) {
   if (G35.grace > 0) {
     G35.grace -= dt
     g35Draw(ctx, w, h)
-    const label = G35.grace > 2.5 ? '3' : G35.grace > 1.5 ? '2' : G35.grace > 0.4 ? '1' : 'GO!'
-    const alpha  = G35.grace > 0.4 ? 1 : G35.grace / 0.4
-    ctx.globalAlpha = alpha
-    ctx.font = 'bold 80px monospace'
-    ctx.textAlign = 'center'
-    ctx.fillStyle = '#4ade80'
-    ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 32
-    // Draw countdown in the player's panel area
-    const countY = G35_sideBySide ? h * 0.75 : h / 2
-    ctx.fillText(label, w / 2, countY + 28)
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.textAlign = 'left'
+    if (!_g35LimboResume) {
+      const label = G35.grace > 2.5 ? '3' : G35.grace > 1.5 ? '2' : G35.grace > 0.4 ? '1' : 'GO!'
+      const alpha  = G35.grace > 0.4 ? 1 : G35.grace / 0.4
+      ctx.globalAlpha = alpha
+      ctx.font = 'bold 80px monospace'
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#4ade80'
+      ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 32
+      const countY = G35_sideBySide ? h * 0.75 : h / 2
+      ctx.fillText(label, w / 2, countY + 28)
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.textAlign = 'left'
+    }
     G35.raf = requestAnimationFrame(g35Loop)
     return
   }
+  if (_g35LimboResume) _g35LimboResume = false
 
   // Scroll
   G35.scrollAcc += G35.speed * dt
@@ -299,6 +356,12 @@ function g35Loop(ts) {
     }
   }
 
+  // Trigger LIMBO at score 200
+  if (!_g35LimboTriggered && G35.score >= 200) {
+    _g35LimboTriggered = true
+    _g35LimboStart()
+  }
+
   // State sync for side-by-side (every ~100ms)
   if (G35_sideBySide && G35_roomCode && ts - G35.lastSyncTime > 100) {
     G35.lastSyncTime = ts
@@ -320,14 +383,27 @@ function g35Loop(ts) {
   G35.trail.push({ sx: G35.scrollX, y: G35.y })
   if (G35.trail.length > 120) G35.trail.shift()
 
-  // Collision
-  const wallIdx = Math.min(G35.cx, G35.wallBuf.length - 1)
-  const wall    = G35.wallBuf[wallIdx]
-  if (G35.y <= wall.cy - wall.gapH / 2 + G35_PR || G35.y >= wall.cy + wall.gapH / 2 - G35_PR) {
-    endGame35(); return
+  // Update limbo minigame
+  if (G35_limbo) _g35LimboUpdate(dt)
+
+  // Collision — skipped during limbo open/done phases
+  const inLimboOpen = G35_limbo && (G35_limbo.phase === 'open' || G35_limbo.phase === 'done')
+  if (!inLimboOpen) {
+    const wallIdx = Math.min(G35.cx, G35.wallBuf.length - 1)
+    const wall    = G35.wallBuf[wallIdx]
+    if (G35.y <= wall.cy - wall.gapH / 2 + G35_PR || G35.y >= wall.cy + wall.gapH / 2 - G35_PR) {
+      endGame35(); return
+    }
   }
 
   g35Draw(ctx, w, h)
+
+  // Draw limbo keys overlay
+  if (G35_limbo) {
+    const yOff = G35_sideBySide ? Math.floor(h / 2) : 0
+    _g35LimboDrawKeys(ctx, w, yOff)
+  }
+
   G35.raf = requestAnimationFrame(g35Loop)
 }
 
@@ -349,13 +425,15 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.fillRect(0, yOff, w, panelH)
 
   const pat = _g35MakePat(ctx, null)
+  const lmOpen = (G35_limbo && G35_limbo.phase !== 'shuffle') ? G35_limbo.openT : 0
+  const getGap = e => lmOpen > 0 ? e.gapH + (panelH * 2.5 - e.gapH) * lmOpen : e.gapH
 
   // Top wall
   ctx.beginPath()
   ctx.moveTo(0, yOff)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy - e.gapH / 2)
+    ctx.lineTo(x, yOff + e.cy - getGap(e) / 2)
   }
   ctx.lineTo(w, yOff)
   ctx.closePath()
@@ -367,7 +445,7 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.moveTo(0, yOff + panelH)
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    ctx.lineTo(x, yOff + e.cy + e.gapH / 2)
+    ctx.lineTo(x, yOff + e.cy + getGap(e) / 2)
   }
   ctx.lineTo(w, yOff + panelH)
   ctx.closePath()
@@ -380,14 +458,14 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy - e.gapH / 2
+    const y = yOff + e.cy - getGap(e) / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
   ctx.beginPath()
   for (let x = 0; x < w; x += 2) {
     const e = G35.wallBuf[Math.min(x, G35.wallBuf.length - 1)]
-    const y = yOff + e.cy + e.gapH / 2
+    const y = yOff + e.cy + getGap(e) / 2
     x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   }
   ctx.strokeStyle = '#67e8f9'; ctx.stroke()
@@ -556,6 +634,236 @@ function _g35DrawSplit(ctx, w, h) {
   ctx.lineWidth = 1
   ctx.setLineDash([])
   ctx.beginPath(); ctx.moveTo(0, HH); ctx.lineTo(w, HH); ctx.stroke()
+}
+
+// ── LIMBO functions ────────────────────────────────────
+
+function _g35LSlotPx(i, w, pH) {
+  const s = G35_LSLOTS[i]
+  return { x: s.x * w, y: s.y * pH }
+}
+
+function _g35LFinalPx(k) {
+  const pH = G35.panelH
+  const col = k % 2
+  const row = Math.floor(k / 2)
+  return { x: G35.cx + (col === 0 ? -18 : 18), y: pH * 0.15 + row * (pH * 0.70 / 3) }
+}
+
+function _g35LimboPlayMusic() {
+  try {
+    if (!_g35LimboAC) _g35LimboAC = new (window.AudioContext || window.webkitAudioContext)()
+    _g35LimboAC.resume()
+    _g35LSchedLoop(G35_LTUNE, 0, _g35LimboAC.currentTime)
+  } catch(e) {}
+}
+
+function _g35LSchedLoop(notes, idx, t) {
+  if (!_g35LimboAC || !G35_limbo) return
+  if (idx >= notes.length) {
+    _g35LimboMusicTO = setTimeout(() => {
+      if (!_g35LimboAC || !G35_limbo) return
+      _g35LSchedLoop(notes, 0, _g35LimboAC.currentTime)
+    }, 10)
+    return
+  }
+  const [freq, dur] = notes[idx]
+  try {
+    const osc = _g35LimboAC.createOscillator()
+    const gain = _g35LimboAC.createGain()
+    osc.connect(gain); gain.connect(_g35LimboAC.destination)
+    osc.type = 'triangle'
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0, t)
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.9)
+    osc.start(t); osc.stop(t + dur)
+    const delay = (t - _g35LimboAC.currentTime + dur) * 1000
+    _g35LimboMusicTO = setTimeout(() => _g35LSchedLoop(notes, idx + 1, t + dur), Math.max(0, delay - 20))
+  } catch(e) {}
+}
+
+function _g35LimboStopMusic() {
+  if (_g35LimboMusicTO) { clearTimeout(_g35LimboMusicTO); _g35LimboMusicTO = null }
+  if (_g35LimboAC) { try { _g35LimboAC.close() } catch(e) {}; _g35LimboAC = null }
+}
+
+function _g35LimboStart() {
+  const c = _g35C()
+  const w = c.width, pH = G35.panelH
+  const keyPx = []
+  for (let k = 0; k < 8; k++) keyPx.push(_g35LSlotPx(k, w, pH))
+  G35_limbo = {
+    phase: 'shuffle',
+    t: 0,
+    correct: qRandInt(8),
+    slotToKey: [0,1,2,3,4,5,6,7],
+    keyToSlot: [0,1,2,3,4,5,6,7],
+    keyPx,
+    animFrom: null, animTo: null,
+    animT: 0, animDur: 0.44, isAnimating: false,
+    permStep: -1,
+    openT: 0,
+    result: null, resultT: 0,
+  }
+  _g35LimboPlayMusic()
+}
+
+function _g35LApplyPerm(step) {
+  const c = _g35C()
+  const w = c.width, pH = G35.panelH
+  const lm = G35_limbo
+  const perm = G35_LPERMS[step]
+  const newSlotToKey = new Array(8)
+  for (let s = 0; s < 8; s++) newSlotToKey[perm[s]] = lm.slotToKey[s]
+  const newKeyToSlot = new Array(8)
+  for (let s = 0; s < 8; s++) newKeyToSlot[newSlotToKey[s]] = s
+  lm.animFrom = lm.keyPx.map(p => ({...p}))
+  lm.animTo   = new Array(8)
+  for (let k = 0; k < 8; k++) lm.animTo[k] = _g35LSlotPx(newKeyToSlot[k], w, pH)
+  lm.slotToKey = newSlotToKey
+  lm.keyToSlot = newKeyToSlot
+  lm.isAnimating = true
+  lm.animT = 0
+}
+
+function _g35LOpenKeys() {
+  const lm = G35_limbo
+  lm.phase      = 'open'
+  lm.animFrom   = lm.keyPx.map(p => ({...p}))
+  lm.animTo     = Array.from({length: 8}, (_, k) => _g35LFinalPx(k))
+  lm.isAnimating = true
+  lm.animT      = 0
+  lm.animDur    = 0.6
+}
+
+function _g35LimboUpdate(dt) {
+  const lm = G35_limbo
+  if (!lm || lm.phase === 'done') return
+  lm.t += dt
+
+  const eio = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t
+
+  function advAnim() {
+    if (!lm.isAnimating) return
+    lm.animT = Math.min(1, lm.animT + dt / lm.animDur)
+    const e = eio(lm.animT)
+    for (let k = 0; k < 8; k++) {
+      const f = lm.animFrom[k], to = lm.animTo[k]
+      const lift = lm.phase === 'shuffle' ? Math.sin(Math.PI * e) * 40 : 0
+      lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e - lift }
+    }
+    if (lm.animT >= 1) {
+      for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.animTo[k]}
+      lm.isAnimating = false
+    }
+  }
+
+  if (lm.phase === 'shuffle') {
+    const next = lm.permStep + 1
+    if (next < G35_LPERMS.length && lm.t >= G35_LPERM_T[next]) {
+      _g35LApplyPerm(next)
+      lm.permStep = next
+    }
+    advAnim()
+    if (lm.t >= G35_LSHUFFLE_DUR) _g35LOpenKeys()
+  } else if (lm.phase === 'open') {
+    lm.openT = Math.min(1, lm.openT + dt * 1.2)
+    advAnim()
+    if (!lm.isAnimating && lm.openT >= 0.8) {
+      for (let k = 0; k < 8; k++) {
+        const kp = lm.keyPx[k]
+        const dx = G35.cx - kp.x, dy = G35.y - kp.y
+        if (dx*dx + dy*dy < 20*20) {
+          lm.result = (k === lm.correct) ? 'correct' : 'wrong'
+          lm.phase  = 'done'
+          if (lm.result === 'correct') {
+            G35.score += 150
+            document.getElementById('g35-score-hud').textContent = G35.score
+            window._g35Score = G35.score
+          }
+          _g35LimboStopMusic()
+          setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
+          return
+        }
+      }
+      if (lm.t - G35_LSHUFFLE_DUR > 5) {
+        lm.result = 'timeout'
+        lm.phase  = 'done'
+        _g35LimboStopMusic()
+        setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
+      }
+    }
+  }
+
+  if (lm.phase === 'done') lm.resultT += dt
+}
+
+function _g35LimboDrawKeys(ctx, w, yOff) {
+  const lm = G35_limbo
+  if (!lm) return
+  const pH = G35.panelH
+
+  const dimAlpha = lm.phase === 'shuffle' ? 0.55 : Math.max(0, 0.55 * (1 - lm.openT))
+  if (dimAlpha > 0) {
+    ctx.fillStyle = `rgba(3,7,16,${dimAlpha})`
+    ctx.fillRect(0, yOff, w, pH)
+  }
+
+  ctx.save()
+  ctx.textAlign = 'center'
+  if (lm.phase === 'shuffle') {
+    ctx.font = 'bold 22px monospace'
+    ctx.fillStyle = '#fbbf24'
+    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 18
+    ctx.fillText('LIMBO', w / 2, yOff + 30)
+    ctx.shadowBlur = 0
+    ctx.font = '13px monospace'
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.fillText('watch the key...', w / 2, yOff + 50)
+  } else if (lm.phase === 'open') {
+    ctx.font = 'bold 20px monospace'
+    ctx.fillStyle = '#4ade80'
+    ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 14
+    ctx.fillText('FIND YOUR KEY!', w / 2, yOff + 30)
+    ctx.shadowBlur = 0
+  } else if (lm.phase === 'done') {
+    const label = lm.result === 'correct' ? '+150  CORRECT!' : lm.result === 'timeout' ? 'TIME UP' : 'WRONG KEY'
+    ctx.font = 'bold 24px monospace'
+    ctx.fillStyle = lm.result === 'correct' ? '#4ade80' : '#f87171'
+    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 22
+    ctx.fillText(label, w / 2, yOff + pH / 2 - 20)
+    ctx.shadowBlur = 0
+    ctx.textAlign = 'left'; ctx.restore()
+    return
+  }
+  ctx.textAlign = 'left'
+  ctx.restore()
+
+  for (let k = 0; k < 8; k++) {
+    const kp = lm.keyPx[k]
+    const isCorrect = k === lm.correct
+    _g35LDrawKey(ctx, kp.x, yOff + kp.y, G35_LCOLORS[k], 14,
+      isCorrect && lm.t < 0.85 && lm.phase === 'shuffle',
+      lm.phase === 'open' && isCorrect)
+  }
+}
+
+function _g35LDrawKey(ctx, x, y, color, r, highlighted, phase2correct) {
+  ctx.save()
+  if (highlighted || phase2correct) {
+    ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2)
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20
+    ctx.stroke(); ctx.shadowBlur = 0
+  }
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fillStyle = color
+  ctx.shadowColor = color; ctx.shadowBlur = highlighted || phase2correct ? 22 : 8
+  ctx.fill(); ctx.shadowBlur = 0
+  ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fill()
+  ctx.restore()
 }
 
 function endGame35() {
