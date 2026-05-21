@@ -289,6 +289,7 @@ window.showGame = function(n) {
   if (n === 34) initGame34()
   if (n === 35) initGame35()
   if (n === 36) initGame36()
+  if (n === 39) initLimboGame()
 }
 
 window.goHome = function() {
@@ -312,6 +313,7 @@ window.goHome = function() {
   if (typeof G34 !== 'undefined') stopGame34()
   if (typeof stopGame35 === 'function') stopGame35()
   if (typeof stopGame36 === 'function') stopGame36()
+  if (typeof stopLimboGame === 'function') stopLimboGame()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
   pushHomeUrl()

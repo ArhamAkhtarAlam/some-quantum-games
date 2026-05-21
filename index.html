@@ -198,6 +198,12 @@
       <div class="card-desc">Hop across quantum-random traffic, rivers, and trains. Quantum lanes flicker — cars are passthrough when transparent. How far can you go?</div>
       <span class="card-tag" style="background:rgba(74,222,128,.15);color:#4ade80;border-color:#4ade8044;">Quantum Traffic</span>
     </div>
+    <div class="game-card" onclick="showGame(39)" style="border-color:#a855f744;">
+      <div class="card-icon">🗝️</div>
+      <div class="card-title">LIMBO</div>
+      <div class="card-desc">Pure key-memory. Memorise the glowing key, track it through 20 fast shuffles, then click the correct one. Can you beat your streak?</div>
+      <span class="card-tag" style="background:rgba(168,85,247,.15);color:#a855f7;border-color:#a855f744;">Memory</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -1400,8 +1406,12 @@
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> SPACE / click / tap to angle <b>up</b>. <b>Release</b> to angle down. Navigate the corridor — starts easy, gets tighter and faster!</p>
       <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">A 3-second countdown gives you time to adapt before it moves</div>
       <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer;margin-bottom:.3rem">
-        <input type="checkbox" id="g35-limbo50" onchange="_g35LimboInterval = this.checked ? 50 : 100" style="accent-color:#fbbf24">
+        <input type="checkbox" id="g35-limbo50" onchange="_g35LimboInterval = this.checked ? 50 : (document.getElementById('g35-nolimbo').checked ? Infinity : 100)" style="accent-color:#fbbf24">
         LIMBO every 50 blocks (hard mode)
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer;margin-bottom:.5rem">
+        <input type="checkbox" id="g35-nolimbo" onchange="_g35LimboInterval = this.checked ? Infinity : (document.getElementById('g35-limbo50').checked ? 50 : 100)" style="accent-color:#ef4444">
+        No LIMBO mode
       </label>
       <button class="btn-primary" onclick="startWaveDash()">Solo</button>
       <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%;max-width:260px;">
@@ -1524,6 +1534,28 @@
 </section>
 
 <script src="js/game38.js"></script>
+
+<section id="game39" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🗝️ LIMBO</span>
+    <div class="score-badge" style="border-color:#a855f7;color:#a855f7;">Streak <span id="g39-streak-hud">0</span></div>
+  </div>
+  <div class="canvas-arena" id="g39-arena">
+    <canvas id="g39-canvas"></canvas>
+    <div class="canvas-overlay" id="g39-overlay">
+      <h3>🗝️ LIMBO</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
+        One key glows — <b>remember it</b>.<br>
+        All keys shuffle for 9 seconds.<br>
+        Then <b>click the correct one</b> before time runs out!
+      </p>
+      <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;" onclick="startLimboGame()">▶ Play</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game39.js"></script>
 
 </body>
 </html>
