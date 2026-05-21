@@ -47,12 +47,12 @@ window._g35Score = 0
 
 const G35_LCOLORS = ['#ff2020','#20ff20','#44fcfc','#9404d4','#fcfc84','#84fcb4','#445ccc','#f45cfc']
 
-// 8 slot positions: 2 cols × 4 rows (normalised 0-1 of canvas w / panelH)
+// 8 slot positions: 2 cols × 4 rows on right side (normalised 0-1 of canvas w / panelH)
 const G35_LSLOTS = [
-  {x:0.30,y:0.14},{x:0.70,y:0.14},
-  {x:0.30,y:0.38},{x:0.70,y:0.38},
-  {x:0.30,y:0.62},{x:0.70,y:0.62},
-  {x:0.30,y:0.86},{x:0.70,y:0.86},
+  {x:0.64,y:0.14},{x:0.84,y:0.14},
+  {x:0.64,y:0.38},{x:0.84,y:0.38},
+  {x:0.64,y:0.62},{x:0.84,y:0.62},
+  {x:0.64,y:0.86},{x:0.84,y:0.86},
 ]
 
 // Fixed permutation sequence (from LimboKeys shuffle patterns, 0-indexed).
@@ -69,26 +69,14 @@ const G35_LPERMS = [
   [0,2,1,4,3,7,5,6],   // minor finalise
   [2,0,4,1,6,3,7,5],   // complex finish
 ]
-const G35_LPERM_T       = [0.0,0.68,1.36,2.04,2.72,3.40,4.08,4.76,5.44,6.12]
-const G35_LSHUFFLE_DUR  = 6.8   // seconds (last perm at 6.12 + 0.44s anim = 6.56)
-
-// Synthesised Isolation melody (Nighthawk22 key-section approximation)
-const G35_LTUNE = (() => {
-  const b = 60/132/2  // 8th note at 132 BPM ≈ 0.227 s
-  const q = b * 2
-  return [
-    [294,b],[349,b],[440,b],[523,b],[659,b],[523,b],[440,b],[349,b],
-    [466,b],[440,q],[392,b],[349,b],[392,b],[440,q],
-    [587,b],[659,b],[698,b],[659,b],[587,b],[523,b],[466,b],[440,b],
-    [392,q],[349,b],[294,b],[294,q],
-  ]
-})()
+// 2s hint at start, then 1.2s between each of 10 perms, shuffle ends at 14s (song cue)
+const G35_LPERM_T       = [2.0,3.2,4.4,5.6,6.8,8.0,9.2,10.4,11.6,12.8]
+const G35_LSHUFFLE_DUR  = 14
 
 let G35_limbo          = null
 let _g35LimboTriggered = false
 let _g35LimboResume    = false
-let _g35LimboAC        = null
-let _g35LimboMusicTO   = null
+let _g35LimboAudio     = null
 
 let _g35Canvas = null
 let _g35WallPat = null
@@ -643,49 +631,23 @@ function _g35LSlotPx(i, w, pH) {
   return { x: s.x * w, y: s.y * pH }
 }
 
-function _g35LFinalPx(k) {
-  const pH = G35.panelH
-  const col = k % 2
-  const row = Math.floor(k / 2)
-  return { x: G35.cx + (col === 0 ? -18 : 18), y: pH * 0.15 + row * (pH * 0.70 / 3) }
+function _g35LColPx(i, w, pH) {
+  // right-side column: 8 keys evenly spaced vertically
+  return { x: w * 0.82, y: pH * 0.05 + i * (pH * 0.90 / 7) }
 }
 
 function _g35LimboPlayMusic() {
   try {
-    if (!_g35LimboAC) _g35LimboAC = new (window.AudioContext || window.webkitAudioContext)()
-    _g35LimboAC.resume()
-    _g35LSchedLoop(G35_LTUNE, 0, _g35LimboAC.currentTime)
-  } catch(e) {}
-}
-
-function _g35LSchedLoop(notes, idx, t) {
-  if (!_g35LimboAC || !G35_limbo) return
-  if (idx >= notes.length) {
-    _g35LimboMusicTO = setTimeout(() => {
-      if (!_g35LimboAC || !G35_limbo) return
-      _g35LSchedLoop(notes, 0, _g35LimboAC.currentTime)
-    }, 10)
-    return
-  }
-  const [freq, dur] = notes[idx]
-  try {
-    const osc = _g35LimboAC.createOscillator()
-    const gain = _g35LimboAC.createGain()
-    osc.connect(gain); gain.connect(_g35LimboAC.destination)
-    osc.type = 'triangle'
-    osc.frequency.value = freq
-    gain.gain.setValueAtTime(0, t)
-    gain.gain.linearRampToValueAtTime(0.18, t + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.9)
-    osc.start(t); osc.stop(t + dur)
-    const delay = (t - _g35LimboAC.currentTime + dur) * 1000
-    _g35LimboMusicTO = setTimeout(() => _g35LSchedLoop(notes, idx + 1, t + dur), Math.max(0, delay - 20))
+    _g35LimboAudio = new Audio('limbo-keys-made-with-Voicemod.mp3')
+    _g35LimboAudio.play().catch(() => {})
   } catch(e) {}
 }
 
 function _g35LimboStopMusic() {
-  if (_g35LimboMusicTO) { clearTimeout(_g35LimboMusicTO); _g35LimboMusicTO = null }
-  if (_g35LimboAC) { try { _g35LimboAC.close() } catch(e) {}; _g35LimboAC = null }
+  if (_g35LimboAudio) {
+    try { _g35LimboAudio.pause(); _g35LimboAudio.currentTime = 0 } catch(e) {}
+    _g35LimboAudio = null
+  }
 }
 
 function _g35LimboStart() {
@@ -701,9 +663,13 @@ function _g35LimboStart() {
     keyToSlot: [0,1,2,3,4,5,6,7],
     keyPx,
     animFrom: null, animTo: null,
-    animT: 0, animDur: 0.44, isAnimating: false,
+    animT: 0, animDur: 0.8, isAnimating: false,
     permStep: -1,
     openT: 0,
+    openStep: 'arrange',  // 'arrange' | 'slide'
+    arrangeT: 0, arrangeFrom: null, arrangeTo: null,
+    slideX: 0, slideSpeed: 0,
+    canvasW: w,
     result: null, resultT: 0,
   }
   _g35LimboPlayMusic()
@@ -728,13 +694,20 @@ function _g35LApplyPerm(step) {
 }
 
 function _g35LOpenKeys() {
+  const c = _g35C()
+  const w = c.width, pH = G35.panelH
   const lm = G35_limbo
-  lm.phase      = 'open'
-  lm.animFrom   = lm.keyPx.map(p => ({...p}))
-  lm.animTo     = Array.from({length: 8}, (_, k) => _g35LFinalPx(k))
-  lm.isAnimating = true
-  lm.animT      = 0
-  lm.animDur    = 0.6
+  lm.phase       = 'open'
+  lm.openStep    = 'arrange'
+  lm.arrangeT    = 0
+  lm.arrangeFrom = lm.keyPx.map(p => ({...p}))
+  // Sort keys by current y so they stack into column without crossing
+  const order = Array.from({length: 8}, (_, k) => k)
+    .sort((a, b) => lm.keyPx[a].y - lm.keyPx[b].y)
+  lm.arrangeTo = new Array(8)
+  for (let i = 0; i < 8; i++) lm.arrangeTo[order[i]] = _g35LColPx(i, w, pH)
+  lm.slideX     = w * 0.82
+  lm.slideSpeed = (w * 0.82 - G35.cx) / 3.0
 }
 
 function _g35LimboUpdate(dt) {
@@ -744,52 +717,66 @@ function _g35LimboUpdate(dt) {
 
   const eio = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t
 
-  function advAnim() {
-    if (!lm.isAnimating) return
-    lm.animT = Math.min(1, lm.animT + dt / lm.animDur)
-    const e = eio(lm.animT)
-    for (let k = 0; k < 8; k++) {
-      const f = lm.animFrom[k], to = lm.animTo[k]
-      const lift = lm.phase === 'shuffle' ? Math.sin(Math.PI * e) * 40 : 0
-      lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e - lift }
-    }
-    if (lm.animT >= 1) {
-      for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.animTo[k]}
-      lm.isAnimating = false
-    }
-  }
-
   if (lm.phase === 'shuffle') {
     const next = lm.permStep + 1
     if (next < G35_LPERMS.length && lm.t >= G35_LPERM_T[next]) {
       _g35LApplyPerm(next)
       lm.permStep = next
     }
-    advAnim()
-    if (lm.t >= G35_LSHUFFLE_DUR) _g35LOpenKeys()
-  } else if (lm.phase === 'open') {
-    lm.openT = Math.min(1, lm.openT + dt * 1.2)
-    advAnim()
-    if (!lm.isAnimating && lm.openT >= 0.8) {
+    if (lm.isAnimating) {
+      lm.animT = Math.min(1, lm.animT + dt / lm.animDur)
+      const e = eio(lm.animT)
       for (let k = 0; k < 8; k++) {
-        const kp = lm.keyPx[k]
-        const dx = G35.cx - kp.x, dy = G35.y - kp.y
-        if (dx*dx + dy*dy < 20*20) {
-          lm.result = (k === lm.correct) ? 'correct' : 'wrong'
-          lm.phase  = 'done'
-          if (lm.result === 'correct') {
-            G35.score += 150
-            document.getElementById('g35-score-hud').textContent = G35.score
-            window._g35Score = G35.score
-          }
-          _g35LimboStopMusic()
-          setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
-          return
-        }
+        const f = lm.animFrom[k], to = lm.animTo[k]
+        lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e - Math.sin(Math.PI * e) * 40 }
       }
-      if (lm.t - G35_LSHUFFLE_DUR > 5) {
-        lm.result = 'timeout'
+      if (lm.animT >= 1) {
+        for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.animTo[k]}
+        lm.isAnimating = false
+      }
+    }
+    if (lm.t >= G35_LSHUFFLE_DUR) _g35LOpenKeys()
+
+  } else if (lm.phase === 'open') {
+    lm.openT = Math.min(1, lm.openT + dt * 0.5)
+
+    if (lm.openStep === 'arrange') {
+      lm.arrangeT = Math.min(1, lm.arrangeT + dt / 0.4)
+      const e = eio(lm.arrangeT)
+      for (let k = 0; k < 8; k++) {
+        const f = lm.arrangeFrom[k], to = lm.arrangeTo[k]
+        lm.keyPx[k] = { x: f.x + (to.x - f.x) * e, y: f.y + (to.y - f.y) * e }
+      }
+      if (lm.arrangeT >= 1) {
+        for (let k = 0; k < 8; k++) lm.keyPx[k] = {...lm.arrangeTo[k]}
+        lm.openStep = 'slide'
+      }
+
+    } else if (lm.openStep === 'slide') {
+      lm.slideX -= lm.slideSpeed * dt
+      for (let k = 0; k < 8; k++) lm.keyPx[k].x = lm.slideX
+
+      if (lm.slideX <= G35.cx) {
+        // Auto-pick the key at the player's y position
+        let picked = 0, minDist = Infinity
+        for (let k = 0; k < 8; k++) {
+          const dy = Math.abs(G35.y - lm.keyPx[k].y)
+          if (dy < minDist) { minDist = dy; picked = k }
+        }
+        lm.result = (picked === lm.correct) ? 'correct' : 'wrong'
         lm.phase  = 'done'
+        if (lm.result === 'correct') {
+          G35.score += 150
+          document.getElementById('g35-score-hud').textContent = G35.score
+          window._g35Score = G35.score
+        }
+        // Music keeps playing after pick
+        setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
+        return
+      }
+      // Fallback timeout
+      if (lm.t - G35_LSHUFFLE_DUR > 8) {
+        lm.result = 'timeout'; lm.phase = 'done'
         _g35LimboStopMusic()
         setTimeout(() => { G35_limbo = null; G35.grace = 0.5; _g35LimboResume = true }, 1500)
       }
@@ -820,12 +807,12 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
     ctx.shadowBlur = 0
     ctx.font = '13px monospace'
     ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    ctx.fillText('watch the key...', w / 2, yOff + 50)
+    ctx.fillText(lm.t < 2.0 ? 'remember the glowing key!' : 'watch the key...', w / 2, yOff + 50)
   } else if (lm.phase === 'open') {
     ctx.font = 'bold 20px monospace'
     ctx.fillStyle = '#4ade80'
     ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 14
-    ctx.fillText('FIND YOUR KEY!', w / 2, yOff + 30)
+    ctx.fillText('NAVIGATE TO YOUR KEY!', w / 2, yOff + 30)
     ctx.shadowBlur = 0
   } else if (lm.phase === 'done') {
     const label = lm.result === 'correct' ? '+150  CORRECT!' : lm.result === 'timeout' ? 'TIME UP' : 'WRONG KEY'
@@ -844,8 +831,8 @@ function _g35LimboDrawKeys(ctx, w, yOff) {
     const kp = lm.keyPx[k]
     const isCorrect = k === lm.correct
     _g35LDrawKey(ctx, kp.x, yOff + kp.y, G35_LCOLORS[k], 14,
-      isCorrect && lm.t < 0.85 && lm.phase === 'shuffle',
-      lm.phase === 'open' && isCorrect)
+      isCorrect && lm.t < 2.0 && lm.phase === 'shuffle',
+      lm.phase === 'open' && lm.openStep === 'slide' && isCorrect)
   }
 }
 
