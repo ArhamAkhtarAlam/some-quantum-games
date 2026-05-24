@@ -204,6 +204,12 @@
       <div class="card-desc">Pure key-memory. Memorise the glowing key, track it through 20 fast shuffles, then click the correct one. Can you beat your streak?</div>
       <span class="card-tag" style="background:rgba(168,85,247,.15);color:#a855f7;border-color:#a855f744;">Memory</span>
     </div>
+    <div class="game-card" onclick="showGame(40)" style="border-color:#a855f744;">
+      <div class="card-icon">🛸</div>
+      <div class="card-title">UFO Flap</div>
+      <div class="card-desc">Flappy Bird in space. Tap or Space to thrust up — dodge the neon pillars. Gets faster and tighter the further you go!</div>
+      <span class="card-tag" style="background:rgba(168,85,247,.15);color:#a855f7;border-color:#a855f744;">Dodge</span>
+    </div>
   </div>
 
   <!-- Leaderboard -->
@@ -1556,6 +1562,37 @@
 </section>
 
 <script src="js/game39.js"></script>
+
+<section id="game40" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🛸 UFO Flap</span>
+    <div class="score-badge" style="border-color:#a855f7;color:#a855f7;">Pipes <span id="g40-score-hud">0</span></div>
+  </div>
+  <div class="canvas-arena" id="g40-arena">
+    <canvas id="g40-canvas"></canvas>
+    <div class="canvas-overlay" id="g40-overlay">
+      <h3>🛸 UFO Flap</h3>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
+        Tap, click, or press <b>Space</b> to thrust up.<br>
+        Release to fall — dodge the neon pillars.<br>
+        Faster and tighter as you score!
+      </p>
+      <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;" onclick="startUFOGame()">▶ Fly!</button>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g40-over" style="display:none;">
+    <div class="game-over-card">
+      <h2>Zapped! 🛸</h2>
+      <div class="final-score" id="g40-final-score" style="color:#a855f7">0 pipes</div>
+      <div id="g40-medal-display"></div>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame40()">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game40.js"></script>
 
 </body>
 </html>
