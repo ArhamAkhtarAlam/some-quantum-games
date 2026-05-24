@@ -163,6 +163,7 @@ function _g40Loop(ts) {
     G40.deadT += dt
     if (G40.deadT >= 1.5 && !G40.showOver) {
       G40.showOver = true
+      window._g40Score = G40.score
       const s = G40.score
       document.getElementById('g40-final-score').textContent = `${s} pipe${s !== 1 ? 's' : ''}`
       document.getElementById('g40-over').style.display = 'flex'
