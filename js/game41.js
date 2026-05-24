@@ -5,16 +5,16 @@
 //  Arrow/WASD to thrust. Mobile: touch toward where you want to go.
 // ═══════════════════════════════════════════════════════
 
-const G41_GRAV    = 480    // gravity (always down)
-const G41_VTHRUST = 1050   // vertical thrust force (up/down keys)
-const G41_HTHRUST = 880    // horizontal thrust force (left/right keys)
-const G41_VYMAX   = 370
-const G41_VXMAX   = 260
+const G41_GRAV    = 920    // heavy gravity (GD-style)
+const G41_UP_ACC  = 1950   // upward thrust (net -1030 when held)
+const G41_HSPD    = 215    // instant horizontal speed (GD-style)
+const G41_VYMAX   = 480
+const G41_VXMAX   = 215
 const G41_PW      = 11     // player half-width
 const G41_PH      = 11     // player half-height
 const G41_OW      = 44     // obstacle wall width
-const G41_GAP0    = 175    // initial gap height
-const G41_GAP_MIN = 88
+const G41_GAP0    = 210    // initial gap height
+const G41_GAP_MIN = 92
 const G41_OBS_SEP = 310    // world-space spacing between walls
 const G41_CAM0    = 82     // initial camera scroll speed px/s
 const G41_CAM_ACC = 2.0    // camera acceleration per second
@@ -166,34 +166,30 @@ function _g41Loop(ts) {
     const left  = G41.keys['ArrowLeft']  || G41.keys['KeyA']
     const right = G41.keys['ArrowRight'] || G41.keys['KeyD']
 
-    // Touch: thrust direction from player screen position toward touch
+    // Touch direction (from player screen pos toward touch point)
     let tDx = 0, tDy = 0
     if (G41.touchX !== null) {
       const pSx = G41.x - G41.camX
-      const pSy = G41.y
       const dx = G41.touchX - pSx
-      const dy = G41.touchY - pSy
+      const dy = G41.touchY - G41.y
       const len = Math.sqrt(dx * dx + dy * dy)
       if (len > 18) { tDx = dx / len; tDy = dy / len }
     }
 
-    // Vertical physics
-    let ay = G41_GRAV
-    if (up)   ay -= G41_VTHRUST
-    if (down) ay += G41_VTHRUST * 0.6
-    ay += tDy * G41_VTHRUST
-    G41.vy = Math.max(-G41_VYMAX, Math.min(G41_VYMAX, G41.vy + ay * dt))
-    G41.y += G41.vy * dt
-
-    // Horizontal physics
-    let ax = 0
-    if (right) ax += G41_HTHRUST
-    if (left)  ax -= G41_HTHRUST
-    ax += tDx * G41_HTHRUST
-    // Friction when no horizontal input
-    if (!left && !right && G41.touchX === null) G41.vx *= Math.pow(0.06, dt)
-    G41.vx = Math.max(-G41_VXMAX, Math.min(G41_VXMAX, G41.vx + ax * dt))
+    // Horizontal: instant velocity (GD-style — no momentum)
+    if      (right)              G41.vx =  G41_HSPD
+    else if (left)               G41.vx = -G41_HSPD
+    else if (G41.touchX !== null) G41.vx = tDx * G41_HSPD
+    else                         G41.vx =  0
     G41.x += G41.vx * dt
+
+    // Vertical: gravity always, thrust when UP held
+    G41.vy += G41_GRAV * dt
+    if (up)                  G41.vy -= G41_UP_ACC * dt
+    if (down)                G41.vy += 500 * dt
+    if (G41.touchX !== null) G41.vy += tDy * G41_UP_ACC * dt
+    G41.vy = Math.max(-G41_VYMAX, Math.min(G41_VYMAX, G41.vy))
+    G41.y += G41.vy * dt
 
     // Keep player from going too far right
     const maxScreenX = G41.camX + w * 0.82
