@@ -782,6 +782,7 @@ const SCORE_COLORS = {
   manualsort: '#4a7c59',
   wavedash:   '#06b6d4',
   cps:        '#6366f1',
+  ufo:        '#a855f7',
 }
 
 window.openSubmit = function(game) {
@@ -816,6 +817,7 @@ window.openSubmit = function(game) {
   else if (game === 'manualsort')   score = window._g34Score  || 0
   else if (game === 'wavedash')     score = window._g35Score  || 0
   else if (game === 'cps')          score = window._g36Score  || 0
+  else if (game === 'ufo')          score = window._g40Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -934,7 +936,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', ufo:'g40-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')

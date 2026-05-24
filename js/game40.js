@@ -135,6 +135,7 @@ function _g40Loop(ts) {
       if (!p.passed && p.x + G40_PIPE_W < ufoX - G40_UFO_RX) {
         p.passed = true
         G40.score++
+        window._g40Score = G40.score
         document.getElementById('g40-score-hud').textContent = G40.score
         G40.speed = G40_PIPE_SPD0 + G40.score * G40_ACCEL
         G40.gap   = Math.max(95, G40_PIPE_GAP0 - G40.score * 2.2)
