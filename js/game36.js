@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 //  GAME 36 — CPS TEST
-//  Click + Space both count. 10 seconds. Integer score.
+//  Click or press ANY key. 10 seconds. Integer score.
 // ═══════════════════════════════════════════════════════
 
 const G36_DURATION = 10
@@ -64,6 +64,7 @@ function stopGame36() {
   const c = document.getElementById('g36-canvas')
   if (c) c.onclick = null
   document.removeEventListener('keydown', _g36Key)
+  document.removeEventListener('keyup',   _g36KeyUp)
 }
 window.stopGame36 = stopGame36
 
@@ -95,17 +96,25 @@ window.startCPS = function() {
   const c = document.getElementById('g36-canvas')
   c.width  = c.parentElement.clientWidth
   c.height = c.parentElement.clientHeight
-  G36 = { active: true, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: performance.now() }
+  G36 = { active: true, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: performance.now(), heldKeys: new Set() }
   G36_opponentCPS  = G36_roomCode ? (G36_opponentCPS ?? 0) : null
   G36_opponentDone = false
   c.onclick = e => _g36Click(e.offsetX, e.offsetY)
   document.addEventListener('keydown', _g36Key)
+  document.addEventListener('keyup',   _g36KeyUp)
   G36.raf = requestAnimationFrame(_g36Loop)
 }
 
 function _g36Key(e) {
   if (!document.getElementById('game36').classList.contains('active')) return
-  if (e.code === 'Space') { e.preventDefault(); _g36Click(null, null) }
+  if (e.repeat) return
+  if (G36.heldKeys && G36.heldKeys.size >= 4 && !G36.heldKeys.has(e.code)) return
+  if (G36.heldKeys) G36.heldKeys.add(e.code)
+  e.preventDefault()
+  _g36Click(null, null)
+}
+function _g36KeyUp(e) {
+  if (G36.heldKeys) G36.heldKeys.delete(e.code)
 }
 
 function _g36Click(x, y) {
