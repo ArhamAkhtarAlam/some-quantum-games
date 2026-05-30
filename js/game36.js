@@ -108,7 +108,7 @@ window.startCPS = function() {
 function _g36Key(e) {
   if (!document.getElementById('game36').classList.contains('active')) return
   if (e.repeat) return
-  if (G36.heldKeys && G36.heldKeys.size >= 4 && !G36.heldKeys.has(e.code)) return
+  if (G36.heldKeys && G36.heldKeys.size >= 1 && !G36.heldKeys.has(e.code)) return
   if (G36.heldKeys) G36.heldKeys.add(e.code)
   e.preventDefault()
   _g36Click(null, null)
