@@ -623,30 +623,30 @@ function _g43Draw(ctx, w, h) {
   // Linear keyframe interpolation creates angular slopes automatically.
   ctx.fillStyle = ch?.isDC ? '#0e0000' : '#001408'
 
-  // Cache wall lookups per x (top and bottom use same call)
-  const wallCache = new Array(Math.ceil((w + G43_DRAW_STEP * 2) / G43_DRAW_STEP))
-  let ci = 0
-  for (let x = 0; x <= w + G43_DRAW_STEP; x += G43_DRAW_STEP, ci++) {
-    wallCache[ci] = _g43WallAt(scrollI + x - waveX, h)
+  // Cache wall lookups (ci = actual count after loop)
+  const wallCache = []
+  for (let x = 0; x <= w + G43_DRAW_STEP; x += G43_DRAW_STEP) {
+    wallCache.push(_g43WallAt(scrollI + x - waveX, h))
   }
+  const wc = wallCache.length
 
   // Top wall
   ctx.beginPath(); ctx.moveTo(-1, -1)
-  for (let i = 0; i < wallCache.length; i++) {
+  for (let i = 0; i < wc; i++) {
     ctx.lineTo(i * G43_DRAW_STEP, wallCache[i].cy - wallCache[i].gapH / 2)
   }
   ctx.lineTo(w+1, -1); ctx.closePath(); ctx.fill()
 
   // Bottom wall
   ctx.beginPath(); ctx.moveTo(-1, h+1)
-  for (let i = 0; i < wallCache.length; i++) {
+  for (let i = 0; i < wc; i++) {
     ctx.lineTo(i * G43_DRAW_STEP, wallCache[i].cy + wallCache[i].gapH / 2)
   }
   ctx.lineTo(w+1, h+1); ctx.closePath(); ctx.fill()
 
   // Top inner edge (glowing line — shows the slope geometry)
   ctx.beginPath()
-  for (let i = 0; i < wallCache.length; i++) {
+  for (let i = 0; i < wc; i++) {
     const x = i * G43_DRAW_STEP
     const y = wallCache[i].cy - wallCache[i].gapH / 2
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
@@ -657,7 +657,7 @@ function _g43Draw(ctx, w, h) {
 
   // Bottom inner edge
   ctx.beginPath()
-  for (let i = 0; i < wallCache.length; i++) {
+  for (let i = 0; i < wc; i++) {
     const x = i * G43_DRAW_STEP
     const y = wallCache[i].cy + wallCache[i].gapH / 2
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
