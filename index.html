@@ -216,6 +216,12 @@
       <div class="card-desc">GD Platformer Jetpack. Move in all directions — the screen auto-scrolls right and you get crushed if you fall behind. Dodge the spike columns!</div>
       <span class="card-tag" style="background:rgba(249,115,22,.15);color:#f97316;border-color:#f9731644;">Platformer</span>
     </div>
+    <div class="game-card" onclick="showGame(43)" style="border-color:#22c55e44;">
+      <div class="card-icon">🌊</div>
+      <div class="card-title">Wave Gauntlet</div>
+      <div class="card-desc">Survive a series of random wave challenges — easy, medium, hard, frame perfect, and Ol' Death Corridor. How many can you clear in a row?</div>
+      <span class="card-tag" style="background:rgba(34,197,94,.15);color:#22c55e;border-color:#22c55e44;">Wave · FP</span>
+    </div>
     <div class="game-card" onclick="showGame(42)" style="border-color:#06b6d444;">
       <div class="card-icon">⌨️</div>
       <div class="card-title">Type Racer</div>
@@ -257,6 +263,7 @@
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-35" onclick="switchLbTab('wavedash')">Wave Dash</button>
         <button class="lb-tab" style="border-color:#6366f1;color:#6366f1;" id="lb-tab-36" onclick="switchLbTab('cps')">CPS</button>
         <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-37" onclick="switchLbTab('rhythm')">Rhythm</button>
+        <button class="lb-tab" style="border-color:#22c55e;color:#22c55e;" id="lb-tab-43" onclick="switchLbTab('wavegauntlet')">Wave Gauntlet</button>
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-42" onclick="switchLbTab('typerracer')">Type Racer</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-mp" onclick="switchLbTab('mp')">⚔️ MP Wins</button>
       </div>
@@ -1671,6 +1678,48 @@
 </section>
 
 <script src="js/game42.js"></script>
+
+<section id="game43" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🌊 Wave Gauntlet</span>
+    <div class="score-badge" style="border-color:#22c55e;color:#22c55e;">Clears <span id="g43-score-hud">0</span></div>
+  </div>
+  <div class="canvas-arena" id="g43-arena">
+    <canvas id="g43-canvas"></canvas>
+    <div class="canvas-overlay" id="g43-overlay">
+      <h3>🌊 Wave Gauntlet</h3>
+      <p style="color:var(--muted);font-size:.88rem;text-align:center;max-width:300px;margin-bottom:.8rem">
+        Survive random wave challenges — one at a time.<br>
+        Score = how many you clear without dying.<br>
+        <span style="font-size:.78rem">Easy → Medium → Hard → FP → Ol' Death Corridor</span>
+      </p>
+      <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#000;font-weight:700;" onclick="startWaveGauntlet()">▶ Start Gauntlet</button>
+      <div style="margin-top:1rem;border-top:1px solid rgba(34,197,94,.18);padding-top:.9rem;width:100%;max-width:290px;text-align:center;">
+        <p style="font-size:.76rem;color:var(--muted);margin-bottom:.55rem;">🔵 Practice Mode — noclip, no leaderboard</p>
+        <div style="display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center;">
+          <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(74,222,128,.15);color:#4ade80;border-color:#4ade8055;" onclick="startWaveGauntletPractice('easy')">Easy</button>
+          <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(251,191,36,.15);color:#fbbf24;border-color:#fbbf2455;" onclick="startWaveGauntletPractice('medium')">Medium</button>
+          <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(248,113,113,.15);color:#f87171;border-color:#f8717155;" onclick="startWaveGauntletPractice('hard')">Hard</button>
+          <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(192,132,252,.15);color:#c084fc;border-color:#c084fc55;" onclick="startWaveGauntletPractice('fp')">Frame Perfect</button>
+          <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(239,68,68,.15);color:#ef4444;border-color:#ef444455;" onclick="startWaveGauntletPractice('dc')">Ol' Death Corridor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="g43-over" style="display:none;">
+    <div class="game-over-card">
+      <h2>Dead! 🌊</h2>
+      <div class="final-score" id="g43-final-score" style="color:#22c55e">0 clears</div>
+      <div id="g43-medal-display"></div>
+      <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#000;" onclick="openSubmit('wavegauntlet')">Submit Score</button><br><br>
+      <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame43()">Play Again</button>
+      <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+    </div>
+  </div>
+</section>
+
+<script src="js/game43.js"></script>
 
 </body>
 </html>

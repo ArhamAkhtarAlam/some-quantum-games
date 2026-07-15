@@ -293,6 +293,7 @@ window.showGame = function(n) {
   if (n === 40) initGame40()
   if (n === 41) initGame41()
   if (n === 42) initGame42()
+  if (n === 43) initGame43()
 }
 
 window.goHome = function() {
@@ -320,6 +321,7 @@ window.goHome = function() {
   if (typeof stopGame40    === 'function') stopGame40()
   if (typeof stopGame41    === 'function') stopGame41()
   if (typeof stopGame42    === 'function') stopGame42()
+  if (typeof stopGame43    === 'function') stopGame43()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
   pushHomeUrl()
@@ -789,7 +791,8 @@ const SCORE_COLORS = {
   crossy:     '#4ade80',
   ufo:        '#a855f7',
   jetrush:     '#f97316',
-  typerracer:  '#06b6d4',
+  typerracer:    '#06b6d4',
+  wavegauntlet:  '#22c55e',
 }
 
 window.openSubmit = function(game) {
@@ -828,6 +831,7 @@ window.openSubmit = function(game) {
   else if (game === 'ufo')          score = window._g40Score  || 0
   else if (game === 'jetrush')      score = window._g41Score  || 0
   else if (game === 'typerracer')   score = window._g42Score  || 0
+  else if (game === 'wavegauntlet') score = window._g43Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -946,7 +950,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', wavegauntlet:'g43-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
