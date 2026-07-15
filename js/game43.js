@@ -190,57 +190,56 @@ const G43_POOL = {
   ],
 
   fp: [
-    // Corridor drifts to FP height via slope, then wall SLAMS shut to 24px
-    // for ~30 columns. One timed hold/release threads the gap.
+    // speed=255 = wave vertical speed → diagonal angle = exactly 45°.
+    // Wall snaps tight (gapH=22) while simultaneously sloping at 1px/column.
+    // Wave R=7 (diam=14), clearance=4px/side ≈ 1-frame timing window.
+    // Player must hold (upslope) or release (downslope) at the exact frame.
     {
-      name:'FRAME PERFECT', diff:'fp', speed:308, isFP:true,
+      name:'FRAME PERFECT', diff:'fp', speed:255, isFP:true,
       gen(h) {
-        const fpCy=0.25+qRandInt(50)/100
-        return { clearAt:730, keyframes:[
-          {at:0,   cf:0.50, gapH:h*.40},
-          {at:80,  cf:0.50, gapH:h*.40},
-          {at:200, cf:fpCy, gapH:h*.40},  // slope to FP height 120 col
-          {at:235, cf:fpCy, gapH:h*.40},  // brief flat — player sees target
-          {at:265, cf:fpCy, gapH:24    },  // SLAM SHUT 30 col — steep!
-          {at:298, cf:fpCy, gapH:24    },  // FP gap 33 col ≈ 107ms @308px/s
-          {at:328, cf:fpCy, gapH:h*.40 },  // SLAM OPEN 30 col
-          {at:500, cf:fpCy, gapH:h*.40 },
-          {at:620, cf:0.50, gapH:h*.40 },
-          {at:730, cf:0.50, gapH:h*.40 },
+        const startCf = 0.60 + qRandInt(15)/100   // 60-75%: below center
+        const endCf   = startCf - 80/h             // 80px rise = 45° upslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },       // drift to slope position
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° upslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
         ]}
       }
     },
     {
-      name:'HIGH FP', diff:'fp', speed:312, isFP:true,
+      name:'DOWN FP', diff:'fp', speed:255, isFP:true,
       gen(h) {
-        const fpCy=0.18+qRandInt(18)/100
-        return { clearAt:710, keyframes:[
-          {at:0,   cf:0.50, gapH:h*.38},
-          {at:80,  cf:0.50, gapH:h*.38},
-          {at:195, cf:fpCy, gapH:h*.38},  // slope 115 col
-          {at:228, cf:fpCy, gapH:h*.38},
-          {at:258, cf:fpCy, gapH:24    },  // SLAM 30 col
-          {at:290, cf:fpCy, gapH:24    },
-          {at:320, cf:fpCy, gapH:h*.38 },  // OPEN 30 col
-          {at:500, cf:0.50, gapH:h*.38 },
-          {at:710, cf:0.50, gapH:h*.38 },
+        const startCf = 0.28 + qRandInt(12)/100   // 28-40%: above center
+        const endCf   = startCf + 80/h             // 80px drop = 45° downslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° downslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
         ]}
       }
     },
     {
-      name:'LOW FP', diff:'fp', speed:312, isFP:true,
+      name:'MID FP', diff:'fp', speed:255, isFP:true,
       gen(h) {
-        const fpCy=0.60+qRandInt(20)/100
-        return { clearAt:710, keyframes:[
-          {at:0,   cf:0.50, gapH:h*.38},
-          {at:80,  cf:0.50, gapH:h*.38},
-          {at:195, cf:fpCy, gapH:h*.38},  // slope 115 col
-          {at:228, cf:fpCy, gapH:h*.38},
-          {at:258, cf:fpCy, gapH:24    },  // SLAM 30 col
-          {at:290, cf:fpCy, gapH:24    },
-          {at:320, cf:fpCy, gapH:h*.38 },  // OPEN 30 col
-          {at:500, cf:0.50, gapH:h*.38 },
-          {at:710, cf:0.50, gapH:h*.38 },
+        const up      = qRandInt(2) === 0
+        const startCf = up ? 0.55 + qRandInt(15)/100 : 0.28 + qRandInt(12)/100
+        const endCf   = up ? startCf - 80/h : startCf + 80/h
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },
+          { at:280, cf:endCf,   gapH:22    },
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
         ]}
       }
     },
