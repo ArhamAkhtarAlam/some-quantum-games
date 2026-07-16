@@ -67,30 +67,35 @@ const G43_POOL = {
     {
       name:'TIGHT ROLL', diff:'medium', speed:238,
       gen(h) {
+        // max safe over 120-col hi→lo = 255/238*120*0.85 = 109px → swing = 54px each way
+        const sw = Math.min(54, Math.floor(h * 0.13))
+        const hi = 0.50 - sw/h, lo = 0.50 + sw/h
         return { clearAt:920, keyframes:[
           {at:0,   cf:0.50, gapH:h*.28},
-          {at:90,  cf:0.30, gapH:h*.27},  // slope 90 col
-          {at:270, cf:0.30, gapH:h*.27},
-          {at:390, cf:0.70, gapH:h*.26},  // slope 120 col
-          {at:570, cf:0.70, gapH:h*.26},
-          {at:690, cf:0.30, gapH:h*.27},  // slope 120 col
-          {at:820, cf:0.30, gapH:h*.27},
-          {at:920, cf:0.50, gapH:h*.28},
+          {at:90,  cf:hi,   gapH:h*.27},  // 90-col slope (54px, 0.60px/col ✓)
+          {at:270, cf:hi,   gapH:h*.27},
+          {at:390, cf:lo,   gapH:h*.26},  // 120-col shift (108px, 0.90px/col ✓)
+          {at:570, cf:lo,   gapH:h*.26},
+          {at:690, cf:hi,   gapH:h*.27},  // 120-col shift back
+          {at:820, cf:hi,   gapH:h*.27},
+          {at:920, cf:0.50, gapH:h*.28},  // 100-col return
         ]}
       }
     },
     {
       name:'SUDDEN SHIFT', diff:'medium', speed:248,
       gen(h) {
-        const a=0.28+qRandInt(10)/100, b=0.64+qRandInt(8)/100
+        // 120-col shifts → max safe = 255/248*120*0.85 = 105px total → swing = 52px
+        const sw = Math.min(52, Math.floor(h * 0.14))
+        const a = 0.50 - sw/h, b = 0.50 + sw/h
         return { clearAt:870, keyframes:[
           {at:0,   cf:0.50, gapH:h*.30},
-          {at:100, cf:a,    gapH:h*.30},  // slope 100 col
-          {at:240, cf:a,    gapH:h*.30},
-          {at:300, cf:b,    gapH:h*.28},  // steep shift 60 col
-          {at:490, cf:b,    gapH:h*.28},
-          {at:550, cf:a,    gapH:h*.28},  // steep back 60 col
-          {at:730, cf:a,    gapH:h*.28},
+          {at:100, cf:a,    gapH:h*.30},  // 100-col slope to a
+          {at:230, cf:a,    gapH:h*.30},
+          {at:350, cf:b,    gapH:h*.28},  // 120-col shift a→b (104px, 0.87px/col ✓)
+          {at:530, cf:b,    gapH:h*.28},
+          {at:650, cf:a,    gapH:h*.28},  // 120-col shift back
+          {at:760, cf:a,    gapH:h*.28},
           {at:870, cf:0.50, gapH:h*.30},
         ]}
       }
@@ -101,9 +106,9 @@ const G43_POOL = {
         return { clearAt:920, keyframes:[
           {at:0,   cf:0.50, gapH:h*.44},
           {at:140, cf:0.50, gapH:h*.44},
-          {at:200, cf:0.50, gapH:h*.23},  // squeeze slope 60 col
-          {at:530, cf:0.50, gapH:h*.23},  // long narrow
-          {at:590, cf:0.50, gapH:h*.44},  // open slope 60 col
+          {at:200, cf:0.50, gapH:h*.23},  // squeeze 60 col
+          {at:530, cf:0.50, gapH:h*.23},
+          {at:590, cf:0.50, gapH:h*.44},
           {at:920, cf:0.50, gapH:h*.44},
         ]}
       }
@@ -111,14 +116,20 @@ const G43_POOL = {
     {
       name:'FAST SHIFT', diff:'medium', speed:348,
       gen(h) {
-        return { clearAt:1050, keyframes:[
+        // 110-col slopes → max safe = 255/348*110*0.85 = 68px (one direction)
+        // never shift directly hi→lo; go via center instead
+        const sw = Math.min(68, Math.floor(h * 0.16))
+        const hi = 0.50 - sw/h, lo = 0.50 + sw/h
+        return { clearAt:1040, keyframes:[
           {at:0,    cf:0.50, gapH:h*.32},
-          {at:90,   cf:0.28, gapH:h*.30},  // slope 90 col
-          {at:280,  cf:0.28, gapH:h*.30},
-          {at:390,  cf:0.72, gapH:h*.30},  // slope 110 col
-          {at:580,  cf:0.72, gapH:h*.30},
-          {at:670,  cf:0.50, gapH:h*.32},  // slope 90 col
-          {at:1050, cf:0.50, gapH:h*.32},
+          {at:110,  cf:hi,   gapH:h*.30},  // 110-col up (68px, 0.62px/col ✓)
+          {at:290,  cf:hi,   gapH:h*.30},
+          {at:400,  cf:0.50, gapH:h*.30},  // 110-col back center
+          {at:430,  cf:0.50, gapH:h*.30},
+          {at:540,  cf:lo,   gapH:h*.30},  // 110-col down
+          {at:720,  cf:lo,   gapH:h*.30},
+          {at:830,  cf:0.50, gapH:h*.32},  // 110-col return
+          {at:1040, cf:0.50, gapH:h*.32},
         ]}
       }
     },
@@ -128,13 +139,18 @@ const G43_POOL = {
     {
       name:'NEEDLE', diff:'hard', speed:302,
       gen(h) {
-        const cy=0.27+qRandInt(46)/100
+        // slope is during WIDE section so wave navigates freely — just cap cy
+        // so player has enough time (130 col) to reach the narrow gap center
+        const maxReach = Math.floor(255/302 * 130 * 0.90)  // ~99px in 130 col
+        const sign = qRandInt(2) === 0 ? 1 : -1
+        const deltaPx = 20 + qRandInt(Math.max(1, Math.min(maxReach - 30, 70)))
+        const cy = Math.max(0.15, Math.min(0.85, 0.50 + sign * deltaPx / h))
         return { clearAt:960, keyframes:[
           {at:0,   cf:0.50, gapH:h*.30},
-          {at:75,  cf:cy,   gapH:h*.30},  // slope 75 col — steep
-          {at:130, cf:cy,   gapH:h*.14},  // close: 55 col slope
-          {at:510, cf:cy,   gapH:h*.14},  // long narrow
-          {at:565, cf:cy,   gapH:h*.30},  // open 55 col
+          {at:75,  cf:cy,   gapH:h*.30},  // slope during wide (no constraint)
+          {at:130, cf:cy,   gapH:h*.14},  // close 55 col
+          {at:510, cf:cy,   gapH:h*.14},
+          {at:565, cf:cy,   gapH:h*.30},
           {at:960, cf:0.50, gapH:h*.30},
         ]}
       }
@@ -142,15 +158,19 @@ const G43_POOL = {
     {
       name:'RAPID SHIFT', diff:'hard', speed:315,
       gen(h) {
+        // 90-col slopes → max safe = 255/315*90*0.85 = 62px per move
+        // route hi→lo via center (never direct) — corridor stays narrow
+        const sw = Math.min(62, Math.floor(h * 0.16))
+        const hi = 0.50 - sw/h, lo = 0.50 + sw/h
         return { clearAt:1010, keyframes:[
           {at:0,   cf:0.50, gapH:h*.16},
-          {at:55,  cf:0.28, gapH:h*.15},  // steep slope 55 col
-          {at:200, cf:0.28, gapH:h*.15},
-          {at:280, cf:0.72, gapH:h*.14},  // steep slope 80 col
-          {at:430, cf:0.72, gapH:h*.14},
-          {at:510, cf:0.28, gapH:h*.14},  // steep slope 80 col
-          {at:660, cf:0.28, gapH:h*.14},
-          {at:740, cf:0.50, gapH:h*.16},
+          {at:90,  cf:hi,   gapH:h*.15},  // 90-col up (62px, 0.69px/col ✓)
+          {at:240, cf:hi,   gapH:h*.15},
+          {at:330, cf:0.50, gapH:h*.14},  // 90-col back center
+          {at:370, cf:0.50, gapH:h*.14},
+          {at:460, cf:lo,   gapH:h*.14},  // 90-col down
+          {at:610, cf:lo,   gapH:h*.14},
+          {at:700, cf:0.50, gapH:h*.16},  // 90-col return
           {at:1010,cf:0.50, gapH:h*.16},
         ]}
       }
@@ -158,18 +178,28 @@ const G43_POOL = {
     {
       name:'MARATHON', diff:'hard', speed:308,
       gen(h) {
-        const cys=[0.28,0.64,0.33,0.68,0.45].map(v=>v+qRandInt(8)/100-0.04)
+        // each 75-col slope: max safe = 255/308*75*0.85 = 53px
+        // generate cys as bounded cumulative steps so no consecutive pair exceeds 53px
+        const step = Math.floor(255/308 * 75 * 0.85)  // 53px
+        const dirs = [-1, 1, -1, 1]
+        let cy = 0.50
+        const cys = []
+        for (const d of dirs) {
+          const delta = (12 + qRandInt(Math.max(1, step - 12))) / h
+          cy = Math.max(0.13, Math.min(0.87, cy + d * delta))
+          cys.push(cy)
+        }
         return { clearAt:1120, keyframes:[
-          {at:0,    cf:0.50,   gapH:h*.16},
-          {at:75,   cf:cys[0], gapH:h*.145},
-          {at:260,  cf:cys[0], gapH:h*.14},
-          {at:335,  cf:cys[1], gapH:h*.145},
-          {at:520,  cf:cys[1], gapH:h*.14},
-          {at:595,  cf:cys[2], gapH:h*.14},
-          {at:780,  cf:cys[2], gapH:h*.14},
-          {at:855,  cf:cys[3], gapH:h*.145},
-          {at:1000, cf:cys[3], gapH:h*.145},
-          {at:1120, cf:0.50,   gapH:h*.16},
+          {at:0,    cf:0.50,    gapH:h*.16},
+          {at:75,   cf:cys[0],  gapH:h*.145},  // 75-col (≤53px, ≤0.71px/col ✓)
+          {at:260,  cf:cys[0],  gapH:h*.14},
+          {at:335,  cf:cys[1],  gapH:h*.145},  // 75-col (≤53px ✓)
+          {at:520,  cf:cys[1],  gapH:h*.14},
+          {at:595,  cf:cys[2],  gapH:h*.14},   // 75-col ✓
+          {at:780,  cf:cys[2],  gapH:h*.14},
+          {at:855,  cf:cys[3],  gapH:h*.145},  // 75-col ✓
+          {at:1000, cf:cys[3],  gapH:h*.145},
+          {at:1120, cf:0.50,    gapH:h*.16},
         ]}
       }
     },
