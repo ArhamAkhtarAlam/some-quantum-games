@@ -276,50 +276,6 @@ const G43_POOL = {
   ],
 
   dc: [
-    // Mini-wave, tight corridor, 5 SLAM sections.
-    // Between slams corridor shifts to new cy via slope (angular transitions).
-    {
-      name:"OL' DEATH CORRIDOR", diff:'dc', speed:440, isDC:true, miniWave:true,
-      gen(h) {
-        const cys=Array.from({length:5},()=>0.24+qRandInt(52)/100)
-        const FP=22, W=h*.19
-        return { clearAt:1420, keyframes:[
-          {at:0,   cf:0.50,   gapH:W},
-          // slam 1 — slope 80 col then slam
-          {at:80,  cf:cys[0], gapH:W},
-          {at:115, cf:cys[0], gapH:W},
-          {at:140, cf:cys[0], gapH:FP},   // SLAM 25 col
-          {at:170, cf:cys[0], gapH:FP},   // gap 30 col
-          {at:195, cf:cys[0], gapH:W},    // OPEN 25 col
-          // slam 2
-          {at:275, cf:cys[1], gapH:W},
-          {at:310, cf:cys[1], gapH:W},
-          {at:335, cf:cys[1], gapH:FP},
-          {at:365, cf:cys[1], gapH:FP},
-          {at:390, cf:cys[1], gapH:W},
-          // slam 3
-          {at:470, cf:cys[2], gapH:W},
-          {at:505, cf:cys[2], gapH:W},
-          {at:530, cf:cys[2], gapH:FP},
-          {at:560, cf:cys[2], gapH:FP},
-          {at:585, cf:cys[2], gapH:W},
-          // slam 4
-          {at:665, cf:cys[3], gapH:W},
-          {at:700, cf:cys[3], gapH:W},
-          {at:725, cf:cys[3], gapH:FP},
-          {at:755, cf:cys[3], gapH:FP},
-          {at:780, cf:cys[3], gapH:W},
-          // slam 5
-          {at:860, cf:cys[4], gapH:W},
-          {at:895, cf:cys[4], gapH:W},
-          {at:920, cf:cys[4], gapH:FP},
-          {at:950, cf:cys[4], gapH:FP},
-          {at:975, cf:cys[4], gapH:W},
-          {at:1060,cf:0.50,   gapH:W},
-          {at:1420,cf:0.50,   gapH:W},
-        ]}
-      }
-    },
     {
       name:'THE CORRIDOR', diff:'dc', speed:452, isDC:true, miniWave:true,
       gen(h) {
