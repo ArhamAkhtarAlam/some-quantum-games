@@ -19,6 +19,7 @@ window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btn
   if (btnEl) { btnEl.textContent = '⏳ Searching…'; btnEl.disabled = true }
   setStatus('Connecting to server…')
 
+  let _queuePosition = 1
   const doJoin = () => {
     sock.emit('join-queue', { game })
     if (onQueued) onQueued()
@@ -29,6 +30,7 @@ window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btn
   sock.off('queue-joined'); sock.off('matched'); sock.off('opponent-left')
 
   sock.on('queue-joined', ({ position }) => {
+    _queuePosition = position
     setStatus(position === 1 ? '🔍 Waiting for opponent…' : '⚡ Match found!')
   })
 
@@ -51,7 +53,7 @@ window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btn
       ? `✅ ${avgPing}ms ping — side-by-side mode!`
       : `📡 ${avgPing}ms ping — standard mode`)
     if (btnEl) { btnEl.textContent = '⚔️ Find Match'; btnEl.disabled = false }
-    setTimeout(() => onMatched({ code, sideBySide, ping: avgPing }), 600)
+    setTimeout(() => onMatched({ code, sideBySide, ping: avgPing, isHost: _queuePosition === 1 }), 600)
   })
 
   sock.on('opponent-left', () => {

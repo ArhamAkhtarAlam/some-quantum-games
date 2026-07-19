@@ -376,6 +376,12 @@ const G43 = {
 }
 window._g43Score = 0
 
+let G43_roomCode           = null
+let G43_isHost             = false
+let G43_lastNetSync        = 0
+let G43_pendingSyncChallenge = null  // host: challenge to include in next state-sync
+let G43_pendingNetChallenge  = null  // joiner: buffered challenge from host
+
 let _g43Canvas = null
 function _g43C() {
   if (!_g43Canvas) _g43Canvas = document.getElementById('g43-canvas')
@@ -413,7 +419,17 @@ function _g43Start(noclip, practiceDiff, multi) {
   window._g43Score = 0
   document.getElementById('g43-score-hud').textContent = noclip ? '—' : '0'
 
-  _g43LoadChallenge(c.width, c.height)
+  if (G43_roomCode && !G43_isHost) {
+    // Joiner: wait for host to send first challenge via state-sync
+    G43.challenge = null
+    G43.keyframes = []
+    G43.clearAt   = 999999
+    G43.scrollX   = 0
+    G43.trail     = []
+    G43.phase     = 'waiting'
+  } else {
+    _g43LoadChallenge(c.width, c.height)
+  }
 
   c.addEventListener('mousedown',  _g43On,  {passive:false})
   c.addEventListener('mouseup',    _g43Off)
@@ -442,6 +458,67 @@ window.stopGame43 = function() {
   }
   window.removeEventListener('keydown', _g43KeyDn)
   window.removeEventListener('keyup',   _g43KeyUp)
+  if (typeof mpGetSocket !== 'undefined' && G43_roomCode) {
+    const s = mpGetSocket()
+    s.off('opponent-state'); s.off('force-end')
+  }
+  G43_roomCode             = null
+  G43_isHost               = false
+  G43_pendingSyncChallenge = null
+  G43_pendingNetChallenge  = null
+}
+
+window.g43FindMatch = function() {
+  const statusEl = document.getElementById('g43-match-status')
+  const btnEl    = document.getElementById('g43-match-btn')
+  mpFindMatch('wavegauntlet', {
+    onMatched: ({ code, isHost }) => {
+      G43_roomCode = code
+      G43_isHost   = isHost
+      _g43Start(false, null, true)
+      _g43SetupNetEvents()
+    },
+    onLeft: () => {
+      G43_roomCode = null; G43_isHost = false
+      G43_pendingNetChallenge = null
+      if (!G43.active) document.getElementById('g43-overlay').style.display = 'flex'
+    },
+    statusEl, btnEl,
+  })
+}
+
+function _g43SetupNetEvents() {
+  const sock = mpGetSocket()
+  sock.off('opponent-state'); sock.off('force-end')
+  sock.on('opponent-state', (state) => {
+    G43.p2wy  = state.wy
+    G43.p2wvy = state.wvy
+    if (!G43_isHost && state.challenge) G43_pendingNetChallenge = state.challenge
+  })
+  sock.on('force-end', () => { _g43Die() })
+}
+
+function _g43SerializeChallenge(h) {
+  const ch = G43.challenge
+  return {
+    name: ch.name, diff: ch.diff, speed: ch.speed,
+    clearAt: G43.clearAt,
+    isFP: !!ch.isFP, isDC: !!ch.isDC, miniWave: !!ch.miniWave,
+    keyframes: G43.keyframes.map(kf => ({ at: kf.at, cf: kf.cf, gapHf: kf.gapH / h })),
+  }
+}
+
+function _g43ApplyNetChallenge(data, h) {
+  G43.challenge = { name: data.name, diff: data.diff, speed: data.speed,
+    clearAt: data.clearAt, isFP: data.isFP, isDC: data.isDC, miniWave: data.miniWave }
+  G43.waveR    = data.miniWave ? G43_WAVE_R_MINI : G43_WAVE_R_NRM
+  G43.keyframes = data.keyframes.map(kf => ({ at: kf.at, cf: kf.cf, gapH: kf.gapHf * h }))
+  G43.clearAt  = data.clearAt
+  G43.scrollX  = 0
+  G43.trail    = []; G43.p2trail = []
+  G43.phase    = 'announce'
+  G43.announceT = 0
+  G43.wy       = h / 2; G43.wvy = G43_WAVE_SPD; G43.hitFlash = 0
 }
 
 function _g43On(e)    { e.preventDefault(); G43.holding = true }
@@ -488,6 +565,7 @@ function _g43LoadChallenge(w, h) {
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
+  if (G43_roomCode && G43_isHost) G43_pendingSyncChallenge = _g43SerializeChallenge(h)
 }
 
 // Linearly interpolated corridor shape at a given column offset
@@ -531,7 +609,15 @@ function _g43Loop(ts) {
     }
   }
 
-  if (G43.phase === 'announce') {
+  if (G43.phase === 'waiting') {
+    // Online joiner: waiting for host to send first challenge
+    waveStep(true)
+    if (G43_pendingNetChallenge) {
+      _g43ApplyNetChallenge(G43_pendingNetChallenge, h)
+      G43_pendingNetChallenge = null
+    }
+
+  } else if (G43.phase === 'announce') {
     G43.announceT += dt
     if (G43.announceT >= 0.9) G43.phase = 'playing'
 
@@ -551,13 +637,14 @@ function _g43Loop(ts) {
     const topWall = wall.cy - wall.gapH / 2
     const botWall = wall.cy + wall.gapH / 2
     const hit     = G43.wy - WR < topWall || G43.wy + WR > botWall
-    const hit2    = G43.multi && (G43.p2wy - WR < topWall || G43.p2wy + WR > botWall)
+    // In online mode, P2 collision is checked on their own device
+    const hit2    = G43.multi && !G43_roomCode && (G43.p2wy - WR < topWall || G43.p2wy + WR > botWall)
 
     if (hit || hit2) {
       if (G43.noclip) {
         if (G43.hitFlash <= 0) { G43.hitFlash = 0.22; SFX.die() }
         G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.wy))
-        if (G43.multi) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
+        if (G43.multi && !G43_roomCode) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
       } else {
         _g43Die()
       }
@@ -577,7 +664,14 @@ function _g43Loop(ts) {
   } else if (G43.phase === 'cleared') {
     G43.clearedT += dt
     waveStep(true)
-    if (G43.clearedT >= 0.75) _g43LoadChallenge(w, h)
+    if (G43.clearedT >= 0.75) {
+      if (!G43_roomCode || G43_isHost) {
+        _g43LoadChallenge(w, h)
+      } else if (G43_pendingNetChallenge) {
+        _g43ApplyNetChallenge(G43_pendingNetChallenge, h)
+        G43_pendingNetChallenge = null
+      }
+    }
 
   } else if (G43.phase === 'dead') {
     G43.deadT += dt
@@ -592,6 +686,19 @@ function _g43Loop(ts) {
     }
   }
 
+  // Network state sync (both host and joiner emit their wave position ~20/s)
+  if (G43_roomCode && G43.phase !== 'dead') {
+    if (ts - G43_lastNetSync >= 50) {
+      G43_lastNetSync = ts
+      const state = { wy: G43.wy, wvy: G43.wvy }
+      if (G43_pendingSyncChallenge) {
+        state.challenge = G43_pendingSyncChallenge
+        G43_pendingSyncChallenge = null
+      }
+      mpGetSocket().emit('state-sync', { code: G43_roomCode, state })
+    }
+  }
+
   _g43Draw(c.getContext('2d'), w, h)
   if (G43.showOver) { G43.active = false; return }
   G43.raf = requestAnimationFrame(_g43Loop)
@@ -603,6 +710,11 @@ function _g43Die() {
   SFX.die()
   window.removeEventListener('keydown', _g43KeyDn)
   window.removeEventListener('keyup',   _g43KeyUp)
+  if (G43_roomCode) {
+    mpGetSocket().emit('player-died', { code: G43_roomCode, score: G43.score })
+    const s = mpGetSocket(); s.off('opponent-state'); s.off('force-end')
+    G43_roomCode = null
+  }
 }
 
 // ── draw ─────────────────────────────────────────────────
@@ -738,7 +850,10 @@ function _g43Draw(ctx, w, h) {
     ctx.shadowColor = mainCol; ctx.shadowBlur = 22
     ctx.fillText(ch.name, w/2, h/2 - 12); ctx.shadowBlur = 0
     ctx.font = '12px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.36)'
-    if (G43.multi) {
+    if (G43.multi && G43_roomCode) {
+      ctx.fillStyle = mainCol; ctx.fillText('SPACE / click to fly up', w/2, h/2 + 16)
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('Opponent online', w/2, h/2 + 34)
+    } else if (G43.multi) {
       ctx.fillStyle = mainCol; ctx.fillText('P1: SPACE / click', w/2, h/2 + 16)
       ctx.fillStyle = '#38bdf8'; ctx.fillText('P2: ↑ arrow key',  w/2, h/2 + 34)
     } else {
@@ -768,6 +883,14 @@ function _g43Draw(ctx, w, h) {
       ctx.fillText('CLEARED!', w/2, h/2); ctx.shadowBlur = 0
       ctx.globalAlpha = 1
     }
+  }
+
+  // ── Waiting overlay (online joiner before first challenge arrives) ──
+  if (G43.phase === 'waiting') {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
+    ctx.textAlign = 'center'; ctx.font = 'bold 14px monospace'
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.fillText('Waiting for host…', w/2, h/2)
   }
 
   ctx.restore()
