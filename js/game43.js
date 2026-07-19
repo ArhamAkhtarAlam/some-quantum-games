@@ -449,9 +449,9 @@ function _g43GetPool(score) {
   if (score < 3)  return [...easy]
   if (score < 5)  return [...easy, ...medium]
   if (score < 9)  return [...medium, ...hard, fp[0]]
-  if (score < 13) return [...hard, ...fp]
-  if (score < 17) return [...fp, dc[0]]
-  return [...fp, ...dc, ...dc]
+  if (score < 13) return [...hard, fp[0]]
+  if (score < 17) return [...hard, fp[0], fp[1], dc[0]]
+  return [fp[0], ...dc, ...dc]
 }
 
 function _g43LoadChallenge(w, h) {
