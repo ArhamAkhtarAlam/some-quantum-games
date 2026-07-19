@@ -371,6 +371,8 @@ const G43 = {
   deadT:0, showOver:false, shake:0,
   noclip:false, practiceDiff:null, hitFlash:0,
   raf:null, lastTime:0,
+  multi:false,
+  p2wy:0, p2wvy:0, p2holding:false, p2trail:[],
 }
 window._g43Score = 0
 
@@ -388,7 +390,7 @@ async function initGame43() {
 }
 window.initGame43 = initGame43
 
-function _g43Start(noclip, practiceDiff) {
+function _g43Start(noclip, practiceDiff, multi) {
   SFX.resume(); SFX.click()
   const c = _g43C()
   c.width  = c.parentElement.clientWidth
@@ -405,6 +407,8 @@ function _g43Start(noclip, practiceDiff) {
     announceT:0, clearedT:0,
     deadT:0, showOver:false, shake:0,
     noclip:!!noclip, practiceDiff:practiceDiff||null, hitFlash:0,
+    multi:!!multi,
+    p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
   })
   window._g43Score = 0
   document.getElementById('g43-score-hud').textContent = noclip ? '—' : '0'
@@ -422,8 +426,9 @@ function _g43Start(noclip, practiceDiff) {
   G43.raf = requestAnimationFrame(_g43Loop)
 }
 
-window.startWaveGauntlet         = function() { _g43Start(false, null) }
-window.startWaveGauntletPractice = function(d)  { _g43Start(true, d) }
+window.startWaveGauntlet         = function()  { _g43Start(false, null, false) }
+window.startWaveGauntlet2P       = function()  { _g43Start(false, null, true)  }
+window.startWaveGauntletPractice = function(d) { _g43Start(true,  d,    false) }
 
 window.stopGame43 = function() {
   G43.active = false
@@ -441,8 +446,14 @@ window.stopGame43 = function() {
 
 function _g43On(e)    { e.preventDefault(); G43.holding = true }
 function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
-function _g43KeyDn(e) { if (e.code==='Space'||e.key==='ArrowUp') { e.preventDefault(); G43.holding=true } }
-function _g43KeyUp(e) { if (e.code==='Space'||e.key==='ArrowUp') G43.holding=false }
+function _g43KeyDn(e) {
+  if (e.code === 'Space') { e.preventDefault(); G43.holding = true }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); G43.multi ? (G43.p2holding = true) : (G43.holding = true) }
+}
+function _g43KeyUp(e) {
+  if (e.code === 'Space') G43.holding = false
+  else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = false) : (G43.holding = false) }
+}
 
 function _g43GetPool(score) {
   const {easy,medium,hard,fp,dc} = G43_POOL
@@ -474,6 +485,9 @@ function _g43LoadChallenge(w, h) {
   G43.wy            = h / 2
   G43.wvy           = G43_WAVE_SPD
   G43.hitFlash      = 0
+  if (G43.multi) {
+    G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
+  }
 }
 
 // Linearly interpolated corridor shape at a given column offset
@@ -510,6 +524,11 @@ function _g43Loop(ts) {
     G43.wvy = G43.holding ? -G43_WAVE_SPD : G43_WAVE_SPD
     G43.wy += G43.wvy * dt
     if (doClamp) G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.wy))
+    if (G43.multi) {
+      G43.p2wvy = G43.p2holding ? -G43_WAVE_SPD : G43_WAVE_SPD
+      G43.p2wy += G43.p2wvy * dt
+      if (doClamp) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
+    }
   }
 
   if (G43.phase === 'announce') {
@@ -520,18 +539,25 @@ function _g43Loop(ts) {
     waveStep(false)
     G43.scrollX += G43.challenge.speed * dt
 
-    G43.trail.push({ x: Math.round(w * 0.22), y: G43.wy })
+    const wX = Math.round(w * 0.22)
+    G43.trail.push({ x: wX, y: G43.wy })
     if (G43.trail.length > 30) G43.trail.shift()
+    if (G43.multi) {
+      G43.p2trail.push({ x: wX, y: G43.p2wy })
+      if (G43.p2trail.length > 30) G43.p2trail.shift()
+    }
 
     const wall    = _g43WallAt(Math.floor(G43.scrollX), h)
     const topWall = wall.cy - wall.gapH / 2
     const botWall = wall.cy + wall.gapH / 2
     const hit     = G43.wy - WR < topWall || G43.wy + WR > botWall
+    const hit2    = G43.multi && (G43.p2wy - WR < topWall || G43.p2wy + WR > botWall)
 
-    if (hit) {
+    if (hit || hit2) {
       if (G43.noclip) {
         if (G43.hitFlash <= 0) { G43.hitFlash = 0.22; SFX.die() }
         G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.wy))
+        if (G43.multi) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
       } else {
         _g43Die()
       }
@@ -556,6 +582,7 @@ function _g43Loop(ts) {
   } else if (G43.phase === 'dead') {
     G43.deadT += dt
     G43.wvy = G43_WAVE_SPD; G43.wy += G43.wvy * dt
+    if (G43.multi) { G43.p2wvy = G43_WAVE_SPD; G43.p2wy += G43.p2wvy * dt }
     if (G43.deadT >= 1.8 && !G43.showOver) {
       G43.showOver     = true
       window._g43Score = G43.score
@@ -651,24 +678,28 @@ function _g43Draw(ctx, w, h) {
   ctx.shadowColor = mainCol; ctx.shadowBlur = 10
   ctx.stroke(); ctx.shadowBlur = 0
 
-  // ── Wave trail ───────────────────────────────────────
-  const trail = G43.trail
-  for (let i = 1; i < trail.length; i++) {
-    const a = i / trail.length
-    ctx.globalAlpha = a * a * 0.55
-    ctx.strokeStyle = mainCol; ctx.lineWidth = a * 2.2
-    ctx.shadowColor = mainCol; ctx.shadowBlur = 3
-    ctx.beginPath()
-    ctx.moveTo(trail[i-1].x, trail[i-1].y)
-    ctx.lineTo(trail[i].x,   trail[i].y)
-    ctx.stroke(); ctx.shadowBlur = 0
+  // ── Wave trails ──────────────────────────────────────
+  const _drawTrail = (trail, col) => {
+    for (let i = 1; i < trail.length; i++) {
+      const a = i / trail.length
+      ctx.globalAlpha = a * a * 0.55
+      ctx.strokeStyle = col; ctx.lineWidth = a * 2.2
+      ctx.shadowColor = col; ctx.shadowBlur = 3
+      ctx.beginPath()
+      ctx.moveTo(trail[i-1].x, trail[i-1].y)
+      ctx.lineTo(trail[i].x,   trail[i].y)
+      ctx.stroke(); ctx.shadowBlur = 0
+    }
+    ctx.globalAlpha = 1
   }
-  ctx.globalAlpha = 1
+  _drawTrail(G43.trail, mainCol)
+  if (G43.multi) _drawTrail(G43.p2trail, '#38bdf8')
 
-  // ── Wave character ───────────────────────────────────
+  // ── Wave characters ──────────────────────────────────
   const wAlpha = G43.phase === 'dead' ? Math.max(0, 1 - G43.deadT * 2.2) : 1
   ctx.globalAlpha = wAlpha
-  _g43DrawWave(ctx, waveX, G43.wy, G43.waveR, mainCol)
+  _g43DrawWave(ctx, waveX, G43.wy,   G43.waveR, mainCol,  G43.wvy)
+  if (G43.multi) _g43DrawWave(ctx, waveX, G43.p2wy, G43.waveR, '#38bdf8', G43.p2wvy)
   ctx.globalAlpha = 1
 
   // Noclip hit flash
@@ -677,7 +708,7 @@ function _g43Draw(ctx, w, h) {
     ctx.fillRect(0, 0, w, h)
   }
 
-  // Score
+  // Score / mode indicator
   ctx.textAlign = 'center'
   if (G43.noclip) {
     ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
@@ -686,6 +717,11 @@ function _g43Draw(ctx, w, h) {
     ctx.font = 'bold 26px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.shadowColor = mainCol; ctx.shadowBlur = 16
     ctx.fillText(G43.score, w/2, 42); ctx.shadowBlur = 0
+    if (G43.multi) {
+      ctx.font = 'bold 10px monospace'
+      ctx.fillStyle = mainCol;   ctx.fillText('P1 ●', w/2 - 22, 58)
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('● P2', w/2 + 22, 58)
+    }
   }
 
   // ── Announce overlay ─────────────────────────────────
@@ -702,7 +738,12 @@ function _g43Draw(ctx, w, h) {
     ctx.shadowColor = mainCol; ctx.shadowBlur = 22
     ctx.fillText(ch.name, w/2, h/2 - 12); ctx.shadowBlur = 0
     ctx.font = '12px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.36)'
-    ctx.fillText('hold SPACE / click to fly up', w/2, h/2 + 18)
+    if (G43.multi) {
+      ctx.fillStyle = mainCol; ctx.fillText('P1: SPACE / click', w/2, h/2 + 16)
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('P2: ↑ arrow key',  w/2, h/2 + 34)
+    } else {
+      ctx.fillText('hold SPACE / click to fly up', w/2, h/2 + 18)
+    }
     if (ch.isFP) {
       ctx.font = '11px monospace'
       ctx.fillStyle = 'rgba(216,180,254,0.75)'; ctx.shadowColor='#a855f7'; ctx.shadowBlur=6
@@ -732,8 +773,8 @@ function _g43Draw(ctx, w, h) {
   ctx.restore()
 }
 
-function _g43DrawWave(ctx, x, y, R, col) {
-  const tilt = G43.wvy < 0 ? -Math.PI*0.25 : Math.PI*0.25
+function _g43DrawWave(ctx, x, y, R, col, wvy) {
+  const tilt = (wvy ?? G43.wvy) < 0 ? -Math.PI*0.25 : Math.PI*0.25
   ctx.save()
   ctx.translate(x, y); ctx.rotate(tilt)
   ctx.beginPath(); ctx.arc(0, 0, R*2.6, 0, Math.PI*2)
