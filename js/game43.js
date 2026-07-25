@@ -312,14 +312,14 @@ const G43_POOL = {
         const cy1px  = 10 + qRandInt(Math.min(maxPos - 15, 50))
         const sign   = qRandInt(2) === 0 ? 1 : -1
         const cy1    = Math.max(0.20, Math.min(0.80, 0.50 + sign * cy1px / h))
-        const drift  = (qRandInt(2) === 0 ? 1 : -1) * (8 + qRandInt(10))  // 8-17px
+        const drift  = (qRandInt(2) === 0 ? 1 : -1) * (6 + qRandInt(8))  // 6-13px
         const cy2    = Math.max(0.18, Math.min(0.82, cy1 + drift / h))
         return { clearAt:920, keyframes:[
           {at:0,   cf:0.50, gapH:h*.36},
           {at:100, cf:cy1,  gapH:h*.36},  // position
-          {at:160, cf:cy1,  gapH:40},     // SLAM — 40px tight gap
-          {at:280, cf:cy2,  gapH:40},     // slow drift 120 col (8-17px) while slammed
-          {at:360, cf:cy2,  gapH:h*.36},
+          {at:160, cf:cy1,  gapH:52},     // SLAM — 52px tight gap
+          {at:260, cf:cy2,  gapH:52},     // slow drift 100 col (6-13px) while slammed
+          {at:330, cf:cy2,  gapH:h*.36},
           {at:920, cf:0.50, gapH:h*.36},
         ]}
       }
