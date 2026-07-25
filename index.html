@@ -1740,7 +1740,7 @@
   <div class="top-bar">
     <button class="btn-back" onclick="goHome()">← Back</button>
     <span class="game-title">🕷 Spider</span>
-    <div class="score-badge" style="border-color:#a855f7;color:#a855f7;">Blocks <span id="spd-score-hud">0</span></div>
+    <div class="score-badge" style="border-color:#a855f7;color:#a855f7;">Clears <span id="spd-score-hud">0</span></div>
   </div>
   <div class="canvas-arena" id="spd-arena">
     <canvas id="spd-canvas"></canvas>
@@ -1749,15 +1749,22 @@
       <p style="color:var(--muted);font-size:.88rem;text-align:center;max-width:300px;margin-bottom:.8rem">
         Snap between floor and ceiling to dodge blocks.<br>
         Each tap teleports you to the opposite surface.<br>
-        <span style="font-size:.78rem">Speed increases as you progress.</span>
+        <span style="font-size:.78rem">Clear challenges to progress through difficulty tiers.</span>
       </p>
       <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;color:#fff;font-weight:700;" onclick="startSpider()">▶ Play</button>
+      <p style="font-size:.76rem;color:var(--muted);margin:.8rem 0 .4rem;">🔵 Practice Mode — noclip, no leaderboard</p>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;">
+        <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(74,222,128,.15);color:#4ade80;border-color:#4ade8055;" onclick="startSpiderPractice('easy')">Easy</button>
+        <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(251,191,36,.15);color:#fbbf24;border-color:#fbbf2455;" onclick="startSpiderPractice('medium')">Medium</button>
+        <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(248,113,113,.15);color:#f87171;border-color:#f8717155;" onclick="startSpiderPractice('hard')">Hard</button>
+        <button class="btn-primary" style="font-size:.73rem;padding:.3rem .7rem;background:rgba(192,132,252,.15);color:#c084fc;border-color:#c084fc55;" onclick="startSpiderPractice('extreme')">Extreme</button>
+      </div>
     </div>
   </div>
   <div class="game-over-overlay" id="spd-over" style="display:none;">
     <div class="game-over-card">
       <h2>Caught! 🕷</h2>
-      <div class="final-score" id="spd-final-score" style="color:#a855f7">0 blocks</div>
+      <div class="final-score" id="spd-final-score" style="color:#a855f7">0 clears</div>
       <div id="spd-medal-display"></div>
       <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;color:#fff;" onclick="openSubmit('spider')">Submit Score</button><br><br>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initSpider()">Play Again</button>

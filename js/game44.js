@@ -1,20 +1,190 @@
 // ═══════════════════════════════════════════════════════
 //  GAME 44 — SPIDER
-//  GD-inspired: tap to snap instantly between floor & ceiling.
-//  Web thread appears at each flip point. Score = blocks cleared.
+//  GD-inspired: tap to snap between floor & ceiling.
+//  Challenge-based like Wave Gauntlet. Score = clears.
 // ═══════════════════════════════════════════════════════
 
 const SPD_R   = 9    // spider body radius
 const SPD_OBW = 26   // obstacle block width
+
+// ── Challenge pool ────────────────────────────────────
+
+const SPD_POOL = {
+  easy: [
+    {
+      name:'FIRST STEPS', diff:'easy', speed:155,
+      gen(h) {
+        let col = 240, floor = true
+        const obs = []
+        for (let i = 0; i < 5; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += 195 + qRandInt(50)
+        }
+        return { clearAt: col + 250, obstacles: obs }
+      }
+    },
+    {
+      name:'WARM UP', diff:'easy', speed:178,
+      gen(h) {
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let i = 0; i < 8; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += 160 + qRandInt(45)
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+  ],
+
+  medium: [
+    {
+      name:'RHYTHM', diff:'medium', speed:248,
+      gen(h) {
+        // Evenly spaced — find the beat
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let i = 0; i < 11; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += 128
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+    {
+      name:'SHUFFLE', diff:'medium', speed:265,
+      gen(h) {
+        // Irregular gaps — disrupts rhythm
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        const gaps = [100,145,100,160,95,155,95,145,100,140,100,155]
+        for (let i = 0; i < 12; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += gaps[i] + qRandInt(20)
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+    {
+      name:'SPRINT', diff:'medium', speed:295,
+      gen(h) {
+        // Gradually tightening spacing
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let i = 0; i < 13; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += Math.max(95, 148 - i * 4) + qRandInt(18)
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+  ],
+
+  hard: [
+    {
+      name:'BURST', diff:'hard', speed:325,
+      gen(h) {
+        // 3 bursts of 4 tight blocks — intense then relief
+        let col = 230, floor = qRandInt(2) === 0
+        const obs = []
+        for (let b = 0; b < 3; b++) {
+          for (let i = 0; i < 4; i++) {
+            obs.push({ col, floor })
+            floor = !floor; col += 88
+          }
+          col += 165
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+    {
+      name:'RAPID FIRE', diff:'hard', speed:355,
+      gen(h) {
+        // 16 continuous rapid blocks
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let i = 0; i < 16; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += 82 + qRandInt(14)
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+    {
+      name:'SURGE', diff:'hard', speed:392,
+      gen(h) {
+        // 4 waves of 5 — fast, no mercy between waves
+        let col = 230, floor = qRandInt(2) === 0
+        const obs = []
+        for (let b = 0; b < 4; b++) {
+          for (let i = 0; i < 5; i++) {
+            obs.push({ col, floor })
+            floor = !floor; col += 78
+          }
+          col += 145
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+  ],
+
+  extreme: [
+    {
+      name:'GAUNTLET', diff:'extreme', speed:440,
+      gen(h) {
+        // 24 blocks, extremely tight
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let i = 0; i < 24; i++) {
+          obs.push({ col, floor })
+          floor = !floor; col += 72 + qRandInt(10)
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+    {
+      name:'NO MERCY', diff:'extreme', speed:460,
+      gen(h) {
+        // Two waves of 15 at max speed
+        let col = 220, floor = qRandInt(2) === 0
+        const obs = []
+        for (let b = 0; b < 2; b++) {
+          for (let i = 0; i < 15; i++) {
+            obs.push({ col, floor })
+            floor = !floor; col += 70 + qRandInt(8)
+          }
+          col += 120
+        }
+        return { clearAt: col + 220, obstacles: obs }
+      }
+    },
+  ],
+}
+
+const SPD_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#c084fc' }
+
+function _spdGetPool(score) {
+  const {easy, medium, hard, extreme} = SPD_POOL
+  if (score < 3)  return [...easy]
+  if (score < 6)  return [...easy, ...medium]
+  if (score < 11) return [...medium, ...hard]
+  if (score < 16) return [...hard]
+  return [...hard, ...extreme]
+}
+
+// ── State ─────────────────────────────────────────────
 
 const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
   scrollX:0, speed:0,
   score:0,
-  obstacles:[], nextObstCol:0, lastObstFloor:true,
+  challenge:null, clearAt:0,
+  obstacles:[],
   trail:[], threads:[],
-  shake:0,
+  announceT:0, clearedT:0,
+  shake:0, hitFlash:0,
+  noclip:false, practiceDiff:null,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -36,7 +206,7 @@ window.initSpider = initSpider
 window.initGame44 = initSpider
 window.stopGame44 = function() { stopSpider() }
 
-function startSpider() {
+function _spdStart(noclip, practiceDiff) {
   SFX.resume(); SFX.click()
   const c = _spdC()
   c.width  = c.parentElement.clientWidth
@@ -45,17 +215,13 @@ function startSpider() {
   document.getElementById('spd-over').style.display    = 'none'
 
   Object.assign(_SPD, {
-    active:true, phase:'playing',
-    onFloor:true,
-    scrollX:0, speed:220,
-    score:0,
-    obstacles:[], nextObstCol: Math.round(c.width * 0.25) + 300,
-    lastObstFloor:true,   // first obstacle will be ceiling → player on floor safe at start
-    trail:[], threads:[],
-    shake:0, deadT:0, showOver:false,
+    active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
+    noclip:!!noclip, practiceDiff:practiceDiff||null,
   })
   window._spdScore = 0
-  document.getElementById('spd-score-hud').textContent = '0'
+  document.getElementById('spd-score-hud').textContent = noclip ? '—' : '0'
+
+  _spdLoadChallenge()
 
   window.addEventListener('keydown', _spdKeyDn)
   c.addEventListener('mousedown',  _spdInput, {passive:false})
@@ -64,7 +230,8 @@ function startSpider() {
   _SPD.lastTime = performance.now()
   _SPD.raf = requestAnimationFrame(_spdLoop)
 }
-window.startSpider = startSpider
+window.startSpider         = function()  { _spdStart(false, null) }
+window.startSpiderPractice = function(d) { _spdStart(true,  d)    }
 
 window.stopSpider = function() {
   _SPD.active = false
@@ -77,6 +244,27 @@ window.stopSpider = function() {
   window.removeEventListener('keydown', _spdKeyDn)
 }
 
+function _spdLoadChallenge() {
+  const c    = _spdC()
+  const pool = (_SPD.noclip && _SPD.practiceDiff)
+    ? (SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy)
+    : _spdGetPool(_SPD.score)
+  const tmpl = pool[qRandInt(pool.length)]
+  const data = tmpl.gen(c.height)
+  Object.assign(_SPD, {
+    challenge:  { name: tmpl.name, diff: tmpl.diff, speed: tmpl.speed },
+    speed:      tmpl.speed,
+    clearAt:    data.clearAt,
+    obstacles:  data.obstacles,
+    scrollX:    0,
+    trail:      [],
+    threads:    [],
+    onFloor:    true,
+    phase:      'announce',
+    announceT:  0,
+  })
+}
+
 function _spdKeyDn(e) {
   if (e.code === 'Space') { e.preventDefault(); _spdDoFlip() }
 }
@@ -84,28 +272,16 @@ function _spdInput(e) { e.preventDefault(); _spdDoFlip() }
 
 function _spdDoFlip() {
   if (!_SPD.active || _SPD.phase !== 'playing') return
-  const h = _spdC().height
+  const h     = _spdC().height
   const fromY = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
   _SPD.onFloor = !_SPD.onFloor
   const toY   = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
-  // Web thread: stays in world space and scrolls away to the left
   _SPD.threads.push({ worldX: _SPD.scrollX, y1: fromY, y2: toY, age: 0 })
   if (_SPD.threads.length > 10) _SPD.threads.shift()
   SFX.click()
 }
 
-function _spdSpawnObs(w, h) {
-  while (_SPD.nextObstCol < _SPD.scrollX + w + 300) {
-    _SPD.lastObstFloor = !_SPD.lastObstFloor
-    // Fixed height — only the timing between blocks creates difficulty
-    const oh = Math.max(28, Math.floor(h * 0.12))
-    _SPD.obstacles.push({ col: _SPD.nextObstCol, floor: _SPD.lastObstFloor, h: oh, passed: false })
-    // Gap shrinks continuously, bottoms out at 72px (brutal at max speed)
-    const gap = Math.max(72, 285 - _SPD.score * 3) + qRandInt(20)
-    _SPD.nextObstCol += gap
-  }
-  _SPD.obstacles = _SPD.obstacles.filter(o => o.col > _SPD.scrollX - 120)
-}
+// ── Game loop ─────────────────────────────────────────
 
 function _spdLoop(ts) {
   if (!_SPD.active) return
@@ -113,38 +289,52 @@ function _spdLoop(ts) {
   _SPD.lastTime = ts
   const c = _spdC(), w = c.width, h = c.height
   const spX = Math.round(w * 0.25)
+  const oh  = Math.round(h * 0.44)
 
-  if (_SPD.shake > 0) _SPD.shake = Math.max(0, _SPD.shake - dt * 4)
+  if (_SPD.shake   > 0) _SPD.shake   = Math.max(0, _SPD.shake   - dt * 4)
+  if (_SPD.hitFlash > 0) _SPD.hitFlash = Math.max(0, _SPD.hitFlash - dt * 5)
 
-  if (_SPD.phase === 'playing') {
-    _SPD.speed    = Math.min(460, 200 + _SPD.score * 6)
+  if (_SPD.phase === 'announce') {
+    _SPD.announceT += dt
+    if (_SPD.announceT >= 0.9) _SPD.phase = 'playing'
+
+  } else if (_SPD.phase === 'playing') {
     _SPD.scrollX += _SPD.speed * dt
-
     const spY = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
 
-    // Trail: store world-space positions so they scroll left with the world
     _SPD.trail.push({ worldX: _SPD.scrollX, y: spY })
     if (_SPD.trail.length > 40) _SPD.trail.shift()
 
     for (const t of _SPD.threads) t.age += dt
     _SPD.threads = _SPD.threads.filter(t => t.age < 2)
 
-    _spdSpawnObs(w, h)
-
     for (const obs of _SPD.obstacles) {
       const ox = obs.col - _SPD.scrollX + spX
       if (Math.abs(ox - spX) < SPD_OBW / 2 + SPD_R) {
-        const hit = obs.floor ? spY + SPD_R > h - obs.h : spY - SPD_R < obs.h
-        if (hit) { _spdDie(); return }
+        const hit = obs.floor ? spY + SPD_R > h - oh : spY - SPD_R < oh
+        if (hit) {
+          if (_SPD.noclip) {
+            if (_SPD.hitFlash <= 0) { _SPD.hitFlash = 0.22; SFX.die() }
+          } else {
+            _spdDie(); break
+          }
+        }
       }
-      if (!obs.passed && obs.col < _SPD.scrollX) {
-        obs.passed = true
+    }
+
+    if (_SPD.scrollX >= _SPD.clearAt) {
+      _SPD.phase = 'cleared'; _SPD.clearedT = 0
+      if (!_SPD.noclip) {
         _SPD.score++
         window._spdScore = _SPD.score
         document.getElementById('spd-score-hud').textContent = _SPD.score
-        SFX.win()
       }
+      SFX.win()
     }
+
+  } else if (_SPD.phase === 'cleared') {
+    _SPD.clearedT += dt
+    if (_SPD.clearedT >= 0.75) _spdLoadChallenge()
 
   } else if (_SPD.phase === 'dead') {
     _SPD.deadT += dt
@@ -152,7 +342,7 @@ function _spdLoop(ts) {
       _SPD.showOver = true
       window._spdScore = _SPD.score
       document.getElementById('spd-final-score').textContent =
-        `${_SPD.score} block${_SPD.score !== 1 ? 's' : ''}`
+        `${_SPD.score} clear${_SPD.score !== 1 ? 's' : ''}`
       document.getElementById('spd-over').style.display = 'flex'
     }
   }
@@ -171,64 +361,65 @@ function _spdDie() {
 
 // ── Draw ─────────────────────────────────────────────────────
 
-const _SPD_COL = '#a855f7'
-
 function _spdDraw(ctx, w, h) {
-  const S = _SPD
+  const S  = _SPD
+  const ch = S.challenge
+  const mainCol = ch ? (SPD_DIFF_COL[ch.diff] || '#a855f7') : '#a855f7'
+  const spX = Math.round(w * 0.25)
+  const spY = S.onFloor ? h - SPD_R - 4 : SPD_R + 4
+  const oh  = Math.round(h * 0.44)
+
   ctx.save()
   if (S.shake > 0) {
     const s = S.shake * 7
     ctx.translate((Math.random()-0.5)*s, (Math.random()-0.5)*s)
   }
 
-  const spX = Math.round(w * 0.25)
-  const spY = S.onFloor ? h - SPD_R - 4 : SPD_R + 4
-
   // Background
   ctx.fillStyle = '#05010a'
   ctx.fillRect(-12, -12, w+24, h+24)
 
-  // Faint grid
-  ctx.strokeStyle = 'rgba(168,85,247,0.025)'
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.018)'
   ctx.lineWidth = 1
   for (let y = 0; y < h; y += 28) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
   }
 
-  // Floor & ceiling surfaces
+  // Surfaces (color matches current diff)
   const surfH = 6
   ctx.fillStyle = '#150020'
   ctx.fillRect(0, 0, w, surfH)
   ctx.fillRect(0, h - surfH, w, surfH)
-  ctx.strokeStyle = _SPD_COL; ctx.lineWidth = 1.5
-  ctx.shadowColor = _SPD_COL; ctx.shadowBlur = 8
-  ctx.beginPath(); ctx.moveTo(0, surfH); ctx.lineTo(w, surfH); ctx.stroke()
+  ctx.strokeStyle = mainCol; ctx.lineWidth = 1.5
+  ctx.shadowColor = mainCol; ctx.shadowBlur = 8
+  ctx.beginPath(); ctx.moveTo(0, surfH);   ctx.lineTo(w, surfH);   ctx.stroke()
   ctx.beginPath(); ctx.moveTo(0, h-surfH); ctx.lineTo(w, h-surfH); ctx.stroke()
   ctx.shadowBlur = 0
 
-  // Web threads (world-space: scroll left as world scrolls)
+  // Web threads (scroll left with world)
   ctx.setLineDash([3, 5])
   for (const t of S.threads) {
     const tx = Math.round(t.worldX - S.scrollX + spX)
     if (tx < -30 || tx > w + 30) continue
     const a = Math.max(0, 1 - t.age * 0.65)
     ctx.globalAlpha = a * 0.5
-    ctx.strokeStyle = _SPD_COL; ctx.lineWidth = 1
-    ctx.shadowColor = _SPD_COL; ctx.shadowBlur = 4
+    ctx.strokeStyle = mainCol; ctx.lineWidth = 1
+    ctx.shadowColor = mainCol; ctx.shadowBlur = 4
     ctx.beginPath(); ctx.moveTo(tx, t.y1); ctx.lineTo(tx, t.y2); ctx.stroke()
     ctx.shadowBlur = 0
   }
   ctx.setLineDash([])
   ctx.globalAlpha = 1
 
-  // Trail (world-space dots scrolling left)
+  // Trail
   for (let i = 1; i < S.trail.length; i++) {
     const tx = Math.round(S.trail[i].worldX - S.scrollX + spX)
     if (tx < -20 || tx > w + 20) continue
     const a = i / S.trail.length
     ctx.globalAlpha = a * a * 0.4
-    ctx.fillStyle = _SPD_COL
-    ctx.shadowColor = _SPD_COL; ctx.shadowBlur = 3
+    ctx.fillStyle = mainCol
+    ctx.shadowColor = mainCol; ctx.shadowBlur = 3
     ctx.beginPath(); ctx.arc(tx, S.trail[i].y, 2.5, 0, Math.PI*2); ctx.fill()
     ctx.shadowBlur = 0
   }
@@ -238,26 +429,27 @@ function _spdDraw(ctx, w, h) {
   for (const obs of S.obstacles) {
     const ox   = Math.round(obs.col - S.scrollX + spX)
     if (ox < -SPD_OBW - 10 || ox > w + SPD_OBW) continue
-    const half = SPD_OBW / 2
-    const oy   = obs.floor ? h - obs.h : 0
-    const edgeY = obs.floor ? h - obs.h : obs.h
+    const half  = SPD_OBW / 2
+    const oy    = obs.floor ? h - oh : 0
+    const edgeY = obs.floor ? h - oh : oh
 
     ctx.fillStyle = '#1e0030'
-    ctx.fillRect(ox - half, oy, SPD_OBW, obs.h)
-    ctx.strokeStyle = 'rgba(168,85,247,0.25)'; ctx.lineWidth = 1
-    ctx.strokeRect(ox - half, oy, SPD_OBW, obs.h)
+    ctx.fillRect(ox - half, oy, SPD_OBW, oh)
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1
+    ctx.strokeRect(ox - half, oy, SPD_OBW, oh)
 
-    ctx.strokeStyle = _SPD_COL; ctx.lineWidth = 2
-    ctx.shadowColor = _SPD_COL; ctx.shadowBlur = 10
+    ctx.strokeStyle = mainCol; ctx.lineWidth = 2
+    ctx.shadowColor = mainCol; ctx.shadowBlur = 10
     ctx.beginPath(); ctx.moveTo(ox - half, edgeY); ctx.lineTo(ox + half, edgeY)
     ctx.stroke(); ctx.shadowBlur = 0
   }
 
-  // Spider
-  const deadAlpha = S.phase === 'dead' ? Math.max(0, 1 - S.deadT * 2.5) : 1
+  // Spider (flash red on noclip hit)
+  const spiderCol  = S.hitFlash > 0 ? '#ff4444' : mainCol
+  const deadAlpha  = S.phase === 'dead' ? Math.max(0, 1 - S.deadT * 2.5) : 1
   if (deadAlpha > 0.01) {
     ctx.globalAlpha = deadAlpha
-    _spdDrawSpider(ctx, spX, spY, S.onFloor)
+    _spdDrawSpider(ctx, spX, spY, S.onFloor, spiderCol)
     ctx.globalAlpha = 1
   }
 
@@ -265,20 +457,54 @@ function _spdDraw(ctx, w, h) {
   ctx.textAlign = 'center'
   ctx.font = 'bold 26px monospace'
   ctx.fillStyle = 'rgba(255,255,255,0.92)'
-  ctx.shadowColor = _SPD_COL; ctx.shadowBlur = 16
-  ctx.fillText(S.score, w/2, 42)
-  ctx.shadowBlur = 0
+  ctx.shadowColor = mainCol; ctx.shadowBlur = 16
+  ctx.fillText(S.noclip ? '—' : S.score, w/2, 42); ctx.shadowBlur = 0
+
+  // Noclip label
+  if (S.noclip) {
+    ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.30)'
+    ctx.fillText('NOCLIP — ' + (S.practiceDiff || '').toUpperCase(), w/2, 18)
+  }
+
+  // ── Announce overlay ──
+  if (S.phase === 'announce' && ch) {
+    const a = Math.min(1, S.announceT * 7)
+    ctx.globalAlpha = a
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 12px monospace'
+    ctx.fillStyle = mainCol; ctx.shadowColor = mainCol; ctx.shadowBlur = 12
+    ctx.fillText(ch.diff.toUpperCase(), w/2, h/2 - 48)
+    ctx.font = 'bold 28px monospace'
+    ctx.fillStyle = '#fff'; ctx.shadowColor = mainCol; ctx.shadowBlur = 22
+    ctx.fillText(ch.name, w/2, h/2 - 10); ctx.shadowBlur = 0
+    ctx.font = '12px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.36)'
+    ctx.fillText('tap / space to flip', w/2, h/2 + 18)
+    ctx.globalAlpha = 1
+  }
+
+  // ── Cleared overlay ──
+  if (S.phase === 'cleared') {
+    const t = S.clearedT
+    const a = Math.min(1, t*8) * Math.max(0, 1 - (t - 0.25)*5.5)
+    if (a > 0.01) {
+      ctx.globalAlpha = a
+      ctx.textAlign = 'center'; ctx.font = 'bold 36px monospace'
+      ctx.fillStyle = '#4ade80'; ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 30
+      ctx.fillText('CLEARED!', w/2, h/2); ctx.shadowBlur = 0
+      ctx.globalAlpha = 1
+    }
+  }
 
   ctx.restore()
 }
 
-function _spdDrawSpider(ctx, x, y, onFloor) {
-  const R = SPD_R, col = _SPD_COL
+function _spdDrawSpider(ctx, x, y, onFloor, col) {
+  const R = SPD_R
   ctx.save()
   ctx.translate(x, y)
-  if (!onFloor) ctx.scale(1, -1)  // flip for ceiling — legs point toward surface
+  if (!onFloor) ctx.scale(1, -1)
 
-  // 8 legs: 4 pairs radiating downward
   ctx.strokeStyle = col; ctx.lineWidth = 1.5
   ctx.shadowColor = col; ctx.shadowBlur = 3
   for (const deg of [22, 44, 66, 84]) {
@@ -290,21 +516,17 @@ function _spdDrawSpider(ctx, x, y, onFloor) {
   }
   ctx.shadowBlur = 0
 
-  // Glow halo
   ctx.beginPath(); ctx.arc(0, 0, R * 1.6, 0, Math.PI*2)
   ctx.fillStyle = col + '15'; ctx.fill()
 
-  // Body
   ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI*2)
   ctx.fillStyle = col + '40'; ctx.fill()
 
-  // Core
   ctx.beginPath(); ctx.arc(0, 0, R * 0.62, 0, Math.PI*2)
   ctx.fillStyle = '#fff'
   ctx.shadowColor = col; ctx.shadowBlur = 12
   ctx.fill(); ctx.shadowBlur = 0
 
-  // Eyes
   ctx.fillStyle = '#05010a'
   ctx.beginPath(); ctx.arc(-R*0.22, -R*0.2, 1.4, 0, Math.PI*2); ctx.fill()
   ctx.beginPath(); ctx.arc( R*0.22, -R*0.2, 1.4, 0, Math.PI*2); ctx.fill()
