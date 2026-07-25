@@ -349,88 +349,32 @@ const G43_POOL = {
 
   dc: [
     {
-      name:'THE CORRIDOR', diff:'dc', speed:452, isDC:true, miniWave:true,
+      name:'PURGATORY', diff:'boss', speed:40,
       gen(h) {
-        const cys=[0.26,0.64,0.30,0.70,0.50].map(v=>v+qRandInt(8)/100-0.04)
-        const FP=22, W=h*.18
-        return { clearAt:1300, keyframes:[
-          {at:0,   cf:0.50,   gapH:W},
-          {at:75,  cf:cys[0], gapH:W},
-          {at:108, cf:cys[0], gapH:W},
-          {at:130, cf:cys[0], gapH:FP},
-          {at:158, cf:cys[0], gapH:FP},
-          {at:180, cf:cys[0], gapH:W},
-          {at:255, cf:cys[1], gapH:W},
-          {at:288, cf:cys[1], gapH:W},
-          {at:310, cf:cys[1], gapH:FP},
-          {at:338, cf:cys[1], gapH:FP},
-          {at:360, cf:cys[1], gapH:W},
-          {at:435, cf:cys[2], gapH:W},
-          {at:468, cf:cys[2], gapH:W},
-          {at:490, cf:cys[2], gapH:FP},
-          {at:518, cf:cys[2], gapH:FP},
-          {at:540, cf:cys[2], gapH:W},
-          {at:615, cf:cys[3], gapH:W},
-          {at:648, cf:cys[3], gapH:W},
-          {at:670, cf:cys[3], gapH:FP},
-          {at:698, cf:cys[3], gapH:FP},
-          {at:720, cf:cys[3], gapH:W},
-          {at:795, cf:cys[4], gapH:W},
-          {at:828, cf:cys[4], gapH:W},
-          {at:850, cf:cys[4], gapH:FP},
-          {at:878, cf:cys[4], gapH:FP},
-          {at:900, cf:cys[4], gapH:W},
-          {at:980, cf:0.50,   gapH:W},
-          {at:1300,cf:0.50,   gapH:W},
-        ]}
-      }
-    },
-    {
-      name:'FULL CORRIDOR', diff:'dc', speed:462, isDC:true, miniWave:true,
-      gen(h) {
-        const cys=Array.from({length:6},()=>0.22+qRandInt(56)/100)
-        const FP=24, W=h*.18
-        return { clearAt:1500, keyframes:[
-          {at:0,    cf:0.50,   gapH:W},
-          {at:65,   cf:cys[0], gapH:W},
-          {at:92,   cf:cys[0], gapH:W},
-          {at:112,  cf:cys[0], gapH:FP},
-          {at:138,  cf:cys[0], gapH:FP},
-          {at:158,  cf:cys[0], gapH:W},
-          {at:223,  cf:cys[1], gapH:W},
-          {at:250,  cf:cys[1], gapH:W},
-          {at:270,  cf:cys[1], gapH:FP},
-          {at:296,  cf:cys[1], gapH:FP},
-          {at:316,  cf:cys[1], gapH:W},
-          {at:381,  cf:cys[2], gapH:W},
-          {at:408,  cf:cys[2], gapH:W},
-          {at:428,  cf:cys[2], gapH:FP},
-          {at:454,  cf:cys[2], gapH:FP},
-          {at:474,  cf:cys[2], gapH:W},
-          {at:539,  cf:cys[3], gapH:W},
-          {at:566,  cf:cys[3], gapH:W},
-          {at:586,  cf:cys[3], gapH:FP},
-          {at:612,  cf:cys[3], gapH:FP},
-          {at:632,  cf:cys[3], gapH:W},
-          {at:697,  cf:cys[4], gapH:W},
-          {at:724,  cf:cys[4], gapH:W},
-          {at:744,  cf:cys[4], gapH:FP},
-          {at:770,  cf:cys[4], gapH:FP},
-          {at:790,  cf:cys[4], gapH:W},
-          {at:855,  cf:cys[5], gapH:W},
-          {at:882,  cf:cys[5], gapH:W},
-          {at:902,  cf:cys[5], gapH:FP},
-          {at:928,  cf:cys[5], gapH:FP},
-          {at:948,  cf:cys[5], gapH:W},
-          {at:1020, cf:0.50,   gapH:W},
-          {at:1500, cf:0.50,   gapH:W},
+        // NEEDLE gap (h*0.14) at ultra-slow speed — wave oscillates ~6px/col,
+        // player must spam hold/release every ~3 cols to survive.
+        const sign   = qRandInt(2) === 0 ? 1 : -1
+        const deltaPx = 15 + qRandInt(40)
+        const cy      = Math.max(0.15, Math.min(0.85, 0.50 + sign * deltaPx / h))
+        const gN      = h * 0.14
+        return { clearAt:900, keyframes:[
+          {at:0,   cf:0.50, gapH:h*.30},
+          {at:100, cf:cy,   gapH:h*.30},  // drift to off-center position
+          {at:160, cf:cy,   gapH:gN},     // CLOSE — spam begins
+          {at:420, cf:cy,   gapH:gN},     // hold tight 260 cols (6.5s)
+          {at:490, cf:cy,   gapH:h*.30},  // brief relief
+          {at:560, cf:cy,   gapH:h*.30},
+          {at:620, cf:cy,   gapH:gN},     // close again
+          {at:800, cf:cy,   gapH:gN},     // hold tight 180 cols (4.5s)
+          {at:860, cf:cy,   gapH:h*.30},
+          {at:900, cf:0.50, gapH:h*.30},
         ]}
       }
     },
   ],
 }
 
-const G43_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444' }
+const G43_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444', boss:'#ef4444' }
 
 const G43 = {
   active:false, phase:'idle',
@@ -610,8 +554,8 @@ function _g43GetPool(score) {
   if (score < 5)  return [...easy, ...medium]
   if (score < 9)  return [...medium, ...hard, extreme[0]]
   if (score < 13) return [...hard, ...extreme, fp[0]]
-  if (score < 17) return [...extreme, fp[0], fp[1], dc[0]]
-  return [fp[0], ...dc, ...dc]
+  if (score < 17) return [...extreme, fp[0], fp[1]]
+  return [fp[0], fp[1], dc[0], dc[0]]
 }
 
 function _g43LoadChallenge(w, h) {
@@ -943,6 +887,10 @@ function _g43Draw(ctx, w, h) {
       ctx.font = '11px monospace'
       ctx.fillStyle = 'rgba(251,146,60,.75)'; ctx.shadowColor='#fb923c'; ctx.shadowBlur=6
       ctx.fillText('⚡ tight gaps — stay centered', w/2, h/2+38); ctx.shadowBlur=0
+    } else if (ch.diff === 'boss') {
+      ctx.font = '11px monospace'
+      ctx.fillStyle = 'rgba(239,68,68,.85)'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=8
+      ctx.fillText('⚡ spam to survive — two rounds', w/2, h/2+38); ctx.shadowBlur=0
     }
     if (G43.noclip) { ctx.font='11px monospace'; ctx.fillStyle='rgba(255,255,255,0.30)'; ctx.fillText("noclip — walls won't kill you", w/2, h/2+58) }
     ctx.globalAlpha = 1
