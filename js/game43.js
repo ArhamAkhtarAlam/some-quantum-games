@@ -275,6 +275,78 @@ const G43_POOL = {
     },
   ],
 
+  extreme: [
+    {
+      name:'TWIN SLAM', diff:'extreme', speed:278,
+      gen(h) {
+        // Two 30px slams at different positions.
+        // Approach (120 col): max safe = 255/278*120*0.85 = 93px
+        // Inter-slam drift (100 col): max safe = 255/278*100*0.85 = 78px
+        const maxPos  = Math.floor(255/278 * 120 * 0.85)
+        const maxJump = Math.floor(255/278 * 100 * 0.85)
+        const cy1px   = 20 + qRandInt(Math.min(maxPos - 25, 55))
+        const sign1   = qRandInt(2) === 0 ? 1 : -1
+        const cy1     = Math.max(0.18, Math.min(0.82, 0.50 + sign1 * cy1px / h))
+        const cy2px   = 15 + qRandInt(Math.min(maxJump - 20, 50))
+        const cy2     = Math.max(0.18, Math.min(0.82, cy1 - sign1 * cy2px / h))
+        return { clearAt:960, keyframes:[
+          {at:0,   cf:0.50, gapH:h*.36},
+          {at:120, cf:cy1,  gapH:h*.36},  // 120-col drift (≤93px ✓)
+          {at:180, cf:cy1,  gapH:30},     // SLAM 1 (30px)
+          {at:270, cf:cy1,  gapH:30},
+          {at:330, cf:cy1,  gapH:h*.36},
+          {at:430, cf:cy2,  gapH:h*.36},  // 100-col drift (≤65px ✓)
+          {at:490, cf:cy2,  gapH:30},     // SLAM 2 (30px)
+          {at:580, cf:cy2,  gapH:30},
+          {at:640, cf:cy2,  gapH:h*.36},
+          {at:960, cf:0.50, gapH:h*.36},
+        ]}
+      }
+    },
+    {
+      name:'SQUEEZE SHIFT', diff:'extreme', speed:318,
+      gen(h) {
+        // 28px gap that slowly drifts while closed.
+        // Clearance = 7px/side — must tap-control to stay centered while tracking drift.
+        const maxPos = Math.floor(255/318 * 100 * 0.85)
+        const cy1px  = 10 + qRandInt(Math.min(maxPos - 15, 50))
+        const sign   = qRandInt(2) === 0 ? 1 : -1
+        const cy1    = Math.max(0.20, Math.min(0.80, 0.50 + sign * cy1px / h))
+        const drift  = (qRandInt(2) === 0 ? 1 : -1) * (8 + qRandInt(10))  // 8-17px
+        const cy2    = Math.max(0.18, Math.min(0.82, cy1 + drift / h))
+        return { clearAt:920, keyframes:[
+          {at:0,   cf:0.50, gapH:h*.36},
+          {at:100, cf:cy1,  gapH:h*.36},  // position
+          {at:160, cf:cy1,  gapH:28},     // SLAM — 28px tight gap
+          {at:280, cf:cy2,  gapH:28},     // slow drift 120 col (8-17px) while slammed
+          {at:360, cf:cy2,  gapH:h*.36},
+          {at:920, cf:0.50, gapH:h*.36},
+        ]}
+      }
+    },
+    {
+      name:'BLITZ', diff:'extreme', speed:395,
+      gen(h) {
+        // High speed, h*.10 gap, quick shifts while tight.
+        // sw = safe shift in 80 col = min(255/395*80*0.85, h*.10)
+        const gW = h * 0.10
+        const sw = Math.min(Math.floor(255/395 * 80 * 0.85), Math.floor(h * 0.10))
+        const hi = 0.50 - sw/h, lo = 0.50 + sw/h
+        return { clearAt:1100, keyframes:[
+          {at:0,    cf:0.50, gapH:h*.28},
+          {at:80,   cf:hi,   gapH:h*.26},   // 80-col shift up (≤sw px ✓)
+          {at:200,  cf:hi,   gapH:gW},      // tighten
+          {at:280,  cf:0.50, gapH:gW},      // 80-col return center while tight
+          {at:300,  cf:0.50, gapH:gW},
+          {at:380,  cf:lo,   gapH:gW},      // 80-col shift down while tight
+          {at:500,  cf:lo,   gapH:gW},
+          {at:580,  cf:lo,   gapH:h*.28},
+          {at:1100, cf:0.50, gapH:h*.28},
+        ]}
+      }
+    },
+  ],
+
   dc: [
     {
       name:'THE CORRIDOR', diff:'dc', speed:452, isDC:true, miniWave:true,
@@ -358,7 +430,7 @@ const G43_POOL = {
   ],
 }
 
-const G43_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', fp:'#c084fc', dc:'#ef4444' }
+const G43_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444' }
 
 const G43 = {
   active:false, phase:'idle',
@@ -533,12 +605,12 @@ function _g43KeyUp(e) {
 }
 
 function _g43GetPool(score) {
-  const {easy,medium,hard,fp,dc} = G43_POOL
+  const {easy,medium,hard,extreme,fp,dc} = G43_POOL
   if (score < 3)  return [...easy]
   if (score < 5)  return [...easy, ...medium]
-  if (score < 9)  return [...medium, ...hard, fp[0]]
-  if (score < 13) return [...hard, fp[0]]
-  if (score < 17) return [...hard, fp[0], fp[1], dc[0]]
+  if (score < 9)  return [...medium, ...hard, extreme[0]]
+  if (score < 13) return [...hard, ...extreme, fp[0]]
+  if (score < 17) return [...extreme, fp[0], fp[1], dc[0]]
   return [fp[0], ...dc, ...dc]
 }
 
@@ -867,6 +939,10 @@ function _g43Draw(ctx, w, h) {
       ctx.font = '11px monospace'
       ctx.fillStyle = 'rgba(252,165,165,0.75)'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=6
       ctx.fillText('⚡ mini wave · 5 slams · max speed', w/2, h/2+38); ctx.shadowBlur=0
+    } else if (ch.diff === 'extreme') {
+      ctx.font = '11px monospace'
+      ctx.fillStyle = 'rgba(251,146,60,.75)'; ctx.shadowColor='#fb923c'; ctx.shadowBlur=6
+      ctx.fillText('⚡ tight gaps — stay centered', w/2, h/2+38); ctx.shadowBlur=0
     }
     if (G43.noclip) { ctx.font='11px monospace'; ctx.fillStyle='rgba(255,255,255,0.30)'; ctx.fillText("noclip — walls won't kill you", w/2, h/2+58) }
     ctx.globalAlpha = 1
