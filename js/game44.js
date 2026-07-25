@@ -97,10 +97,11 @@ function _spdDoFlip() {
 function _spdSpawnObs(w, h) {
   while (_SPD.nextObstCol < _SPD.scrollX + w + 300) {
     _SPD.lastObstFloor = !_SPD.lastObstFloor
-    const minH = 22, maxH = Math.floor(h * 0.52)
-    const oh   = minH + qRandInt(Math.max(1, maxH - minH))
+    // Fixed height — only the timing between blocks creates difficulty
+    const oh = Math.max(28, Math.floor(h * 0.12))
     _SPD.obstacles.push({ col: _SPD.nextObstCol, floor: _SPD.lastObstFloor, h: oh, passed: false })
-    const gap = Math.max(130, 265 - Math.floor(_SPD.score * 3.5)) + qRandInt(70)
+    // Gap shrinks continuously, bottoms out at 72px (brutal at max speed)
+    const gap = Math.max(72, 285 - _SPD.score * 3) + qRandInt(20)
     _SPD.nextObstCol += gap
   }
   _SPD.obstacles = _SPD.obstacles.filter(o => o.col > _SPD.scrollX - 120)
@@ -116,7 +117,7 @@ function _spdLoop(ts) {
   if (_SPD.shake > 0) _SPD.shake = Math.max(0, _SPD.shake - dt * 4)
 
   if (_SPD.phase === 'playing') {
-    _SPD.speed    = Math.min(420, 220 + _SPD.score * 5)
+    _SPD.speed    = Math.min(460, 200 + _SPD.score * 6)
     _SPD.scrollX += _SPD.speed * dt
 
     const spY = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
