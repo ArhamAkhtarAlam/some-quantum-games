@@ -292,12 +292,12 @@ const G43_POOL = {
         return { clearAt:960, keyframes:[
           {at:0,   cf:0.50, gapH:h*.36},
           {at:120, cf:cy1,  gapH:h*.36},  // 120-col drift (≤93px ✓)
-          {at:180, cf:cy1,  gapH:30},     // SLAM 1 (30px)
-          {at:270, cf:cy1,  gapH:30},
+          {at:180, cf:cy1,  gapH:46},     // SLAM 1 (46px)
+          {at:270, cf:cy1,  gapH:46},
           {at:330, cf:cy1,  gapH:h*.36},
           {at:430, cf:cy2,  gapH:h*.36},  // 100-col drift (≤65px ✓)
-          {at:490, cf:cy2,  gapH:30},     // SLAM 2 (30px)
-          {at:580, cf:cy2,  gapH:30},
+          {at:490, cf:cy2,  gapH:46},     // SLAM 2 (46px)
+          {at:580, cf:cy2,  gapH:46},
           {at:640, cf:cy2,  gapH:h*.36},
           {at:960, cf:0.50, gapH:h*.36},
         ]}
@@ -317,8 +317,8 @@ const G43_POOL = {
         return { clearAt:920, keyframes:[
           {at:0,   cf:0.50, gapH:h*.36},
           {at:100, cf:cy1,  gapH:h*.36},  // position
-          {at:160, cf:cy1,  gapH:28},     // SLAM — 28px tight gap
-          {at:280, cf:cy2,  gapH:28},     // slow drift 120 col (8-17px) while slammed
+          {at:160, cf:cy1,  gapH:40},     // SLAM — 40px tight gap
+          {at:280, cf:cy2,  gapH:40},     // slow drift 120 col (8-17px) while slammed
           {at:360, cf:cy2,  gapH:h*.36},
           {at:920, cf:0.50, gapH:h*.36},
         ]}
@@ -329,8 +329,8 @@ const G43_POOL = {
       gen(h) {
         // High speed, h*.10 gap, quick shifts while tight.
         // sw = safe shift in 80 col = min(255/395*80*0.85, h*.10)
-        const gW = h * 0.10
-        const sw = Math.min(Math.floor(255/395 * 80 * 0.85), Math.floor(h * 0.10))
+        const gW = h * 0.13
+        const sw = Math.min(Math.floor(255/395 * 80 * 0.85), Math.floor(h * 0.13))
         const hi = 0.50 - sw/h, lo = 0.50 + sw/h
         return { clearAt:1100, keyframes:[
           {at:0,    cf:0.50, gapH:h*.28},
