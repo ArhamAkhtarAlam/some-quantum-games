@@ -1773,66 +1773,8 @@
   </div>
 </section>
 
-<!-- ══════════════════════════════════
-     LEVEL EDITOR (admin only)
-══════════════════════════════════ -->
-<section id="editor" class="screen">
-  <div class="top-bar">
-    <button class="btn-back" onclick="closeLevelEditor()">← Back</button>
-    <span class="game-title">🛠 Level Editor</span>
-    <span id="ed-msg" class="ed-msg"></span>
-  </div>
-
-  <div class="ed-gametabs">
-    <button class="ed-gametab active" data-game="wavegauntlet" onclick="edSetGame('wavegauntlet')">🌊 Wave Gauntlet</button>
-    <button class="ed-gametab" data-game="spider" onclick="edSetGame('spider')">🕷 Spider</button>
-  </div>
-
-  <div class="ed-layout">
-    <aside class="ed-side">
-      <div class="ed-side-head">
-        Drafts
-        <button class="ed-mini" onclick="edNew()">+ New</button>
-      </div>
-      <div id="ed-list" class="ed-list"></div>
-
-      <div class="ed-side-head">Built-in <span class="ed-hint">click to edit a copy</span></div>
-      <div id="ed-builtin" class="ed-list"></div>
-
-      <div class="ed-side-head">Properties</div>
-      <div id="ed-props" class="ed-props"></div>
-
-      <div class="ed-side-head">Published <span class="ed-hint">(live for all)</span></div>
-      <div id="ed-published" class="ed-list"></div>
-    </aside>
-
-    <main class="ed-main">
-      <div class="ed-canvas-wrap"><canvas id="ed-canvas"></canvas></div>
-      <div class="ed-actions">
-        <button class="btn-primary" onclick="edTestPlay()">▶ Test Play</button>
-        <button class="btn-primary" onclick="edValidate()">✓ Check</button>
-        <button class="btn-primary" onclick="edPublish()">☁ Publish</button>
-        <button class="btn-primary ghost" onclick="edDuplicate()">Duplicate</button>
-        <button class="btn-primary ghost" onclick="edExport()">Copy JSON</button>
-        <button class="btn-primary ghost" onclick="edImport()">Import</button>
-        <button class="btn-primary danger" onclick="edDelete()">Delete</button>
-      </div>
-      <p class="ed-help" id="ed-help">
-        <b>Wave Gauntlet:</b> drag the white dot to move the corridor, the coloured dots to resize the gap,
-        click empty space to add a keyframe. <b>Spider:</b> click to add a block (top half = ceiling,
-        bottom half = floor), click a block to remove it, drag to move.
-        <b>Right-click</b> deletes a keyframe or block. Hit <b>✓ Check</b> before publishing — it catches
-        gaps the wave physically can't reach and flips there isn't time to make.
-        Click a <b>Built-in</b> to load an editable copy; publishing it replaces the original for everyone.
-        <b>Starts at score</b> gates when a level enters the rotation, and <b>chance weight</b> sets how
-        often it comes up against the others.
-      </p>
-    </main>
-  </div>
-</section>
-
 <script src="js/game44.js"></script>
-<script src="js/editor.js"></script>
+<script src="js/customlevels.js"></script>
 
 </body>
 </html>

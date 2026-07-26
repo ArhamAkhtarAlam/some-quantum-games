@@ -10,8 +10,18 @@
 //  authored on one screen plays the same on another.
 // ═══════════════════════════════════════════════════════
 
-const ED_ADMIN_EMAIL = 'arham.akhtar111@gmail.com'
-const ED_LS_KEY      = 'qg_editor_drafts_v1'
+// This file only ever loads from editor.html, which is NOT linked from
+// the site — it's a local dev tool. Access control is "it's on your
+// machine". Publishing to Supabase is separately gated by the RLS policy
+// in sql/custom_levels.sql, which must list your account's email.
+const ED_LS_KEY = 'qg_editor_drafts_v1'
+
+const ED_SB_URL = 'https://kuvpxhuvednptyfqccea.supabase.co'
+const ED_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1dnB4aHV2ZWRucHR5ZnFjY2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NjY4MTcsImV4cCI6MjA5MDQ0MjgxN30.tYb15AI3DfwSjYrYrLVUPhOJjh8tfAvglPGXmunEA4k'
+
+const _sb = (typeof supabase !== 'undefined')
+  ? supabase.createClient(ED_SB_URL, ED_SB_KEY) : null
+let ED_USER = null
 
 const ED_DIFFS = {
   wavegauntlet: ['easy','medium','hard','extreme','fp','dc'],
@@ -49,8 +59,39 @@ const ED = {
   msg:'',
 }
 
-window.isLevelEditorAdmin = function() {
-  return !!(window.AUTH && AUTH.user && AUTH.user.email === ED_ADMIN_EMAIL)
+// ── Sign-in (only needed to publish) ──────────────────
+
+function _edRenderAuth() {
+  const el = document.getElementById('ed-auth')
+  if (!el) return
+  if (ED_USER) {
+    el.innerHTML = `<span style="color:var(--success)">✓ ${_edEsc(ED_USER.email)}</span>
+      <button class="ed-mini" onclick="edSignOut()">Sign out</button>`
+  } else {
+    el.innerHTML = `<input id="ed-em" type="email" placeholder="email" autocomplete="username">
+      <input id="ed-pw" type="password" placeholder="password" autocomplete="current-password">
+      <button class="ed-mini" onclick="edSignIn()">Sign in to publish</button>`
+    el.querySelector('#ed-pw').onkeydown = e => { if (e.key === 'Enter') edSignIn() }
+  }
+}
+
+window.edSignIn = async function() {
+  if (!_sb) { _edSetMsg('⚠ Supabase library did not load (offline?).'); return }
+  const email = document.getElementById('ed-em').value.trim()
+  const pw    = document.getElementById('ed-pw').value
+  if (!email || !pw) { _edSetMsg('⚠ Enter email and password.'); return }
+  _edSetMsg('Signing in…')
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw })
+  if (error) { _edSetMsg('⚠ ' + error.message); return }
+  ED_USER = data.user
+  _edSetMsg('✓ Signed in as ' + ED_USER.email)
+  _edRenderAuth(); _edRefreshPublished()
+}
+
+window.edSignOut = async function() {
+  if (_sb) await _sb.auth.signOut()
+  ED_USER = null
+  _edRenderAuth()
 }
 
 // ── Persistence ───────────────────────────────────────
@@ -69,23 +110,10 @@ function _edSaveDrafts() {
 }
 
 // ── Published levels (Supabase) ───────────────────────
-// Loaded once at startup by core; games read window.QG_CUSTOM_LEVELS.
+// The live site loads these via js/customlevels.js. In the editor we
+// mirror them into the same global so Test Play sees overrides too.
 
 window.QG_CUSTOM_LEVELS = { wavegauntlet: [], spider: [] }
-
-window.loadCustomLevels = async function() {
-  if (typeof _sb === 'undefined' || !_sb) return
-  try {
-    const { data, error } = await _sb.from('custom_levels').select('*')
-    if (error || !data) return
-    const out = { wavegauntlet: [], spider: [] }
-    for (const row of data) {
-      if (!out[row.game]) continue
-      out[row.game].push(_edRowToLevel(row))
-    }
-    window.QG_CUSTOM_LEVELS = out
-  } catch { /* offline / table missing — games fall back to built-ins */ }
-}
 
 function _edRowToLevel(row) {
   return {
@@ -109,7 +137,7 @@ function _edLevelToRow(lv) {
   return {
     game: ED.game, name: lv.name, diff: lv.diff,
     speed: Math.round(lv.speed), clear_at: Math.round(lv.clearAt),
-    data, author_id: AUTH.user.id,
+    data, author_id: ED_USER ? ED_USER.id : null,
   }
 }
 
@@ -213,35 +241,36 @@ function _edRenderBuiltins() {
   el.innerHTML = rows.length ? rows.join('') : '<div class="ed-empty">No built-ins found.</div>'
 }
 
-// ── Screen lifecycle ──────────────────────────────────
+// ── Page lifecycle ────────────────────────────────────
 
-window.showLevelEditor = function() {
-  if (!isLevelEditorAdmin()) {
-    alert('The level editor is admin-only.')
-    return
-  }
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
-  document.getElementById('editor').classList.add('active')
+document.addEventListener('DOMContentLoaded', async () => {
   _edLoadDrafts()
-  if (ED.sel < 0 && ED.levels.length) ED.sel = 0
+  if (ED.sel < 0) ED.sel = ED.levels.findIndex(l => l.game === ED.game)
+  // Restore an existing Supabase session if there is one
+  if (_sb) {
+    try {
+      const { data } = await _sb.auth.getSession()
+      ED_USER = data?.session?.user || null
+    } catch { ED_USER = null }
+  }
+  _edRenderAuth()
   _edRefreshPublished()
   _edRender()
   _edBindCanvas()
-}
-
-window.closeLevelEditor = function() {
-  _edUnbindCanvas()
-  goHome()
-}
+})
 
 async function _edRefreshPublished() {
-  if (typeof _sb === 'undefined' || !_sb) return
+  if (!_sb) return
   try {
     const { data, error } = await _sb.from('custom_levels')
       .select('*').eq('game', ED.game).order('created_at', { ascending:false })
     ED.published = (error || !data) ? [] : data
   } catch { ED.published = [] }
+  // Mirror into the shared global so Test Play sees the same overrides
+  // and score gates the live site would apply.
+  window.QG_CUSTOM_LEVELS[ED.game] = ED.published.map(_edRowToLevel)
   _edRenderPublished()
+  _edRenderBuiltins()
 }
 
 // ── UI rendering ──────────────────────────────────────
@@ -403,19 +432,37 @@ window.edDelete = function() {
   _edTouch(); _edRender()
 }
 
-window.edTestPlay = function() {
+// Test Play runs the REAL game against a hidden host that carries the
+// canvas ids game43/game44 expect. Same physics as the live site.
+window.edTestPlay = async function() {
   const lv = _edCur(); if (!lv) return
-  _edUnbindCanvas()
   const built = _edBuildRuntime(lv)
-  if (ED.game === 'wavegauntlet') {
-    document.getElementById('editor').classList.remove('active')
-    document.getElementById('game43').classList.add('active')
-    initGame43().then(() => window.g43TestLevel(built))
-  } else {
-    document.getElementById('editor').classList.remove('active')
-    document.getElementById('game44').classList.add('active')
-    initSpider().then(() => window.spdTestLevel(built))
+  const wave  = ED.game === 'wavegauntlet'
+
+  _edUnbindCanvas()
+  document.getElementById('ed-testhost').classList.add('on')
+  document.getElementById('ed-test-title').textContent = `${lv.name} — ${lv.diff.toUpperCase()}`
+  document.getElementById('g43-canvas').style.display = wave ? 'block' : 'none'
+  document.getElementById('spd-canvas').style.display = wave ? 'none'  : 'block'
+  document.getElementById('g43-score-hud').style.display = wave ? '' : 'none'
+  document.getElementById('spd-score-hud').style.display = wave ? 'none' : ''
+
+  try {
+    if (wave) { await initGame43(); window.g43TestLevel(built) }
+    else      { await initSpider(); window.spdTestLevel(built) }
+  } catch (e) {
+    console.error('[editor] test play failed', e)
+    _edSetMsg('⚠ Test play failed: ' + e.message)
+    edStopTest()
   }
+}
+
+window.edStopTest = function() {
+  try { if (typeof stopGame43 === 'function') stopGame43() } catch {}
+  try { if (typeof stopSpider === 'function') stopSpider() } catch {}
+  document.getElementById('ed-testhost').classList.remove('on')
+  _edBindCanvas()
+  _edDraw()
 }
 
 // Runtime level: same shape the game pools use
@@ -436,8 +483,8 @@ function _edBuildRuntime(lv) {
 
 window.edPublish = async function() {
   const lv = _edCur(); if (!lv) return
-  if (typeof _sb === 'undefined' || !_sb) { _edSetMsg('⚠ Supabase unavailable.'); return }
-  if (!isLevelEditorAdmin()) { _edSetMsg('⚠ Admin only.'); return }
+  if (!_sb) { _edSetMsg('⚠ Supabase library did not load.'); return }
+  if (!ED_USER) { _edSetMsg('⚠ Sign in first (top right) to publish.'); return }
   const warn = _edValidate(lv)
   if (warn && !confirm(warn + '\n\nPublish anyway?')) return
   _edSetMsg('Publishing…')
@@ -449,7 +496,13 @@ window.edPublish = async function() {
     } else {
       res = await _sb.from('custom_levels').insert(row).select().maybeSingle()
     }
-    if (res.error) { _edSetMsg('⚠ ' + res.error.message); return }
+    if (res.error) {
+      const m = res.error.message || ''
+      _edSetMsg(/row-level security|policy/i.test(m)
+        ? `⚠ Server rejected the write. Add "${ED_USER.email}" to the policy in sql/custom_levels.sql and re-run it in Supabase.`
+        : '⚠ ' + m)
+      return
+    }
     if (res.data) lv.publishedId = res.data.id
     _edTouch()
     _edSetMsg('✅ Published — live for everyone.')
@@ -477,6 +530,42 @@ window.edExport = function() {
   navigator.clipboard?.writeText(json)
   _edSetMsg('📋 Level JSON copied to clipboard.')
   console.log(json)
+}
+
+// Emit a pool entry you can paste straight into game43.js / game44.js
+window.edExportCode = function() {
+  const lv = _edCur(); if (!lv) return
+  const p = n => Number(n.toFixed(4))
+  let body
+  if (lv.game === 'wavegauntlet') {
+    const kf = lv.keyframes.map(k =>
+      `          {at:${k.at}, cf:${p(k.cf)}, gapH:h*${p(k.gapHf)}},`).join('\n')
+    body =
+`    {
+      name:'${lv.name}', diff:'${lv.diff}', speed:${Math.round(lv.speed)},
+      gen(h) {
+        return { clearAt:${Math.round(lv.clearAt)}, keyframes:[
+${kf}
+        ]}
+      }
+    },`
+  } else {
+    const obs = lv.obstacles.map(o =>
+      `          {col:${o.col}, floor:${!!o.floor}},`).join('\n')
+    body =
+`    {
+      name:'${lv.name}', diff:'${lv.diff}', speed:${Math.round(lv.speed)},
+      gen(h) {
+        return { clearAt:${Math.round(lv.clearAt)}, obstacles:[
+${obs}
+        ]}
+      }
+    },`
+  }
+  const target = lv.game === 'wavegauntlet' ? 'G43_POOL' : 'SPD_POOL'
+  navigator.clipboard?.writeText(body)
+  _edSetMsg(`📋 JS copied — paste into ${target}.${lv.diff} in js/${lv.game === 'wavegauntlet' ? 'game43' : 'game44'}.js`)
+  console.log(body)
 }
 
 window.edImport = function() {
@@ -774,11 +863,6 @@ function _edContext(e) {
     if (i >= 0) { lv.obstacles.splice(i, 1); _edTouch(); _edDraw() }
   }
 }
-
-// Pull published levels once at startup so every player gets them
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => window.loadCustomLevels(), 400)
-})
 
 let _edBound = false
 function _edBindCanvas() {

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🛠 Level Editor — Quantum Games</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* Standalone page — index.html's .screen rules don't apply here */
+    body { margin: 0; min-height: 100vh; }
+    .ed-page { display: flex; flex-direction: column; min-height: 100vh; padding: 1rem 1.25rem; gap: .8rem; }
+    .ed-topbar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    .ed-topbar h1 { font-size: 1.15rem; margin: 0; }
+    .ed-local-tag {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+      background: rgba(6,182,212,.16); color: var(--accent2);
+      border: 1px solid rgba(6,182,212,.3); border-radius: 5px; padding: .12rem .4rem;
+    }
+    .ed-auth { margin-left: auto; display: flex; align-items: center; gap: .4rem; font-size: .78rem; }
+    .ed-auth input {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      border-radius: 5px; padding: .25rem .45rem; font-size: .76rem; width: 150px; font-family: inherit;
+    }
+    /* Hidden host for the real game canvases, so Test Play runs the actual game */
+    #ed-testhost { display: none; position: fixed; inset: 0; z-index: 50; background: var(--bg);
+                   flex-direction: column; padding: 1rem; gap: .6rem; }
+    #ed-testhost.on { display: flex; }
+    #ed-testhost .canvas-arena { flex: 1; position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    #ed-testhost canvas { display: block; width: 100%; height: 100%; }
+    .ed-testbar { display: flex; align-items: center; gap: .6rem; }
+  </style>
+</head>
+<body>
+
+<div class="ed-page">
+  <div class="ed-topbar">
+    <h1>🛠 Level Editor</h1>
+    <span class="ed-local-tag">local only</span>
+    <span id="ed-msg" class="ed-msg"></span>
+    <div class="ed-auth" id="ed-auth"></div>
+  </div>
+
+  <div class="ed-gametabs">
+    <button class="ed-gametab active" data-game="wavegauntlet" onclick="edSetGame('wavegauntlet')">🌊 Wave Gauntlet</button>
+    <button class="ed-gametab" data-game="spider" onclick="edSetGame('spider')">🕷 Spider</button>
+  </div>
+
+  <div class="ed-layout">
+    <aside class="ed-side">
+      <div class="ed-side-head">Drafts <button class="ed-mini" onclick="edNew()">+ New</button></div>
+      <div id="ed-list" class="ed-list"></div>
+
+      <div class="ed-side-head">Built-in <span class="ed-hint">click to edit a copy</span></div>
+      <div id="ed-builtin" class="ed-list"></div>
+
+      <div class="ed-side-head">Properties</div>
+      <div id="ed-props" class="ed-props"></div>
+
+      <div class="ed-side-head">Published <span class="ed-hint">(live for all)</span></div>
+      <div id="ed-published" class="ed-list"></div>
+    </aside>
+
+    <main class="ed-main">
+      <div class="ed-canvas-wrap"><canvas id="ed-canvas"></canvas></div>
+      <div class="ed-actions">
+        <button class="btn-primary" onclick="edTestPlay()">▶ Test Play</button>
+        <button class="btn-primary" onclick="edValidate()">✓ Check</button>
+        <button class="btn-primary" onclick="edPublish()">☁ Publish</button>
+        <button class="btn-primary ghost" onclick="edDuplicate()">Duplicate</button>
+        <button class="btn-primary ghost" onclick="edExportCode()">Copy as JS</button>
+        <button class="btn-primary ghost" onclick="edExport()">Copy JSON</button>
+        <button class="btn-primary ghost" onclick="edImport()">Import</button>
+        <button class="btn-primary danger" onclick="edDelete()">Delete</button>
+      </div>
+      <p class="ed-help">
+        <b>Wave Gauntlet:</b> drag the white dot to move the corridor, the coloured dots to resize the gap,
+        click empty space to add a keyframe. <b>Spider:</b> click to add a block (top half = ceiling,
+        bottom half = floor), click a block to remove it, drag to move. <b>Right-click</b> deletes.
+        <br><b>✓ Check</b> catches gaps the wave physically can't reach and flips there isn't time to make.
+        <b>Copy as JS</b> gives you code to paste straight into <code>js/game43.js</code> /
+        <code>js/game44.js</code>; <b>Publish</b> pushes it live without a commit (needs sign-in).
+      </p>
+    </main>
+  </div>
+</div>
+
+<!-- Real game canvases, shown only during Test Play -->
+<div id="ed-testhost">
+  <div class="ed-testbar">
+    <button class="btn-back" onclick="edStopTest()">← Back to editor</button>
+    <span class="game-title" id="ed-test-title"></span>
+    <span class="score-badge">Clears <span id="g43-score-hud">0</span><span id="spd-score-hud" style="display:none"></span></span>
+  </div>
+  <div class="canvas-arena" id="ed-test-arena">
+    <canvas id="g43-canvas"></canvas>
+    <canvas id="spd-canvas" style="display:none"></canvas>
+    <div id="g43-overlay" style="display:none"></div>
+    <div id="spd-overlay" style="display:none"></div>
+    <div id="g43-over" style="display:none"><span id="g43-final-score"></span></div>
+    <div id="spd-over" style="display:none"><span id="spd-final-score"></span></div>
+    <span id="g43-match-btn" style="display:none"></span>
+    <span id="g43-match-status" style="display:none"></span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // Stubs the games expect from core.js — the editor doesn't need real
+  // quantum entropy or the CURBy fetch, just something callable.
+  function qRandInt(max) { return Math.floor(Math.random() * max) }
+  window.initCurby = async function() {}
+  window.mpFindMatch = function() {}
+</script>
+<script src="js/sfx.js"></script>
+<script src="js/game43.js"></script>
+<script src="js/game44.js"></script>
+<script src="js/editor.js"></script>
+
+</body>
+</html>
