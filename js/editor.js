@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════
 //  LEVEL EDITOR — Wave Gauntlet (43) + Spider (44)
-//  Admin-only. Drafts live in localStorage; Publish pushes
-//  to Supabase so every player gets the level.
+//  Local dev tool (editor.html). Drafts live in localStorage;
+//  Publish pushes to Supabase so every player gets the level.
+//  Undo/redo, a restorable trash, and revert-to-original are in
+//  the "Restore" section.
 //
 //  Level data format (shared, resolution-independent):
 //    wavegauntlet: { keyframes:[{at, cf, gapHf}], clearAt }
@@ -57,6 +59,134 @@ const ED = {
   scroll:0,             // horizontal scroll in columns
   zoom:1,               // px per column
   msg:'',
+  undo:[], redo:[],     // full-state snapshots
+  trash:[],             // deleted drafts, restorable
+}
+
+// ── Undo / redo ───────────────────────────────────────
+// Snapshots the whole draft list, so it covers edits, creates,
+// deletes and imports uniformly. Call BEFORE mutating.
+
+const ED_UNDO_MAX  = 60
+const ED_TRASH_KEY = 'qg_editor_trash_v1'
+const ED_TRASH_MAX = 30
+
+function _edClone(x) { return JSON.parse(JSON.stringify(x)) }
+
+function _edPush() {
+  const snap = { levels:_edClone(ED.levels), sel:ED.sel }
+  const prev = ED.undo[ED.undo.length - 1]
+  // Skip if nothing actually changed since the last snapshot
+  if (prev && JSON.stringify(prev.levels) === JSON.stringify(snap.levels)) return
+  ED.undo.push(snap)
+  if (ED.undo.length > ED_UNDO_MAX) ED.undo.shift()
+  ED.redo.length = 0
+  _edRenderRestore()
+}
+
+function _edApply(snap) {
+  ED.levels = _edClone(snap.levels)
+  ED.sel    = Math.min(snap.sel, ED.levels.length - 1)
+  _edSaveDrafts(); _edRender()
+}
+
+window.edUndo = function() {
+  if (!ED.undo.length) { _edSetMsg('Nothing to undo.'); return }
+  ED.redo.push({ levels:_edClone(ED.levels), sel:ED.sel })
+  _edApply(ED.undo.pop())
+  _edSetMsg('↩ Undone.')
+}
+
+window.edRedo = function() {
+  if (!ED.redo.length) { _edSetMsg('Nothing to redo.'); return }
+  ED.undo.push({ levels:_edClone(ED.levels), sel:ED.sel })
+  _edApply(ED.redo.pop())
+  _edSetMsg('↪ Redone.')
+}
+
+// ── Trash (deleted drafts) ────────────────────────────
+
+function _edLoadTrash() {
+  try {
+    const raw = localStorage.getItem(ED_TRASH_KEY)
+    ED.trash = raw ? JSON.parse(raw) : []
+  } catch { ED.trash = [] }
+  if (!Array.isArray(ED.trash)) ED.trash = []
+}
+
+function _edSaveTrash() {
+  try { localStorage.setItem(ED_TRASH_KEY, JSON.stringify(ED.trash)) } catch {}
+}
+
+window.edRestoreTrash = function(i) {
+  const item = ED.trash[i]; if (!item) return
+  _edPush()
+  ED.levels.push(item.lv)
+  ED.sel = ED.levels.length - 1
+  ED.game = item.lv.game || ED.game
+  ED.trash.splice(i, 1)
+  _edSaveTrash(); _edTouch()
+  document.querySelectorAll('.ed-gametab').forEach(b =>
+    b.classList.toggle('active', b.dataset.game === ED.game))
+  _edRender()
+  _edSetMsg(`Restored "${item.lv.name}".`)
+}
+
+window.edEmptyTrash = function() {
+  if (!ED.trash.length) return
+  if (!confirm(`Permanently delete ${ED.trash.length} item(s) from the trash?`)) return
+  ED.trash = []; _edSaveTrash(); _edRenderRestore()
+  _edSetMsg('Trash emptied.')
+}
+
+// ── Revert an edited built-in to its original ─────────
+
+window.edRevert = function() {
+  const lv = _edCur(); if (!lv) return
+  if (!lv.overrides) { _edSetMsg('⚠ This is not a copy of a built-in — nothing to revert to.'); return }
+  const pools = _edBuiltins()
+  let found = null, foundKey = null
+  for (const key of ED_DIFFS[ED.game]) {
+    const i = (pools[key] || []).findIndex(t => t.name === lv.overrides)
+    if (i >= 0) { found = pools[key][i]; foundKey = key; break }
+  }
+  if (!found) { _edSetMsg(`⚠ Built-in "${lv.overrides}" no longer exists.`); return }
+  // Restores shape, speed and length from the built-in but keeps your
+  // name and tuning, since those are usually deliberate.
+  if (!confirm(`Reload the shape, speed and length of "${lv.overrides}" from the built-in?\n\nYour name and tuning are kept. Ctrl+Z undoes this.`)) return
+
+  _edPush()
+  const H = _edRefHeight()
+  const d = found.gen(H)
+  lv.diff    = found.diff || foundKey
+  lv.speed   = found.speed
+  lv.clearAt = Math.round(d.clearAt)
+  if (ED.game === 'wavegauntlet') {
+    lv.keyframes = (d.keyframes || []).map(k => ({
+      at: Math.round(k.at), cf: +k.cf.toFixed(4), gapHf: +(k.gapH / H).toFixed(4),
+    }))
+  } else {
+    lv.obstacles = (d.obstacles || []).map(o => ({ col: Math.round(o.col), floor: !!o.floor }))
+  }
+  _edTouch(); _edRender()
+  _edSetMsg(`↺ Reverted to the original "${lv.overrides}".`)
+}
+
+function _edRenderRestore() {
+  const u = document.getElementById('ed-undo-count')
+  if (u) u.textContent = ED.undo.length ? `(${ED.undo.length})` : ''
+  const el = document.getElementById('ed-trash')
+  if (!el) return
+  if (!ED.trash.length) { el.innerHTML = '<div class="ed-empty">Trash is empty.</div>'; return }
+  el.innerHTML = ED.trash.map((t, i) => {
+    const col = ED_DIFF_COL[t.lv.diff] || '#888'
+    const when = new Date(t.at).toLocaleString()
+    return `<div class="ed-item" title="Deleted ${_edEsc(when)}">
+      <span class="ed-item-diff" style="background:${col}"></span>
+      <span class="ed-item-name">${_edEsc(t.lv.name)}</span>
+      <button class="ed-mini" onclick="edRestoreTrash(${i})">Restore</button>
+    </div>`
+  }).join('')
 }
 
 // ── Sign-in (only needed to publish) ──────────────────
@@ -191,6 +321,7 @@ window.edLoadBuiltin = function(diffKey, idx) {
   catch (e) { _edSetMsg('⚠ Could not read that level: ' + e.message); return }
 
   const diff = tmpl.diff || diffKey
+  _edPush()
   const lv = {
     game:    ED.game,
     name:    tmpl.name,
@@ -245,6 +376,7 @@ function _edRenderBuiltins() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   _edLoadDrafts()
+  _edLoadTrash()
   if (ED.sel < 0) ED.sel = ED.levels.findIndex(l => l.game === ED.game)
   // Restore an existing Supabase session if there is one
   if (_sb) {
@@ -285,6 +417,7 @@ function _edSetMsg(m) {
 function _edCur() { return ED.levels[ED.sel] || null }
 
 function _edRender() {
+  _edRenderRestore()
   _edRenderList()
   _edRenderBuiltins()
   _edRenderProps()
@@ -351,6 +484,9 @@ function _edRenderProps() {
   q('#ed-f-min').oninput    = e => { lv.minScore = Math.max(0, +e.target.value || 0); _edTouch(); q('#ed-window-note').textContent = _edWindowNote(lv) }
   q('#ed-f-max').oninput    = e => { lv.maxScore = Math.max(0, +e.target.value || 0); _edTouch(); q('#ed-window-note').textContent = _edWindowNote(lv) }
   q('#ed-f-weight').oninput = e => { lv.weight = Math.max(0.1, +e.target.value || 1); _edTouch() }
+
+  // One undo entry per field-editing session, taken before the first keystroke
+  el.querySelectorAll('input, select').forEach(i => i.addEventListener('focus', _edPush))
 }
 
 function _edRankCol(r) {
@@ -409,6 +545,7 @@ window.edSetGame = function(g) {
 window.edSelect = function(i) { ED.sel = i; ED.scroll = 0; _edRender() }
 
 window.edNew = function() {
+  _edPush()
   ED.levels.push(_edNewLevel(ED.game))
   ED.sel = ED.levels.length - 1
   _edTouch(); _edRender()
@@ -416,6 +553,7 @@ window.edNew = function() {
 
 window.edDuplicate = function() {
   const lv = _edCur(); if (!lv) return
+  _edPush()
   const copy = JSON.parse(JSON.stringify(lv))
   copy.name = (copy.name + ' COPY').slice(0, 20)
   delete copy.publishedId
@@ -426,10 +564,15 @@ window.edDuplicate = function() {
 
 window.edDelete = function() {
   const lv = _edCur(); if (!lv) return
-  if (!confirm(`Delete draft "${lv.name}"? (Published copy, if any, stays live.)`)) return
+  if (!confirm(`Delete draft "${lv.name}"?\n\nIt goes to the trash and can be restored. Any published copy stays live.`)) return
+  _edPush()
+  ED.trash.unshift({ lv:_edClone(lv), at:Date.now() })
+  if (ED.trash.length > ED_TRASH_MAX) ED.trash.length = ED_TRASH_MAX
+  _edSaveTrash()
   ED.levels.splice(ED.sel, 1)
   ED.sel = ED.levels.findIndex(l => l.game === ED.game)
   _edTouch(); _edRender()
+  _edSetMsg(`Moved "${lv.name}" to the trash.`)
 }
 
 // Test Play runs the REAL game against a hidden host that carries the
@@ -574,6 +717,7 @@ window.edImport = function() {
   try {
     const lv = JSON.parse(raw)
     if (!lv.game) lv.game = ED.game
+    _edPush()
     delete lv.publishedId
     ED.levels.push(lv)
     ED.sel = ED.levels.length - 1
@@ -762,6 +906,7 @@ function _edPos(e) {
 function _edDown(e) {
   const lv = _edCur(); if (!lv) return
   e.preventDefault()
+  _edPush()
   const { x, y } = _edPos(e)
   const c = _edCvs(), w = c.width, h = c.height
   const ppc = w / Math.max(1, lv.clearAt)
@@ -845,6 +990,7 @@ function _edUp() {
 function _edContext(e) {
   const lv = _edCur(); if (!lv) return
   e.preventDefault()
+  _edPush()
   const { x } = _edPos(e)
   const c = _edCvs()
   const ppc = c.width / Math.max(1, lv.clearAt)
@@ -863,6 +1009,15 @@ function _edContext(e) {
     if (i >= 0) { lv.obstacles.splice(i, 1); _edTouch(); _edDraw() }
   }
 }
+
+// Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redo
+function _edKeys(e) {
+  const k = e.key.toLowerCase()
+  if (!(e.ctrlKey || e.metaKey)) return
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); edUndo() }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); edRedo() }
+}
+window.addEventListener('keydown', _edKeys)
 
 let _edBound = false
 function _edBindCanvas() {
