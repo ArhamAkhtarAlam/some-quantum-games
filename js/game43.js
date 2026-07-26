@@ -556,11 +556,34 @@ function _g43KeyUp(e) {
   else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = false) : (G43.holding = false) }
 }
 
-// Published editor levels → pool templates (data becomes a gen() fn)
-function _g43Custom(diff) {
-  const list = (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.wavegauntlet) || []
-  return list.filter(l => l.diff === diff && Array.isArray(l.keyframes)).map(l => ({
+// ── Editor-published levels ───────────────────────────
+
+function _g43CustomAll() {
+  return (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.wavegauntlet) || []
+}
+
+// Names of built-ins that a published edit replaces
+function _g43Overridden() {
+  return new Set(_g43CustomAll().map(l => l.overrides).filter(Boolean))
+}
+
+// Strip built-ins that have been overridden by an edited version
+function _g43B(arr) {
+  const ov = _g43Overridden()
+  return ov.size ? arr.filter(t => !ov.has(t.name)) : arr
+}
+
+// Published levels → pool templates (data becomes a gen() fn)
+function _g43Custom(diff, score) {
+  return _g43CustomAll().filter(l => {
+    if (l.diff !== diff || !Array.isArray(l.keyframes)) return false
+    if (score == null) return true
+    if ((l.minScore ?? 0) > score) return false
+    if ((l.maxScore ?? 0) > 0 && score > l.maxScore) return false
+    return true
+  }).map(l => ({
     name:l.name, diff:l.diff, speed:l.speed, custom:true,
+    weight: l.weight ?? 1, miniWave: !!l.miniWave,
     gen(h) {
       return {
         clearAt: l.clearAt,
@@ -570,15 +593,39 @@ function _g43Custom(diff) {
   }))
 }
 
+// All custom levels eligible at this score, any tier
+function _g43CustomEligible(score) {
+  const out = []
+  for (const d of ['easy','medium','hard','extreme','fp','dc','boss']) {
+    out.push(..._g43Custom(d, score))
+  }
+  return out
+}
+
+// Weighted random pick — weight 1 is normal, 3 is 3× as likely
+function _g43Pick(pool) {
+  if (!pool.length) return null
+  const total = pool.reduce((s, t) => s + (t.weight ?? 1), 0)
+  if (total <= 0) return pool[qRandInt(pool.length)]
+  let r = (qRandInt(10000) / 10000) * total
+  for (const t of pool) {
+    r -= (t.weight ?? 1)
+    if (r <= 0) return t
+  }
+  return pool[pool.length - 1]
+}
+
 function _g43GetPool(score) {
   const {easy,medium,hard,extreme,fp,dc} = G43_POOL
-  const C = _g43Custom
-  if (score < 3)  return [...easy, ...C('easy')]
-  if (score < 5)  return [...easy, ...medium, ...C('easy'), ...C('medium')]
-  if (score < 9)  return [...medium, ...hard, extreme[0], ...C('medium'), ...C('hard')]
-  if (score < 13) return [...hard, ...extreme, ...C('hard'), ...C('extreme')]
-  if (score < 17) return [...extreme, dc[0], ...C('extreme')]
-  return [dc[0], fp[0], fp[1], ...C('fp'), ...C('dc')]
+  const B = _g43B
+  let builtins
+  if      (score < 3)  builtins = [...B(easy)]
+  else if (score < 5)  builtins = [...B(easy), ...B(medium)]
+  else if (score < 9)  builtins = [...B(medium), ...B(hard), ...B([extreme[0]])]
+  else if (score < 13) builtins = [...B(hard), ...B(extreme)]
+  else if (score < 17) builtins = [...B(extreme), ...B([dc[0]])]
+  else                 builtins = [...B([dc[0], fp[0], fp[1]])]
+  return [...builtins, ..._g43CustomEligible(score)]
 }
 
 function _g43LoadChallenge(w, h) {
@@ -586,11 +633,13 @@ function _g43LoadChallenge(w, h) {
   if (G43.testLevel) {
     pool = [G43.testLevel]
   } else if (G43.noclip && G43.practiceDiff) {
-    pool = [...(G43_POOL[G43.practiceDiff] || G43_POOL.easy), ..._g43Custom(G43.practiceDiff)]
+    // Practice ignores score gates so every level in the tier is reachable
+    pool = [..._g43B(G43_POOL[G43.practiceDiff] || G43_POOL.easy), ..._g43Custom(G43.practiceDiff, null)]
   } else {
     pool = _g43GetPool(G43.score)
   }
-  const tmpl        = pool[qRandInt(pool.length)]
+  if (!pool.length) pool = [...G43_POOL.easy]
+  const tmpl        = _g43Pick(pool)
   G43.challenge     = { ...tmpl }
   G43.waveR         = tmpl.miniWave ? G43_WAVE_R_MINI : G43_WAVE_R_NRM
   const kfData      = tmpl.gen(h)

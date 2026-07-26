@@ -19,7 +19,23 @@ const ED_DIFFS = {
 }
 const ED_DIFF_COL = {
   easy:'#4ade80', medium:'#fbbf24', hard:'#f87171',
-  extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444',
+  extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444', boss:'#ef4444',
+}
+
+// The built-in pools live in game43.js / game44.js as top-level consts
+function _edBuiltins() {
+  if (ED.game === 'wavegauntlet') return (typeof G43_POOL !== 'undefined') ? G43_POOL : {}
+  return (typeof SPD_POOL !== 'undefined') ? SPD_POOL : {}
+}
+
+// Height to bake gen() against. Built-in gens mix fractions with pixel
+// clamps, so using the real canvas height reproduces what actually plays.
+function _edRefHeight() {
+  const id = ED.game === 'wavegauntlet' ? 'g43-canvas' : 'spd-canvas'
+  const c  = document.getElementById(id)
+  return (c && c.height > 50) ? c.height
+       : (c && c.parentElement && c.parentElement.clientHeight > 50) ? c.parentElement.clientHeight
+       : 400
 }
 
 const ED = {
@@ -84,6 +100,12 @@ function _edLevelToRow(lv) {
   const data = ED.game === 'wavegauntlet'
     ? { keyframes: lv.keyframes }
     : { obstacles: lv.obstacles }
+  if (lv.overrides) data.overrides = lv.overrides
+  if (lv.miniWave)  data.miniWave  = true
+  data.rank     = lv.rank     ?? 20
+  data.minScore = lv.minScore ?? 0
+  data.maxScore = lv.maxScore ?? 0
+  data.weight   = lv.weight   ?? 1
   return {
     game: ED.game, name: lv.name, diff: lv.diff,
     speed: Math.round(lv.speed), clear_at: Math.round(lv.clearAt),
@@ -93,10 +115,17 @@ function _edLevelToRow(lv) {
 
 // ── Level creation ────────────────────────────────────
 
+// Tuning defaults shared by both games:
+//   rank     0–100 difficulty label (cosmetic + sorts the list)
+//   minScore level only starts appearing at this score
+//   maxScore level stops appearing after this score (0 = never stops)
+//   weight   relative chance vs other eligible levels (1 = normal)
+const ED_TUNING = { rank:20, minScore:0, maxScore:0, weight:1 }
+
 function _edNewLevel(game) {
   if (game === 'wavegauntlet') {
     return {
-      game, name:'NEW LEVEL', diff:'easy', speed:160, clearAt:800,
+      game, name:'NEW LEVEL', diff:'easy', speed:160, clearAt:800, ...ED_TUNING,
       keyframes:[
         { at:0,   cf:0.50, gapHf:0.50 },
         { at:200, cf:0.50, gapHf:0.50 },
@@ -106,13 +135,82 @@ function _edNewLevel(game) {
     }
   }
   return {
-    game, name:'NEW LEVEL', diff:'easy', speed:170, clearAt:900,
+    game, name:'NEW LEVEL', diff:'easy', speed:170, clearAt:900, ...ED_TUNING,
     obstacles:[
       { col:240, floor:false },
       { col:440, floor:true  },
       { col:640, floor:false },
     ],
   }
+}
+
+// Rough 0–100 rank for a built-in, from its tier and speed
+function _edGuessRank(diff, speed) {
+  const base = { easy:10, medium:30, hard:55, extreme:75, fp:90, dc:95, boss:95 }[diff] ?? 30
+  return Math.max(0, Math.min(100, Math.round(base + (speed - 250) / 20)))
+}
+
+// ── Loading a built-in level for editing ──────────────
+// Built-ins are gen(h) functions, some with randomness. We run one
+// at the real canvas height to bake out a concrete, editable copy.
+
+window.edLoadBuiltin = function(diffKey, idx) {
+  const tmpl = (_edBuiltins()[diffKey] || [])[idx]
+  if (!tmpl) return
+  const H = _edRefHeight()
+  let d
+  try { d = tmpl.gen(H) }
+  catch (e) { _edSetMsg('⚠ Could not read that level: ' + e.message); return }
+
+  const diff = tmpl.diff || diffKey
+  const lv = {
+    game:    ED.game,
+    name:    tmpl.name,
+    diff,
+    speed:   tmpl.speed,
+    clearAt: Math.round(d.clearAt),
+    ...ED_TUNING,
+    rank:      _edGuessRank(diff, tmpl.speed),
+    overrides: tmpl.name,      // publishing this replaces the built-in
+  }
+  if (tmpl.miniWave) lv.miniWave = true
+
+  if (ED.game === 'wavegauntlet') {
+    lv.keyframes = (d.keyframes || []).map(k => ({
+      at: Math.round(k.at), cf: +k.cf.toFixed(4), gapHf: +(k.gapH / H).toFixed(4),
+    }))
+  } else {
+    lv.obstacles = (d.obstacles || []).map(o => ({ col: Math.round(o.col), floor: !!o.floor }))
+  }
+
+  ED.levels.push(lv)
+  ED.sel = ED.levels.length - 1
+  _edTouch(); _edRender()
+  _edSetMsg(`Loaded "${tmpl.name}" — publishing replaces the original for everyone.`)
+}
+
+function _edRenderBuiltins() {
+  const el = document.getElementById('ed-builtin')
+  if (!el) return
+  const pools = _edBuiltins()
+  const overridden = new Set(
+    ((window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS[ED.game]) || [])
+      .map(l => l.overrides).filter(Boolean))
+
+  const rows = []
+  for (const key of ED_DIFFS[ED.game]) {
+    for (let i = 0; i < (pools[key] || []).length; i++) {
+      const t = pools[key][i]
+      const col = ED_DIFF_COL[t.diff || key] || '#888'
+      const tag = overridden.has(t.name)
+        ? '<span class="ed-ovr" title="Replaced by a published edit">edited</span>' : ''
+      rows.push(`<div class="ed-item" onclick="edLoadBuiltin('${key}',${i})">
+        <span class="ed-item-diff" style="background:${col}"></span>
+        <span class="ed-item-name">${_edEsc(t.name)}</span>${tag}
+      </div>`)
+    }
+  }
+  el.innerHTML = rows.length ? rows.join('') : '<div class="ed-empty">No built-ins found.</div>'
 }
 
 // ── Screen lifecycle ──────────────────────────────────
@@ -159,6 +257,7 @@ function _edCur() { return ED.levels[ED.sel] || null }
 
 function _edRender() {
   _edRenderList()
+  _edRenderBuiltins()
   _edRenderProps()
   _edRenderPublished()
   _edDraw()
@@ -176,9 +275,11 @@ function _edRenderList() {
     if (l.game !== ED.game) return ''
     const col = ED_DIFF_COL[l.diff] || '#888'
     const pub = l.publishedId ? '<span class="ed-pub-dot" title="Published">●</span>' : ''
+    const ovr = l.overrides ? '<span class="ed-ovr" title="Replaces built-in">edit</span>' : ''
     return `<div class="ed-item ${i === ED.sel ? 'active' : ''}" onclick="edSelect(${i})">
       <span class="ed-item-diff" style="background:${col}"></span>
-      <span class="ed-item-name">${_edEsc(l.name)}</span>${pub}
+      <span class="ed-item-name">${_edEsc(l.name)}</span>
+      <span class="ed-rank" style="color:${_edRankCol(l.rank ?? 20)}">${l.rank ?? 20}</span>${ovr}${pub}
     </div>`
   }).join('')
 }
@@ -190,16 +291,54 @@ function _edRenderProps() {
   if (!lv || lv.game !== ED.game) { el.innerHTML = '<div class="ed-empty">Select a level.</div>'; return }
   const diffs = ED_DIFFS[ED.game].map(d =>
     `<option value="${d}" ${d === lv.diff ? 'selected' : ''}>${d.toUpperCase()}</option>`).join('')
+  const rank = lv.rank ?? 20
   el.innerHTML = `
     <label>Name<input id="ed-f-name" value="${_edEsc(lv.name)}" maxlength="20"></label>
-    <label>Difficulty<select id="ed-f-diff">${diffs}</select></label>
+    <label>Tier <span class="ed-hint">colour + practice group</span><select id="ed-f-diff">${diffs}</select></label>
     <label>Speed <span class="ed-hint">px/sec</span><input id="ed-f-speed" type="number" min="40" max="600" value="${lv.speed}"></label>
     <label>Length <span class="ed-hint">columns</span><input id="ed-f-clear" type="number" min="200" max="4000" step="10" value="${lv.clearAt}"></label>
+
+    <div class="ed-sep">Appearance</div>
+
+    <label>Difficulty <b id="ed-rank-out" style="color:${_edRankCol(rank)}">${rank}</b><span class="ed-hint">/ 100</span>
+      <input id="ed-f-rank" type="range" min="0" max="100" value="${rank}"></label>
+    <label>Starts at score<input id="ed-f-min" type="number" min="0" max="999" value="${lv.minScore ?? 0}"></label>
+    <label>Stops after score <span class="ed-hint">0 = never</span><input id="ed-f-max" type="number" min="0" max="999" value="${lv.maxScore ?? 0}"></label>
+    <label>Chance weight <span class="ed-hint">1 = normal, 3 = 3× as likely</span>
+      <input id="ed-f-weight" type="number" min="0.1" max="20" step="0.1" value="${lv.weight ?? 1}"></label>
+    <div class="ed-hint" id="ed-window-note">${_edWindowNote(lv)}</div>
   `
-  el.querySelector('#ed-f-name').oninput   = e => { lv.name = e.target.value; _edTouch(); _edRenderList() }
-  el.querySelector('#ed-f-diff').onchange  = e => { lv.diff = e.target.value; _edTouch(); _edRenderList(); _edDraw() }
-  el.querySelector('#ed-f-speed').oninput  = e => { lv.speed = +e.target.value || 150; _edTouch(); _edDraw() }
-  el.querySelector('#ed-f-clear').oninput  = e => { lv.clearAt = +e.target.value || 800; _edTouch(); _edDraw() }
+  const q = s => el.querySelector(s)
+  q('#ed-f-name').oninput   = e => { lv.name = e.target.value; _edTouch(); _edRenderList() }
+  q('#ed-f-diff').onchange  = e => { lv.diff = e.target.value; _edTouch(); _edRenderList(); _edDraw() }
+  q('#ed-f-speed').oninput  = e => { lv.speed = +e.target.value || 150; _edTouch(); _edDraw() }
+  q('#ed-f-clear').oninput  = e => { lv.clearAt = +e.target.value || 800; _edTouch(); _edDraw() }
+  q('#ed-f-rank').oninput   = e => {
+    lv.rank = +e.target.value
+    const out = q('#ed-rank-out')
+    out.textContent = lv.rank; out.style.color = _edRankCol(lv.rank)
+    _edTouch()
+  }
+  q('#ed-f-min').oninput    = e => { lv.minScore = Math.max(0, +e.target.value || 0); _edTouch(); q('#ed-window-note').textContent = _edWindowNote(lv) }
+  q('#ed-f-max').oninput    = e => { lv.maxScore = Math.max(0, +e.target.value || 0); _edTouch(); q('#ed-window-note').textContent = _edWindowNote(lv) }
+  q('#ed-f-weight').oninput = e => { lv.weight = Math.max(0.1, +e.target.value || 1); _edTouch() }
+}
+
+function _edRankCol(r) {
+  if (r < 25) return '#4ade80'
+  if (r < 50) return '#fbbf24'
+  if (r < 70) return '#f87171'
+  if (r < 88) return '#fb923c'
+  return '#c084fc'
+}
+
+function _edWindowNote(lv) {
+  const lo = lv.minScore ?? 0, hi = lv.maxScore ?? 0
+  if (!lo && !hi) return 'Appears at any score.'
+  if (lo && !hi)  return `Appears once the player has cleared ${lo}+.`
+  if (!lo && hi)  return `Only appears up to score ${hi}.`
+  if (lo > hi)    return `⚠ Starts at ${lo} but stops after ${hi} — this level will never appear.`
+  return `Appears between score ${lo} and ${hi}.`
 }
 
 function _edRenderPublished() {

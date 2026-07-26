@@ -163,25 +163,69 @@ const SPD_POOL = {
 
 const SPD_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#c084fc' }
 
-// Published editor levels → pool templates (data becomes a gen() fn)
-function _spdCustom(diff) {
-  const list = (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.spider) || []
-  return list.filter(l => l.diff === diff && Array.isArray(l.obstacles)).map(l => ({
+// ── Editor-published levels ───────────────────────────
+
+function _spdCustomAll() {
+  return (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.spider) || []
+}
+
+// Names of built-ins that a published edit replaces
+function _spdOverridden() {
+  return new Set(_spdCustomAll().map(l => l.overrides).filter(Boolean))
+}
+
+// Strip built-ins that have been overridden by an edited version
+function _spdB(arr) {
+  const ov = _spdOverridden()
+  return ov.size ? arr.filter(t => !ov.has(t.name)) : arr
+}
+
+// Published levels → pool templates (data becomes a gen() fn)
+function _spdCustom(diff, score) {
+  return _spdCustomAll().filter(l => {
+    if (l.diff !== diff || !Array.isArray(l.obstacles)) return false
+    if (score == null) return true
+    if ((l.minScore ?? 0) > score) return false
+    if ((l.maxScore ?? 0) > 0 && score > l.maxScore) return false
+    return true
+  }).map(l => ({
     name:l.name, diff:l.diff, speed:l.speed, custom:true,
+    weight: l.weight ?? 1,
     gen() {
       return { clearAt:l.clearAt, obstacles:l.obstacles.map(o => ({ ...o })) }
     },
   }))
 }
 
+function _spdCustomEligible(score) {
+  const out = []
+  for (const d of ['easy','medium','hard','extreme']) out.push(..._spdCustom(d, score))
+  return out
+}
+
+// Weighted random pick — weight 1 is normal, 3 is 3× as likely
+function _spdPick(pool) {
+  if (!pool.length) return null
+  const total = pool.reduce((s, t) => s + (t.weight ?? 1), 0)
+  if (total <= 0) return pool[qRandInt(pool.length)]
+  let r = (qRandInt(10000) / 10000) * total
+  for (const t of pool) {
+    r -= (t.weight ?? 1)
+    if (r <= 0) return t
+  }
+  return pool[pool.length - 1]
+}
+
 function _spdGetPool(score) {
   const {easy, medium, hard, extreme} = SPD_POOL
-  const C = _spdCustom
-  if (score < 3)  return [...easy, ...C('easy')]
-  if (score < 6)  return [...easy, ...medium, ...C('easy'), ...C('medium')]
-  if (score < 11) return [...medium, ...hard, ...C('medium'), ...C('hard')]
-  if (score < 16) return [...hard, ...C('hard')]
-  return [...hard, ...extreme, ...C('hard'), ...C('extreme')]
+  const B = _spdB
+  let builtins
+  if      (score < 3)  builtins = [...B(easy)]
+  else if (score < 6)  builtins = [...B(easy), ...B(medium)]
+  else if (score < 11) builtins = [...B(medium), ...B(hard)]
+  else if (score < 16) builtins = [...B(hard)]
+  else                 builtins = [...B(hard), ...B(extreme)]
+  return [...builtins, ..._spdCustomEligible(score)]
 }
 
 // ── State ─────────────────────────────────────────────
@@ -265,12 +309,14 @@ window.stopSpider = function() {
 
 function _spdLoadChallenge() {
   const c    = _spdC()
-  const pool = _SPD.testLevel
+  let pool = _SPD.testLevel
     ? [_SPD.testLevel]
     : (_SPD.noclip && _SPD.practiceDiff)
-      ? [...(SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy), ..._spdCustom(_SPD.practiceDiff)]
+      // Practice ignores score gates so every level in the tier is reachable
+      ? [..._spdB(SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy), ..._spdCustom(_SPD.practiceDiff, null)]
       : _spdGetPool(_SPD.score)
-  const tmpl = pool[qRandInt(pool.length)]
+  if (!pool.length) pool = [...SPD_POOL.easy]
+  const tmpl = _spdPick(pool)
   const data = tmpl.gen(c.height)
   Object.assign(_SPD, {
     challenge:  { name: tmpl.name, diff: tmpl.diff, speed: tmpl.speed },
