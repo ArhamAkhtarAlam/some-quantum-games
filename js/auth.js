@@ -278,8 +278,12 @@ const AUTH = {
     const wrap = document.getElementById('auth-header-wrap')
     if (!wrap) return
     if (AUTH.user && AUTH.profile) {
+      const editorBtn = (typeof isLevelEditorAdmin === 'function' && isLevelEditorAdmin())
+        ? `<button class="auth-small-btn" onclick="showLevelEditor()" title="Level Editor">🛠 Editor</button>`
+        : ''
       wrap.innerHTML = `
         <span class="auth-username">👤 ${escHtml(AUTH.profile.display_name)}</span>
+        ${editorBtn}
         <button class="auth-small-btn" onclick="AUTH.signOut()">Sign Out</button>`
     } else {
       wrap.innerHTML = `<button class="auth-small-btn" onclick="AUTH.openPage()">Login / Sign Up</button>`

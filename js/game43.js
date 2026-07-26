@@ -386,6 +386,7 @@ const G43 = {
   announceT:0, clearedT:0,
   deadT:0, showOver:false, shake:0,
   noclip:false, practiceDiff:null, hitFlash:0,
+  testLevel:null,
   raf:null, lastTime:0,
   multi:false,
   p2wy:0, p2wvy:0, p2holding:false, p2trail:[],
@@ -429,6 +430,7 @@ function _g43Start(noclip, practiceDiff, multi) {
     announceT:0, clearedT:0,
     deadT:0, showOver:false, shake:0,
     noclip:!!noclip, practiceDiff:practiceDiff||null, hitFlash:0,
+    testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
   })
@@ -458,9 +460,15 @@ function _g43Start(noclip, practiceDiff, multi) {
   G43.raf = requestAnimationFrame(_g43Loop)
 }
 
-window.startWaveGauntlet         = function()  { _g43Start(false, null, false) }
-window.startWaveGauntlet2P       = function()  { _g43Start(false, null, true)  }
-window.startWaveGauntletPractice = function(d) { _g43Start(true,  d,    false) }
+window.startWaveGauntlet         = function()  { G43.testLevel = null; _g43Start(false, null, false) }
+window.startWaveGauntlet2P       = function()  { G43.testLevel = null; _g43Start(false, null, true)  }
+window.startWaveGauntletPractice = function(d) { G43.testLevel = null; _g43Start(true,  d,    false) }
+
+// Editor test play: loop one level in noclip so it can be studied
+window.g43TestLevel = function(tmpl) {
+  G43.testLevel = tmpl
+  _g43Start(true, null, false)
+}
 
 window.stopGame43 = function() {
   G43.active = false
@@ -548,20 +556,37 @@ function _g43KeyUp(e) {
   else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = false) : (G43.holding = false) }
 }
 
+// Published editor levels → pool templates (data becomes a gen() fn)
+function _g43Custom(diff) {
+  const list = (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.wavegauntlet) || []
+  return list.filter(l => l.diff === diff && Array.isArray(l.keyframes)).map(l => ({
+    name:l.name, diff:l.diff, speed:l.speed, custom:true,
+    gen(h) {
+      return {
+        clearAt: l.clearAt,
+        keyframes: l.keyframes.map(k => ({ at:k.at, cf:k.cf, gapH:k.gapHf * h })),
+      }
+    },
+  }))
+}
+
 function _g43GetPool(score) {
   const {easy,medium,hard,extreme,fp,dc} = G43_POOL
-  if (score < 3)  return [...easy]
-  if (score < 5)  return [...easy, ...medium]
-  if (score < 9)  return [...medium, ...hard, extreme[0]]
-  if (score < 13) return [...hard, ...extreme]
-  if (score < 17) return [...extreme, dc[0]]
-  return [dc[0], fp[0], fp[1]]
+  const C = _g43Custom
+  if (score < 3)  return [...easy, ...C('easy')]
+  if (score < 5)  return [...easy, ...medium, ...C('easy'), ...C('medium')]
+  if (score < 9)  return [...medium, ...hard, extreme[0], ...C('medium'), ...C('hard')]
+  if (score < 13) return [...hard, ...extreme, ...C('hard'), ...C('extreme')]
+  if (score < 17) return [...extreme, dc[0], ...C('extreme')]
+  return [dc[0], fp[0], fp[1], ...C('fp'), ...C('dc')]
 }
 
 function _g43LoadChallenge(w, h) {
   let pool
-  if (G43.noclip && G43.practiceDiff) {
-    pool = G43_POOL[G43.practiceDiff] || G43_POOL.easy
+  if (G43.testLevel) {
+    pool = [G43.testLevel]
+  } else if (G43.noclip && G43.practiceDiff) {
+    pool = [...(G43_POOL[G43.practiceDiff] || G43_POOL.easy), ..._g43Custom(G43.practiceDiff)]
   } else {
     pool = _g43GetPool(G43.score)
   }

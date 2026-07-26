@@ -163,13 +163,25 @@ const SPD_POOL = {
 
 const SPD_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#c084fc' }
 
+// Published editor levels → pool templates (data becomes a gen() fn)
+function _spdCustom(diff) {
+  const list = (window.QG_CUSTOM_LEVELS && window.QG_CUSTOM_LEVELS.spider) || []
+  return list.filter(l => l.diff === diff && Array.isArray(l.obstacles)).map(l => ({
+    name:l.name, diff:l.diff, speed:l.speed, custom:true,
+    gen() {
+      return { clearAt:l.clearAt, obstacles:l.obstacles.map(o => ({ ...o })) }
+    },
+  }))
+}
+
 function _spdGetPool(score) {
   const {easy, medium, hard, extreme} = SPD_POOL
-  if (score < 3)  return [...easy]
-  if (score < 6)  return [...easy, ...medium]
-  if (score < 11) return [...medium, ...hard]
-  if (score < 16) return [...hard]
-  return [...hard, ...extreme]
+  const C = _spdCustom
+  if (score < 3)  return [...easy, ...C('easy')]
+  if (score < 6)  return [...easy, ...medium, ...C('easy'), ...C('medium')]
+  if (score < 11) return [...medium, ...hard, ...C('medium'), ...C('hard')]
+  if (score < 16) return [...hard, ...C('hard')]
+  return [...hard, ...extreme, ...C('hard'), ...C('extreme')]
 }
 
 // ── State ─────────────────────────────────────────────
@@ -184,7 +196,7 @@ const _SPD = {
   trail:[], threads:[],
   announceT:0, clearedT:0,
   shake:0, hitFlash:0,
-  noclip:false, practiceDiff:null,
+  noclip:false, practiceDiff:null, testLevel:null,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -217,6 +229,7 @@ function _spdStart(noclip, practiceDiff) {
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
     noclip:!!noclip, practiceDiff:practiceDiff||null,
+    testLevel:_SPD.testLevel || null,
   })
   window._spdScore = 0
   document.getElementById('spd-score-hud').textContent = noclip ? '—' : '0'
@@ -230,8 +243,14 @@ function _spdStart(noclip, practiceDiff) {
   _SPD.lastTime = performance.now()
   _SPD.raf = requestAnimationFrame(_spdLoop)
 }
-window.startSpider         = function()  { _spdStart(false, null) }
-window.startSpiderPractice = function(d) { _spdStart(true,  d)    }
+window.startSpider         = function()  { _SPD.testLevel = null; _spdStart(false, null) }
+window.startSpiderPractice = function(d) { _SPD.testLevel = null; _spdStart(true,  d)    }
+
+// Editor test play: loop one level in noclip so it can be studied
+window.spdTestLevel = function(tmpl) {
+  _SPD.testLevel = tmpl
+  _spdStart(true, null)
+}
 
 window.stopSpider = function() {
   _SPD.active = false
@@ -246,9 +265,11 @@ window.stopSpider = function() {
 
 function _spdLoadChallenge() {
   const c    = _spdC()
-  const pool = (_SPD.noclip && _SPD.practiceDiff)
-    ? (SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy)
-    : _spdGetPool(_SPD.score)
+  const pool = _SPD.testLevel
+    ? [_SPD.testLevel]
+    : (_SPD.noclip && _SPD.practiceDiff)
+      ? [...(SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy), ..._spdCustom(_SPD.practiceDiff)]
+      : _spdGetPool(_SPD.score)
   const tmpl = pool[qRandInt(pool.length)]
   const data = tmpl.gen(c.height)
   Object.assign(_SPD, {

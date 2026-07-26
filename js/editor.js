@@ -1,0 +1,668 @@
+// ═══════════════════════════════════════════════════════
+//  LEVEL EDITOR — Wave Gauntlet (43) + Spider (44)
+//  Admin-only. Drafts live in localStorage; Publish pushes
+//  to Supabase so every player gets the level.
+//
+//  Level data format (shared, resolution-independent):
+//    wavegauntlet: { keyframes:[{at, cf, gapHf}], clearAt }
+//    spider:       { obstacles:[{col, floor}],    clearAt }
+//  cf and gapHf are fractions of canvas height, so a level
+//  authored on one screen plays the same on another.
+// ═══════════════════════════════════════════════════════
+
+const ED_ADMIN_EMAIL = 'arham.akhtar111@gmail.com'
+const ED_LS_KEY      = 'qg_editor_drafts_v1'
+
+const ED_DIFFS = {
+  wavegauntlet: ['easy','medium','hard','extreme','fp','dc'],
+  spider:       ['easy','medium','hard','extreme'],
+}
+const ED_DIFF_COL = {
+  easy:'#4ade80', medium:'#fbbf24', hard:'#f87171',
+  extreme:'#fb923c', fp:'#c084fc', dc:'#ef4444',
+}
+
+const ED = {
+  game:'wavegauntlet',
+  levels:[],            // drafts, from localStorage
+  published:[],         // rows from Supabase
+  sel:-1,               // index into ED.levels
+  drag:null,            // {type, i}
+  scroll:0,             // horizontal scroll in columns
+  zoom:1,               // px per column
+  msg:'',
+}
+
+window.isLevelEditorAdmin = function() {
+  return !!(window.AUTH && AUTH.user && AUTH.user.email === ED_ADMIN_EMAIL)
+}
+
+// ── Persistence ───────────────────────────────────────
+
+function _edLoadDrafts() {
+  try {
+    const raw = localStorage.getItem(ED_LS_KEY)
+    ED.levels = raw ? JSON.parse(raw) : []
+  } catch { ED.levels = [] }
+  if (!Array.isArray(ED.levels)) ED.levels = []
+}
+
+function _edSaveDrafts() {
+  try { localStorage.setItem(ED_LS_KEY, JSON.stringify(ED.levels)) }
+  catch (e) { _edSetMsg('⚠ Could not save drafts: ' + e.message) }
+}
+
+// ── Published levels (Supabase) ───────────────────────
+// Loaded once at startup by core; games read window.QG_CUSTOM_LEVELS.
+
+window.QG_CUSTOM_LEVELS = { wavegauntlet: [], spider: [] }
+
+window.loadCustomLevels = async function() {
+  if (typeof _sb === 'undefined' || !_sb) return
+  try {
+    const { data, error } = await _sb.from('custom_levels').select('*')
+    if (error || !data) return
+    const out = { wavegauntlet: [], spider: [] }
+    for (const row of data) {
+      if (!out[row.game]) continue
+      out[row.game].push(_edRowToLevel(row))
+    }
+    window.QG_CUSTOM_LEVELS = out
+  } catch { /* offline / table missing — games fall back to built-ins */ }
+}
+
+function _edRowToLevel(row) {
+  return {
+    id: row.id, name: row.name, diff: row.diff,
+    speed: row.speed, clearAt: row.clear_at,
+    ...(row.data || {}),
+    custom: true,
+  }
+}
+
+function _edLevelToRow(lv) {
+  const data = ED.game === 'wavegauntlet'
+    ? { keyframes: lv.keyframes }
+    : { obstacles: lv.obstacles }
+  return {
+    game: ED.game, name: lv.name, diff: lv.diff,
+    speed: Math.round(lv.speed), clear_at: Math.round(lv.clearAt),
+    data, author_id: AUTH.user.id,
+  }
+}
+
+// ── Level creation ────────────────────────────────────
+
+function _edNewLevel(game) {
+  if (game === 'wavegauntlet') {
+    return {
+      game, name:'NEW LEVEL', diff:'easy', speed:160, clearAt:800,
+      keyframes:[
+        { at:0,   cf:0.50, gapHf:0.50 },
+        { at:200, cf:0.50, gapHf:0.50 },
+        { at:500, cf:0.35, gapHf:0.45 },
+        { at:800, cf:0.50, gapHf:0.50 },
+      ],
+    }
+  }
+  return {
+    game, name:'NEW LEVEL', diff:'easy', speed:170, clearAt:900,
+    obstacles:[
+      { col:240, floor:false },
+      { col:440, floor:true  },
+      { col:640, floor:false },
+    ],
+  }
+}
+
+// ── Screen lifecycle ──────────────────────────────────
+
+window.showLevelEditor = function() {
+  if (!isLevelEditorAdmin()) {
+    alert('The level editor is admin-only.')
+    return
+  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById('editor').classList.add('active')
+  _edLoadDrafts()
+  if (ED.sel < 0 && ED.levels.length) ED.sel = 0
+  _edRefreshPublished()
+  _edRender()
+  _edBindCanvas()
+}
+
+window.closeLevelEditor = function() {
+  _edUnbindCanvas()
+  goHome()
+}
+
+async function _edRefreshPublished() {
+  if (typeof _sb === 'undefined' || !_sb) return
+  try {
+    const { data, error } = await _sb.from('custom_levels')
+      .select('*').eq('game', ED.game).order('created_at', { ascending:false })
+    ED.published = (error || !data) ? [] : data
+  } catch { ED.published = [] }
+  _edRenderPublished()
+}
+
+// ── UI rendering ──────────────────────────────────────
+
+function _edSetMsg(m) {
+  ED.msg = m
+  const el = document.getElementById('ed-msg')
+  if (el) el.textContent = m
+  if (m) setTimeout(() => { if (ED.msg === m) { ED.msg = ''; if (el) el.textContent = '' } }, 4000)
+}
+
+function _edCur() { return ED.levels[ED.sel] || null }
+
+function _edRender() {
+  _edRenderList()
+  _edRenderProps()
+  _edRenderPublished()
+  _edDraw()
+}
+
+function _edRenderList() {
+  const el = document.getElementById('ed-list')
+  if (!el) return
+  const mine = ED.levels.filter(l => l.game === ED.game)
+  if (!mine.length) {
+    el.innerHTML = '<div class="ed-empty">No drafts yet — hit <b>+ New</b>.</div>'
+    return
+  }
+  el.innerHTML = ED.levels.map((l, i) => {
+    if (l.game !== ED.game) return ''
+    const col = ED_DIFF_COL[l.diff] || '#888'
+    const pub = l.publishedId ? '<span class="ed-pub-dot" title="Published">●</span>' : ''
+    return `<div class="ed-item ${i === ED.sel ? 'active' : ''}" onclick="edSelect(${i})">
+      <span class="ed-item-diff" style="background:${col}"></span>
+      <span class="ed-item-name">${_edEsc(l.name)}</span>${pub}
+    </div>`
+  }).join('')
+}
+
+function _edRenderProps() {
+  const el = document.getElementById('ed-props')
+  if (!el) return
+  const lv = _edCur()
+  if (!lv || lv.game !== ED.game) { el.innerHTML = '<div class="ed-empty">Select a level.</div>'; return }
+  const diffs = ED_DIFFS[ED.game].map(d =>
+    `<option value="${d}" ${d === lv.diff ? 'selected' : ''}>${d.toUpperCase()}</option>`).join('')
+  el.innerHTML = `
+    <label>Name<input id="ed-f-name" value="${_edEsc(lv.name)}" maxlength="20"></label>
+    <label>Difficulty<select id="ed-f-diff">${diffs}</select></label>
+    <label>Speed <span class="ed-hint">px/sec</span><input id="ed-f-speed" type="number" min="40" max="600" value="${lv.speed}"></label>
+    <label>Length <span class="ed-hint">columns</span><input id="ed-f-clear" type="number" min="200" max="4000" step="10" value="${lv.clearAt}"></label>
+  `
+  el.querySelector('#ed-f-name').oninput   = e => { lv.name = e.target.value; _edTouch(); _edRenderList() }
+  el.querySelector('#ed-f-diff').onchange  = e => { lv.diff = e.target.value; _edTouch(); _edRenderList(); _edDraw() }
+  el.querySelector('#ed-f-speed').oninput  = e => { lv.speed = +e.target.value || 150; _edTouch(); _edDraw() }
+  el.querySelector('#ed-f-clear').oninput  = e => { lv.clearAt = +e.target.value || 800; _edTouch(); _edDraw() }
+}
+
+function _edRenderPublished() {
+  const el = document.getElementById('ed-published')
+  if (!el) return
+  if (!ED.published.length) {
+    el.innerHTML = '<div class="ed-empty">Nothing published for this game yet.</div>'
+    return
+  }
+  el.innerHTML = ED.published.map(r => {
+    const col = ED_DIFF_COL[r.diff] || '#888'
+    return `<div class="ed-item">
+      <span class="ed-item-diff" style="background:${col}"></span>
+      <span class="ed-item-name">${_edEsc(r.name)}</span>
+      <button class="ed-mini danger" onclick="edUnpublish('${r.id}')">✕</button>
+    </div>`
+  }).join('')
+}
+
+function _edEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
+}
+
+function _edTouch() { _edSaveDrafts() }
+
+// ── Toolbar actions ───────────────────────────────────
+
+window.edSetGame = function(g) {
+  ED.game = g
+  ED.sel  = ED.levels.findIndex(l => l.game === g)
+  ED.scroll = 0
+  document.querySelectorAll('.ed-gametab').forEach(b =>
+    b.classList.toggle('active', b.dataset.game === g))
+  _edRefreshPublished()
+  _edRender()
+}
+
+window.edSelect = function(i) { ED.sel = i; ED.scroll = 0; _edRender() }
+
+window.edNew = function() {
+  ED.levels.push(_edNewLevel(ED.game))
+  ED.sel = ED.levels.length - 1
+  _edTouch(); _edRender()
+}
+
+window.edDuplicate = function() {
+  const lv = _edCur(); if (!lv) return
+  const copy = JSON.parse(JSON.stringify(lv))
+  copy.name = (copy.name + ' COPY').slice(0, 20)
+  delete copy.publishedId
+  ED.levels.push(copy)
+  ED.sel = ED.levels.length - 1
+  _edTouch(); _edRender()
+}
+
+window.edDelete = function() {
+  const lv = _edCur(); if (!lv) return
+  if (!confirm(`Delete draft "${lv.name}"? (Published copy, if any, stays live.)`)) return
+  ED.levels.splice(ED.sel, 1)
+  ED.sel = ED.levels.findIndex(l => l.game === ED.game)
+  _edTouch(); _edRender()
+}
+
+window.edTestPlay = function() {
+  const lv = _edCur(); if (!lv) return
+  _edUnbindCanvas()
+  const built = _edBuildRuntime(lv)
+  if (ED.game === 'wavegauntlet') {
+    document.getElementById('editor').classList.remove('active')
+    document.getElementById('game43').classList.add('active')
+    initGame43().then(() => window.g43TestLevel(built))
+  } else {
+    document.getElementById('editor').classList.remove('active')
+    document.getElementById('game44').classList.add('active')
+    initSpider().then(() => window.spdTestLevel(built))
+  }
+}
+
+// Runtime level: same shape the game pools use
+function _edBuildRuntime(lv) {
+  const base = { name: lv.name, diff: lv.diff, speed: lv.speed, custom: true }
+  if (lv.game === 'wavegauntlet') {
+    return { ...base, gen(h) {
+      return {
+        clearAt: lv.clearAt,
+        keyframes: lv.keyframes.map(k => ({ at:k.at, cf:k.cf, gapH:k.gapHf * h })),
+      }
+    }}
+  }
+  return { ...base, gen() {
+    return { clearAt: lv.clearAt, obstacles: lv.obstacles.map(o => ({ ...o })) }
+  }}
+}
+
+window.edPublish = async function() {
+  const lv = _edCur(); if (!lv) return
+  if (typeof _sb === 'undefined' || !_sb) { _edSetMsg('⚠ Supabase unavailable.'); return }
+  if (!isLevelEditorAdmin()) { _edSetMsg('⚠ Admin only.'); return }
+  const warn = _edValidate(lv)
+  if (warn && !confirm(warn + '\n\nPublish anyway?')) return
+  _edSetMsg('Publishing…')
+  try {
+    const row = _edLevelToRow(lv)
+    let res
+    if (lv.publishedId) {
+      res = await _sb.from('custom_levels').update(row).eq('id', lv.publishedId).select().maybeSingle()
+    } else {
+      res = await _sb.from('custom_levels').insert(row).select().maybeSingle()
+    }
+    if (res.error) { _edSetMsg('⚠ ' + res.error.message); return }
+    if (res.data) lv.publishedId = res.data.id
+    _edTouch()
+    _edSetMsg('✅ Published — live for everyone.')
+    await _edRefreshPublished()
+    _edRenderList()
+  } catch (e) { _edSetMsg('⚠ ' + e.message) }
+}
+
+window.edUnpublish = async function(id) {
+  if (!confirm('Remove this level for all players?')) return
+  try {
+    const { error } = await _sb.from('custom_levels').delete().eq('id', id)
+    if (error) { _edSetMsg('⚠ ' + error.message); return }
+    for (const l of ED.levels) if (l.publishedId === id) delete l.publishedId
+    _edTouch()
+    _edSetMsg('Removed.')
+    await _edRefreshPublished()
+    _edRenderList()
+  } catch (e) { _edSetMsg('⚠ ' + e.message) }
+}
+
+window.edExport = function() {
+  const lv = _edCur(); if (!lv) return
+  const json = JSON.stringify(lv, null, 2)
+  navigator.clipboard?.writeText(json)
+  _edSetMsg('📋 Level JSON copied to clipboard.')
+  console.log(json)
+}
+
+window.edImport = function() {
+  const raw = prompt('Paste level JSON:')
+  if (!raw) return
+  try {
+    const lv = JSON.parse(raw)
+    if (!lv.game) lv.game = ED.game
+    delete lv.publishedId
+    ED.levels.push(lv)
+    ED.sel = ED.levels.length - 1
+    _edTouch(); _edRender()
+    _edSetMsg('Imported.')
+  } catch (e) { _edSetMsg('⚠ Bad JSON: ' + e.message) }
+}
+
+// ── Validation (catches impossible levels) ────────────
+// Wave: the wave climbs at a fixed 255px/s vertically while the
+// level scrolls at `speed` px/s. Over N columns it can cover at
+// most 255/speed*N px — with 15% slack for reaction time.
+
+function _edValidate(lv) {
+  const problems = []
+  if (lv.game === 'wavegauntlet') {
+    const kfs = lv.keyframes
+    const H = 400   // reference height for px estimates
+    for (let i = 1; i < kfs.length; i++) {
+      const cols = kfs[i].at - kfs[i-1].at
+      if (cols <= 0) { problems.push(`Keyframe ${i+1} is at or before the previous one.`); continue }
+      const dy      = Math.abs(kfs[i].cf - kfs[i-1].cf) * H
+      const maxSafe = 255 / lv.speed * cols * 0.85
+      if (dy > maxSafe) {
+        problems.push(`Keyframes ${i}→${i+1}: corridor moves ${Math.round(dy)}px over ${cols} cols, but the wave can only cover ~${Math.round(maxSafe)}px. Impossible — widen the span or lower the speed.`)
+      }
+    }
+    const minGap = Math.min(...kfs.map(k => k.gapHf * H))
+    if (minGap < 20) problems.push(`Tightest gap is ~${Math.round(minGap)}px — the wave is 14px tall, so this is near-unplayable.`)
+    if (kfs.length && kfs[kfs.length-1].at < lv.clearAt) {
+      problems.push(`Last keyframe is at col ${kfs[kfs.length-1].at} but the level runs to ${lv.clearAt} — the corridor will hold its final shape for the remaining ${lv.clearAt - kfs[kfs.length-1].at} columns.`)
+    }
+  } else {
+    const obs = [...lv.obstacles].sort((a,b) => a.col - b.col)
+    // Blocks alternate surfaces, so every switch needs flip time.
+    // At `speed` px/s, N columns = N/speed seconds of reaction.
+    for (let i = 1; i < obs.length; i++) {
+      const cols = obs[i].col - obs[i-1].col
+      const secs = cols / lv.speed
+      if (obs[i].floor !== obs[i-1].floor && secs < 0.16) {
+        problems.push(`Blocks at col ${obs[i-1].col}→${obs[i].col}: only ${secs.toFixed(2)}s to flip surfaces. Under ~0.16s is inhuman — space them out or slow the level.`)
+      }
+      if (cols === 0) problems.push(`Two blocks sit on top of each other at col ${obs[i].col}.`)
+    }
+    // The spider always starts on the floor
+    if (obs.length && obs[0].floor) {
+      const secs = obs[0].col / lv.speed
+      if (secs < 0.5) {
+        problems.push(`First block is on the FLOOR where the spider spawns, and it arrives in ${secs.toFixed(2)}s. Either make it a ceiling block or move it past col ${Math.ceil(lv.speed * 0.5)}.`)
+      }
+    }
+  }
+  return problems.length ? '⚠ Issues found:\n\n• ' + problems.join('\n• ') : ''
+}
+
+window.edValidate = function() {
+  const lv = _edCur(); if (!lv) return
+  const w = _edValidate(lv)
+  alert(w || '✅ Looks playable — no timing problems found.')
+}
+
+// ── Canvas editing ────────────────────────────────────
+
+function _edCvs() { return document.getElementById('ed-canvas') }
+
+function _edView() {
+  const c = _edCvs()
+  const lv = _edCur()
+  const cols = lv ? lv.clearAt : 800
+  return { c, w:c.width, h:c.height, cols, pxPerCol: c.width / Math.max(1, cols) }
+}
+
+function _edDraw() {
+  const c = _edCvs(); if (!c) return
+  c.width  = c.parentElement.clientWidth
+  c.height = c.parentElement.clientHeight
+  const ctx = c.getContext('2d')
+  const lv  = _edCur()
+  const w = c.width, h = c.height
+
+  ctx.fillStyle = '#05010a'; ctx.fillRect(0, 0, w, h)
+  if (!lv || lv.game !== ED.game) {
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.font = '14px monospace'; ctx.textAlign = 'center'
+    ctx.fillText('Select or create a level', w/2, h/2)
+    return
+  }
+
+  const col = ED_DIFF_COL[lv.diff] || '#888'
+  const ppc = w / Math.max(1, lv.clearAt)
+
+  // Grid every 100 columns
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '9px monospace'; ctx.textAlign = 'left'
+  for (let cx = 0; cx <= lv.clearAt; cx += 100) {
+    const x = cx * ppc
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke()
+    ctx.fillText(cx, x + 3, 10)
+  }
+
+  if (lv.game === 'wavegauntlet') _edDrawWave(ctx, lv, w, h, ppc, col)
+  else                           _edDrawSpider(ctx, lv, w, h, ppc, col)
+}
+
+function _edDrawWave(ctx, lv, w, h, ppc, col) {
+  const kfs = lv.keyframes
+  if (!kfs.length) return
+
+  // Corridor fill
+  ctx.beginPath()
+  for (let i = 0; i < kfs.length; i++) {
+    const x = kfs[i].at * ppc, y = (kfs[i].cf - kfs[i].gapHf/2) * h
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+  }
+  for (let i = kfs.length - 1; i >= 0; i--) {
+    ctx.lineTo(kfs[i].at * ppc, (kfs[i].cf + kfs[i].gapHf/2) * h)
+  }
+  ctx.closePath()
+  ctx.fillStyle = col + '18'; ctx.fill()
+
+  // Walls
+  ctx.strokeStyle = col; ctx.lineWidth = 2
+  for (const sign of [-1, 1]) {
+    ctx.beginPath()
+    kfs.forEach((k, i) => {
+      const x = k.at * ppc, y = (k.cf + sign * k.gapHf/2) * h
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+  }
+
+  // Center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.setLineDash([4,4]); ctx.lineWidth = 1
+  ctx.beginPath()
+  kfs.forEach((k, i) => {
+    const x = k.at * ppc, y = k.cf * h
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+  })
+  ctx.stroke(); ctx.setLineDash([])
+
+  // Handles: center (drag = move corridor) + gap handles (drag = resize)
+  kfs.forEach((k, i) => {
+    const x = k.at * ppc
+    const cy = k.cf * h
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(x, cy, 5, 0, Math.PI*2); ctx.fill()
+    ctx.fillStyle = col
+    for (const sign of [-1, 1]) {
+      ctx.beginPath(); ctx.arc(x, (k.cf + sign*k.gapHf/2) * h, 4, 0, Math.PI*2); ctx.fill()
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'
+    ctx.fillText(i + 1, x, cy - 10)
+  })
+}
+
+function _edDrawSpider(ctx, lv, w, h, ppc, col) {
+  const oh = h * 0.44
+  ctx.fillStyle = '#150020'
+  ctx.fillRect(0, 0, w, 4); ctx.fillRect(0, h-4, w, 4)
+  ctx.strokeStyle = col; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(w,4); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0,h-4); ctx.lineTo(w,h-4); ctx.stroke()
+
+  for (const o of lv.obstacles) {
+    const x = o.col * ppc
+    const bw = Math.max(4, 26 * ppc)
+    const y  = o.floor ? h - oh : 0
+    ctx.fillStyle = '#1e0030'; ctx.fillRect(x - bw/2, y, bw, oh)
+    ctx.strokeStyle = col; ctx.lineWidth = 2
+    const edgeY = o.floor ? h - oh : oh
+    ctx.beginPath(); ctx.moveTo(x - bw/2, edgeY); ctx.lineTo(x + bw/2, edgeY); ctx.stroke()
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '10px monospace'; ctx.textAlign = 'center'
+  ctx.fillText('click empty space = add block · click a block = remove · drag = move', w/2, h/2)
+}
+
+// ── Mouse interaction ─────────────────────────────────
+
+function _edPos(e) {
+  const c = _edCvs()
+  const r = c.getBoundingClientRect()
+  const t = e.touches ? e.touches[0] : e
+  return { x: t.clientX - r.left, y: t.clientY - r.top }
+}
+
+function _edDown(e) {
+  const lv = _edCur(); if (!lv) return
+  e.preventDefault()
+  const { x, y } = _edPos(e)
+  const c = _edCvs(), w = c.width, h = c.height
+  const ppc = w / Math.max(1, lv.clearAt)
+
+  if (lv.game === 'wavegauntlet') {
+    for (let i = 0; i < lv.keyframes.length; i++) {
+      const k = lv.keyframes[i], kx = k.at * ppc
+      if (Math.abs(x - kx) > 10) continue
+      if (Math.abs(y - k.cf * h) < 10)                       { ED.drag = { type:'center', i }; return }
+      if (Math.abs(y - (k.cf - k.gapHf/2) * h) < 9)          { ED.drag = { type:'top',    i }; return }
+      if (Math.abs(y - (k.cf + k.gapHf/2) * h) < 9)          { ED.drag = { type:'bot',    i }; return }
+    }
+    // Empty space → insert a keyframe here
+    const at = Math.round(x / ppc)
+    const cf = Math.max(0.05, Math.min(0.95, y / h))
+    const idx = lv.keyframes.findIndex(k => k.at > at)
+    const near = idx > 0 ? lv.keyframes[idx-1] : lv.keyframes[0]
+    const kf = { at, cf, gapHf: near ? near.gapHf : 0.45 }
+    idx < 0 ? lv.keyframes.push(kf) : lv.keyframes.splice(idx, 0, kf)
+    ED.drag = { type:'center', i: idx < 0 ? lv.keyframes.length-1 : idx }
+    _edTouch(); _edDraw()
+    return
+  }
+
+  // Spider
+  const bw = Math.max(8, 26 * ppc)
+  for (let i = 0; i < lv.obstacles.length; i++) {
+    if (Math.abs(x - lv.obstacles[i].col * ppc) < bw/2 + 3) {
+      ED.drag = { type:'block', i, moved:false }
+      return
+    }
+  }
+  lv.obstacles.push({ col: Math.round(x / ppc), floor: y > h/2 })
+  lv.obstacles.sort((a,b) => a.col - b.col)
+  _edTouch(); _edDraw()
+}
+
+function _edMove(e) {
+  if (!ED.drag) return
+  const lv = _edCur(); if (!lv) return
+  e.preventDefault()
+  const { x, y } = _edPos(e)
+  const c = _edCvs(), w = c.width, h = c.height
+  const ppc = w / Math.max(1, lv.clearAt)
+  const d = ED.drag
+
+  if (lv.game === 'wavegauntlet') {
+    const k = lv.keyframes[d.i]; if (!k) return
+    if (d.type === 'center') {
+      k.cf = Math.max(0.05, Math.min(0.95, y / h))
+      k.at = Math.max(0, Math.round(x / ppc))
+      lv.keyframes.sort((a,b) => a.at - b.at)
+      ED.drag.i = lv.keyframes.indexOf(k)
+    } else {
+      const half = Math.abs(y / h - k.cf)
+      k.gapHf = Math.max(0.04, Math.min(0.95, half * 2))
+    }
+  } else {
+    const o = lv.obstacles[d.i]; if (!o) return
+    d.moved = true
+    o.col   = Math.max(0, Math.round(x / ppc))
+    o.floor = y > h/2
+  }
+  _edTouch(); _edDraw()
+}
+
+function _edUp() {
+  const lv = _edCur()
+  const d  = ED.drag
+  // Spider: a click without movement removes the block
+  if (d && d.type === 'block' && !d.moved && lv) {
+    lv.obstacles.splice(d.i, 1)
+    _edTouch()
+  }
+  if (lv && lv.game === 'spider') lv.obstacles.sort((a,b) => a.col - b.col)
+  ED.drag = null
+  _edDraw()
+}
+
+// Right-click a keyframe / block to delete it
+function _edContext(e) {
+  const lv = _edCur(); if (!lv) return
+  e.preventDefault()
+  const { x } = _edPos(e)
+  const c = _edCvs()
+  const ppc = c.width / Math.max(1, lv.clearAt)
+
+  if (lv.game === 'wavegauntlet') {
+    if (lv.keyframes.length <= 2) { _edSetMsg('Need at least 2 keyframes.'); return }
+    let best = -1, bestD = 12
+    lv.keyframes.forEach((k, i) => {
+      const d = Math.abs(x - k.at * ppc)
+      if (d < bestD) { bestD = d; best = i }
+    })
+    if (best >= 0) { lv.keyframes.splice(best, 1); _edTouch(); _edDraw() }
+  } else {
+    const bw = Math.max(8, 26 * ppc)
+    const i = lv.obstacles.findIndex(o => Math.abs(x - o.col * ppc) < bw/2 + 3)
+    if (i >= 0) { lv.obstacles.splice(i, 1); _edTouch(); _edDraw() }
+  }
+}
+
+// Pull published levels once at startup so every player gets them
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => window.loadCustomLevels(), 400)
+})
+
+let _edBound = false
+function _edBindCanvas() {
+  const c = _edCvs(); if (!c || _edBound) return
+  c.addEventListener('mousedown',  _edDown)
+  window.addEventListener('mousemove', _edMove)
+  window.addEventListener('mouseup',   _edUp)
+  c.addEventListener('touchstart', _edDown, { passive:false })
+  window.addEventListener('touchmove', _edMove, { passive:false })
+  window.addEventListener('touchend',  _edUp)
+  c.addEventListener('contextmenu', _edContext)
+  window.addEventListener('resize', _edDraw)
+  _edBound = true
+}
+function _edUnbindCanvas() {
+  const c = _edCvs(); if (!c || !_edBound) return
+  c.removeEventListener('mousedown',  _edDown)
+  window.removeEventListener('mousemove', _edMove)
+  window.removeEventListener('mouseup',   _edUp)
+  c.removeEventListener('touchstart', _edDown)
+  window.removeEventListener('touchmove', _edMove)
+  window.removeEventListener('touchend',  _edUp)
+  c.removeEventListener('contextmenu', _edContext)
+  window.removeEventListener('resize', _edDraw)
+  _edBound = false
+}
