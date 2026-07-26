@@ -2,3 +2,7 @@
 *.fcpproj/
 .claude/
 c--Users-arham-quantum-project/
+
+# Level editor — local dev tool, never deployed
+editor.html
+js/editor.js
