@@ -240,7 +240,7 @@ const _SPD = {
   trail:[], threads:[],
   announceT:0, clearedT:0,
   shake:0, hitFlash:0,
-  noclip:false, practiceDiff:null, testLevel:null,
+  noclip:false, practiceDiff:null, practiceLevel:null, testLevel:null,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -252,7 +252,32 @@ function _spdC() {
   return _spdCvs
 }
 
+// Generated from SPD_POOL so new levels always appear here
+function _spdBuildPracticeUI() {
+  const el = document.getElementById('spd-practice')
+  if (!el) return
+  const label = { easy:'Easy', medium:'Medium', hard:'Hard', extreme:'Extreme' }
+  let html = ''
+  for (const key of ['easy','medium','hard','extreme']) {
+    const arr = SPD_POOL[key] || []
+    if (!arr.length) continue
+    const c = SPD_DIFF_COL[key] || '#888'
+    const btns = arr.map(t =>
+      `<button class="pp-btn" style="color:${c};border-color:${c}55;background:${c}18"
+        onclick="startSpiderPractice('${key}', ${JSON.stringify(t.name)})">${t.name}</button>`).join('')
+    html += `<div class="pp-row">
+      <span class="pp-tier" style="color:${c}">${label[key] || key}</span>
+      <span class="pp-levels">
+        <button class="pp-btn pp-any" style="color:${c};border-color:${c};background:${c}28"
+          onclick="startSpiderPractice('${key}')">Any</button>${btns}
+      </span>
+    </div>`
+  }
+  el.innerHTML = html
+}
+
 async function initSpider() {
+  _spdBuildPracticeUI()
   stopSpider(); _spdCvs = null
   document.getElementById('spd-overlay').style.display = 'flex'
   document.getElementById('spd-over').style.display    = 'none'
@@ -273,6 +298,7 @@ function _spdStart(noclip, practiceDiff) {
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
     noclip:!!noclip, practiceDiff:practiceDiff||null,
+    practiceLevel:_SPD.practiceLevel || null,
     testLevel:_SPD.testLevel || null,
   })
   window._spdScore = 0
@@ -287,8 +313,14 @@ function _spdStart(noclip, practiceDiff) {
   _SPD.lastTime = performance.now()
   _SPD.raf = requestAnimationFrame(_spdLoop)
 }
-window.startSpider         = function()  { _SPD.testLevel = null; _spdStart(false, null) }
-window.startSpiderPractice = function(d) { _SPD.testLevel = null; _spdStart(true,  d)    }
+window.startSpider = function() { _SPD.testLevel = null; _SPD.practiceLevel = null; _spdStart(false, null) }
+
+// name omitted -> random within the tier; name given -> that level on repeat
+window.startSpiderPractice = function(d, name) {
+  _SPD.testLevel     = null
+  _SPD.practiceLevel = name || null
+  _spdStart(true, d)
+}
 
 // Editor test play: loop one level in noclip so it can be studied
 window.spdTestLevel = function(tmpl) {
@@ -315,6 +347,10 @@ function _spdLoadChallenge() {
       // Practice ignores score gates so every level in the tier is reachable
       ? [..._spdB(SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy), ..._spdCustom(_SPD.practiceDiff, null)]
       : _spdGetPool(_SPD.score)
+  if (_SPD.practiceLevel && !_SPD.testLevel) {
+    const one = pool.filter(t => t.name === _SPD.practiceLevel)
+    if (one.length) pool = one
+  }
   if (!pool.length) pool = [...SPD_POOL.easy]
   const tmpl = _spdPick(pool)
   const data = tmpl.gen(c.height)

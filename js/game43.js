@@ -401,7 +401,7 @@ const G43 = {
   trail:[],
   announceT:0, clearedT:0,
   deadT:0, showOver:false, shake:0,
-  noclip:false, practiceDiff:null, hitFlash:0,
+  noclip:false, practiceDiff:null, practiceLevel:null, hitFlash:0,
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -421,7 +421,33 @@ function _g43C() {
   return _g43Canvas
 }
 
+// Practice picker is generated from G43_POOL, so a level added to the
+// pool can never be missing (or hiding behind a stale label) here.
+function _g43BuildPracticeUI() {
+  const el = document.getElementById('g43-practice')
+  if (!el) return
+  const label = { easy:'Easy', medium:'Medium', hard:'Hard', extreme:'Extreme', fp:'Frame P.', dc:'Boss' }
+  let html = ''
+  for (const key of ['easy','medium','hard','extreme','fp','dc']) {
+    const arr = G43_POOL[key] || []
+    if (!arr.length) continue
+    const c = G43_DIFF_COL[key] || '#888'
+    const btns = arr.map(t =>
+      `<button class="pp-btn" style="color:${c};border-color:${c}55;background:${c}18"
+        onclick="startWaveGauntletPractice('${key}', ${JSON.stringify(t.name)})">${t.name}</button>`).join('')
+    html += `<div class="pp-row">
+      <span class="pp-tier" style="color:${c}">${label[key] || key}</span>
+      <span class="pp-levels">
+        <button class="pp-btn pp-any" style="color:${c};border-color:${c};background:${c}28"
+          onclick="startWaveGauntletPractice('${key}')">Any</button>${btns}
+      </span>
+    </div>`
+  }
+  el.innerHTML = html
+}
+
 async function initGame43() {
+  _g43BuildPracticeUI()
   stopGame43(); _g43Canvas = null
   document.getElementById('g43-overlay').style.display = 'flex'
   document.getElementById('g43-over').style.display    = 'none'
@@ -445,7 +471,7 @@ function _g43Start(noclip, practiceDiff, multi) {
     trail:[],
     announceT:0, clearedT:0,
     deadT:0, showOver:false, shake:0,
-    noclip:!!noclip, practiceDiff:practiceDiff||null, hitFlash:0,
+    noclip:!!noclip, practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -476,9 +502,15 @@ function _g43Start(noclip, practiceDiff, multi) {
   G43.raf = requestAnimationFrame(_g43Loop)
 }
 
-window.startWaveGauntlet         = function()  { G43.testLevel = null; _g43Start(false, null, false) }
-window.startWaveGauntlet2P       = function()  { G43.testLevel = null; _g43Start(false, null, true)  }
-window.startWaveGauntletPractice = function(d) { G43.testLevel = null; _g43Start(true,  d,    false) }
+window.startWaveGauntlet   = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, false) }
+window.startWaveGauntlet2P = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, true)  }
+
+// name omitted -> random within the tier; name given -> that level on repeat
+window.startWaveGauntletPractice = function(d, name) {
+  G43.testLevel     = null
+  G43.practiceLevel = name || null
+  _g43Start(true, d, false)
+}
 
 // Editor test play: loop one level in noclip so it can be studied
 window.g43TestLevel = function(tmpl) {
@@ -654,6 +686,10 @@ function _g43LoadChallenge(w, h) {
   } else if (G43.noclip && G43.practiceDiff) {
     // Practice ignores score gates so every level in the tier is reachable
     pool = [..._g43B(G43_POOL[G43.practiceDiff] || G43_POOL.easy), ..._g43Custom(G43.practiceDiff, null)]
+    if (G43.practiceLevel) {
+      const one = pool.filter(t => t.name === G43.practiceLevel)
+      if (one.length) pool = one
+    }
   } else {
     pool = _g43GetPool(G43.score)
   }
