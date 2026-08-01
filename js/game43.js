@@ -279,27 +279,21 @@ const G43_POOL = {
     {
       name:'TWIN SLAM', diff:'extreme', speed:278,
       gen(h) {
-        // Two 30px slams at different positions.
-        // Approach (120 col): max safe = 255/278*120*0.85 = 93px
-        // Inter-slam drift (100 col): max safe = 255/278*100*0.85 = 78px
-        const maxPos  = Math.floor(255/278 * 120 * 0.85)
-        const maxJump = Math.floor(255/278 * 100 * 0.85)
-        const cy1px   = 20 + qRandInt(Math.min(maxPos - 25, 55))
-        const sign1   = qRandInt(2) === 0 ? 1 : -1
-        const cy1     = Math.max(0.18, Math.min(0.82, 0.50 + sign1 * cy1px / h))
-        const cy2px   = 15 + qRandInt(Math.min(maxJump - 20, 50))
-        const cy2     = Math.max(0.18, Math.min(0.82, cy1 - sign1 * cy2px / h))
+        // Hand-tuned in the editor — fixed shape, no randomness.
+        // The 330→430 drift moves the centre 90px over 100 cols, more than
+        // the wave's 78px reach, but the corridor is h*.36 wide there so
+        // there is ~130px of slack to absorb it. Playable.
         return { clearAt:960, keyframes:[
-          {at:0,   cf:0.50, gapH:h*.36},
-          {at:120, cf:cy1,  gapH:h*.36},  // 120-col drift (≤93px ✓)
-          {at:180, cf:cy1,  gapH:46},     // SLAM 1 (46px)
-          {at:270, cf:cy1,  gapH:46},
-          {at:330, cf:cy1,  gapH:h*.36},
-          {at:430, cf:cy2,  gapH:h*.36},  // 100-col drift (≤65px ✓)
-          {at:490, cf:cy2,  gapH:46},     // SLAM 2 (46px)
-          {at:580, cf:cy2,  gapH:46},
-          {at:640, cf:cy2,  gapH:h*.36},
-          {at:960, cf:0.50, gapH:h*.36},
+          {at:0,   cf:0.5,    gapH:h*0.36},
+          {at:120, cf:0.3267, gapH:h*0.36},
+          {at:180, cf:0.3267, gapH:h*0.1343},  // SLAM 1
+          {at:270, cf:0.3267, gapH:h*0.1343},
+          {at:330, cf:0.3267, gapH:h*0.36},
+          {at:430, cf:0.5533, gapH:h*0.36},
+          {at:490, cf:0.5533, gapH:h*0.1118},  // SLAM 2 — tighter
+          {at:580, cf:0.5533, gapH:h*0.1104},
+          {at:640, cf:0.5533, gapH:h*0.36},
+          {at:960, cf:0.5,    gapH:h*0.36},
         ]}
       }
     },
