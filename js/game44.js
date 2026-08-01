@@ -192,7 +192,7 @@ function _spdCustom(diff, score) {
     name:l.name, diff:l.diff, speed:l.speed, custom:true,
     weight: l.weight ?? 1,
     gen() {
-      return { clearAt:l.clearAt, obstacles:l.obstacles.map(o => ({ ...o })) }
+      return { clearAt:l.clearAt, obstacles:l.obstacles.map(o => ({ ...o })), deco:l.deco || [] }
     },
   }))
 }
@@ -236,7 +236,7 @@ const _SPD = {
   scrollX:0, speed:0,
   score:0,
   challenge:null, clearAt:0,
-  obstacles:[],
+  obstacles:[], deco:[],
   trail:[], threads:[],
   announceT:0, clearedT:0,
   shake:0, hitFlash:0,
@@ -323,6 +323,7 @@ function _spdLoadChallenge() {
     speed:      tmpl.speed,
     clearAt:    data.clearAt,
     obstacles:  data.obstacles,
+    deco:       data.deco || [],
     scrollX:    0,
     trail:      [],
     threads:    [],
@@ -491,6 +492,9 @@ function _spdDraw(ctx, w, h) {
     ctx.shadowBlur = 0
   }
   ctx.globalAlpha = 1
+
+  // Deco sits behind the obstacles so it can never read as a block
+  if (typeof drawDeco === 'function') drawDeco(ctx, S.deco, w, h, S.scrollX, spX)
 
   // Obstacles
   for (const obs of S.obstacles) {

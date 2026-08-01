@@ -397,7 +397,7 @@ const G43 = {
   wy:0, wvy:0, holding:false,
   waveR:G43_WAVE_R_NRM,
   score:0, challenge:null,
-  keyframes:[], clearAt:0, scrollX:0,
+  keyframes:[], clearAt:0, scrollX:0, deco:[],
   trail:[],
   announceT:0, clearedT:0,
   deadT:0, showOver:false, shake:0,
@@ -604,6 +604,7 @@ function _g43Custom(diff, score) {
       return {
         clearAt: l.clearAt,
         keyframes: l.keyframes.map(k => ({ at:k.at, cf:k.cf, gapH:k.gapHf * h })),
+        deco: l.deco || [],
       }
     },
   }))
@@ -663,6 +664,7 @@ function _g43LoadChallenge(w, h) {
   const kfData      = tmpl.gen(h)
   G43.keyframes     = kfData.keyframes
   G43.clearAt       = kfData.clearAt
+  G43.deco          = kfData.deco || []
   G43.scrollX       = 0
   G43.trail         = []
   G43.phase         = 'announce'
@@ -849,6 +851,9 @@ function _g43Draw(ctx, w, h) {
   for (let y = 0; y < h; y += 28) {
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke()
   }
+
+  // Deco sits behind the corridor so it can never read as a wall
+  if (typeof drawDeco === 'function') drawDeco(ctx, G43.deco, w, h, scrollI, waveX)
 
   // ── Corridor walls ───────────────────────────────────
   // Path sampled every G43_DRAW_STEP px.
