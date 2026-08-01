@@ -446,8 +446,16 @@ function _g43BuildPracticeUI() {
   el.innerHTML = html
 }
 
+// Also build on load: the picker is static content, so it should not
+// depend on initGame43 running (or on it not throwing).
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try { _g43BuildPracticeUI() } catch (e) { console.error('practice picker:', e) }
+  })
+}
+
 async function initGame43() {
-  _g43BuildPracticeUI()
+  try { _g43BuildPracticeUI() } catch (e) { console.error('practice picker:', e) }
   stopGame43(); _g43Canvas = null
   document.getElementById('g43-overlay').style.display = 'flex'
   document.getElementById('g43-over').style.display    = 'none'

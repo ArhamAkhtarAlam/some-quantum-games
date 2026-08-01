@@ -276,8 +276,14 @@ function _spdBuildPracticeUI() {
   el.innerHTML = html
 }
 
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try { _spdBuildPracticeUI() } catch (e) { console.error('practice picker:', e) }
+  })
+}
+
 async function initSpider() {
-  _spdBuildPracticeUI()
+  try { _spdBuildPracticeUI() } catch (e) { console.error('practice picker:', e) }
   stopSpider(); _spdCvs = null
   document.getElementById('spd-overlay').style.display = 'flex'
   document.getElementById('spd-over').style.display    = 'none'
