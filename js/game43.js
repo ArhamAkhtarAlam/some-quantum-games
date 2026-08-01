@@ -365,6 +365,28 @@ const G43_POOL = {
         ]}
       }
     },
+    {
+      name:'THE SAW', diff:'boss', speed:160,
+      gen(h) {
+        // Hand-tuned in the editor — fixed shape, no randomness.
+        // Eight sawtooth swings between cf .39 and .50 at a crawl. Every
+        // slope sits under 51% of what the wave can cover, so the whole
+        // difficulty is gap precision: 20-27px against a 14px wave.
+        return { clearAt:800, keyframes:[
+          {at:0,   cf:0.5,    gapH:h*0.5},
+          {at:94,  cf:0.5019, gapH:h*0.5},
+          {at:145, cf:0.3903, gapH:h*0.1045},  // teeth begin
+          {at:200, cf:0.5075, gapH:h*0.0551},
+          {at:248, cf:0.3903, gapH:h*0.0593},
+          {at:302, cf:0.5033, gapH:h*0.0678},
+          {at:347, cf:0.3938, gapH:h*0.0847},
+          {at:400, cf:0.5011, gapH:h*0.0508},  // tightest — 20px
+          {at:445, cf:0.3966, gapH:h*0.0734},
+          {at:500, cf:0.4913, gapH:h*0.45},    // release
+          {at:800, cf:0.5,    gapH:h*0.5},
+        ]}
+      }
+    },
   ],
 }
 
@@ -617,8 +639,10 @@ function _g43GetPool(score) {
   else if (score < 5)  builtins = [...B(easy), ...B(medium)]
   else if (score < 9)  builtins = [...B(medium), ...B(hard), ...B([extreme[0]])]
   else if (score < 13) builtins = [...B(hard), ...B(extreme)]
-  else if (score < 17) builtins = [...B(extreme), ...B([dc[0]])]
-  else                 builtins = [...B([dc[0], fp[0], fp[1]])]
+  // Spread the whole dc tier, not dc[0] — a hardcoded index meant any
+  // boss level added after PURGATORY could never be picked.
+  else if (score < 17) builtins = [...B(extreme), ...B(dc)]
+  else                 builtins = [...B(dc), ...B(fp)]
   return [...builtins, ..._g43CustomEligible(score)]
 }
 
