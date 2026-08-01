@@ -427,23 +427,40 @@ function _g43BuildPracticeUI() {
   const el = document.getElementById('g43-practice')
   if (!el) return
   const label = { easy:'Easy', medium:'Medium', hard:'Hard', extreme:'Extreme', fp:'Frame P.', dc:'Boss' }
-  let html = ''
+  el.innerHTML = ''
+
   for (const key of ['easy','medium','hard','extreme','fp','dc']) {
     const arr = G43_POOL[key] || []
     if (!arr.length) continue
     const c = G43_DIFF_COL[key] || '#888'
-    const btns = arr.map(t =>
-      `<button class="pp-btn" style="color:${c};border-color:${c}55;background:${c}18"
-        onclick="startWaveGauntletPractice('${key}', ${JSON.stringify(t.name)})">${t.name}</button>`).join('')
-    html += `<div class="pp-row">
-      <span class="pp-tier" style="color:${c}">${label[key] || key}</span>
-      <span class="pp-levels">
-        <button class="pp-btn pp-any" style="color:${c};border-color:${c};background:${c}28"
-          onclick="startWaveGauntletPractice('${key}')">Any</button>${btns}
-      </span>
-    </div>`
+
+    // Built with real listeners, not inline onclick — level names go
+    // straight to the handler instead of through HTML attribute quoting.
+    const mk = (text, name, any) => {
+      const b = document.createElement('button')
+      b.className = 'pp-btn' + (any ? ' pp-any' : '')
+      b.style.color       = c
+      b.style.borderColor = any ? c : c + '55'
+      b.style.background  = c + (any ? '28' : '18')
+      b.textContent = text
+      b.addEventListener('click', () => startWaveGauntletPractice(key, name))
+      return b
+    }
+
+    const tier = document.createElement('span')
+    tier.className = 'pp-tier'; tier.style.color = c
+    tier.textContent = label[key] || key
+
+    const levels = document.createElement('span')
+    levels.className = 'pp-levels'
+    levels.appendChild(mk('Any', null, true))
+    for (const t of arr) levels.appendChild(mk(t.name, t.name, false))
+
+    const row = document.createElement('div')
+    row.className = 'pp-row'
+    row.appendChild(tier); row.appendChild(levels)
+    el.appendChild(row)
   }
-  el.innerHTML = html
 }
 
 // Also build on load: the picker is static content, so it should not
