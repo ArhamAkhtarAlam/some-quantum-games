@@ -412,6 +412,11 @@ const MEDALS = {
   manualsort: { bronze: 1, silver: 700, gold: 850, author: 930 },
   wavedash:   { bronze: 30, silver: 100, gold: 250 },
   cps:        { bronze: 5,  silver: 8,   gold: 11  },
+  // Starting guesses — tune once there are real scores to look at
+  rhythm:       { bronze: 5,  silver: 12, gold: 21 },
+  wavegauntlet: { bronze: 5,  silver: 12, gold: 20 },
+  spider:       { bronze: 4,  silver: 10, gold: 18 },
+  freighter:    { bronze: 15, silver: 40, gold: 80 },
 }
 
 let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null, cps: null }
@@ -599,6 +604,11 @@ const LB_TABS = [
   { id: 'lb-tab-34', game: 'manualsort',  label: 'Manual Sort',  color: '#4a7c59'  },
   { id: 'lb-tab-35', game: 'wavedash',    label: 'Wave Dash',    color: '#06b6d4'  },
   { id: 'lb-tab-36', game: 'cps',         label: 'CPS',          color: '#6366f1'  },
+  { id: 'lb-tab-37', game: 'rhythm',     label: 'Rhythm',     color: '#f472b6' },
+  { id: 'lb-tab-42', game: 'typerracer', label: 'Typer',      color: '#06b6d4' },
+  { id: 'lb-tab-43', game: 'wavegauntlet', label: 'Wave Gauntlet', color: '#22c55e' },
+  { id: 'lb-tab-44', game: 'spider',       label: 'Spider',        color: '#a855f7' },
+  { id: 'lb-tab-45', game: 'freighter',    label: 'Freighter',     color: '#22d3ee' },
 ]
 
 window.switchLbTab = function(game) {
@@ -798,6 +808,7 @@ const SCORE_COLORS = {
   ufo:        '#a855f7',
   jetrush:     '#f97316',
   typerracer:    '#06b6d4',
+  rhythm:        '#f472b6',
   wavegauntlet:  '#22c55e',
   spider:        '#a855f7',
   freighter:     '#22d3ee',
@@ -839,6 +850,7 @@ window.openSubmit = function(game) {
   else if (game === 'ufo')          score = window._g40Score  || 0
   else if (game === 'jetrush')      score = window._g41Score  || 0
   else if (game === 'typerracer')   score = window._g42Score  || 0
+  else if (game === 'rhythm')       score = window._g37Score  || 0
   else if (game === 'wavegauntlet') score = window._g43Score  || 0
   else if (game === 'spider')       score = window._spdScore  || 0
   else if (game === 'freighter')    score = window._g45Score  || 0
@@ -960,7 +972,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', rhythm:'g37-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
