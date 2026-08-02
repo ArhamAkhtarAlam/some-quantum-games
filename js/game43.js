@@ -411,7 +411,10 @@ const G43 = {
 }
 window._g43Score = 0
 
-const G43_cheat = makeCheat('speedhack')
+// Falls back to a no-op if cheats.js is missing or loads late, so a
+// failed optional script can never take the whole game down with it.
+const _NO_CHEAT = { on:false, mul:1, feed:() => false, reset() {}, label:() => '' }
+const G43_cheat = (typeof makeCheat === 'function') ? makeCheat('speedhack') : _NO_CHEAT
 
 let G43_roomCode           = null
 let G43_isHost             = false

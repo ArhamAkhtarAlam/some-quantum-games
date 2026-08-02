@@ -230,7 +230,8 @@ function _spdGetPool(score) {
 
 // ── State ─────────────────────────────────────────────
 
-const SPD_cheat = makeCheat('speedhack')
+const _NO_CHEAT_SPD = { on:false, mul:1, feed:() => false, reset() {}, label:() => '' }
+const SPD_cheat = (typeof makeCheat === 'function') ? makeCheat('speedhack') : _NO_CHEAT_SPD
 
 const _SPD = {
   active:false, phase:'idle',
