@@ -411,6 +411,8 @@ const G43 = {
 }
 window._g43Score = 0
 
+const G43_cheat = makeCheat('speedhack')
+
 let G43_roomCode           = null
 let G43_isHost             = false
 let G43_lastNetSync        = 0
@@ -505,6 +507,8 @@ function _g43Start(noclip, practiceDiff, multi) {
   })
   window._g43Score = 0
   document.getElementById('g43-score-hud').textContent = noclip ? '—' : '0'
+
+  if (!noclip) G43_cheat.reset()
 
   if (G43_roomCode && !G43_isHost) {
     // Joiner: wait for host to send first challenge via state-sync
@@ -623,6 +627,11 @@ function _g43ApplyNetChallenge(data, h) {
 function _g43On(e)    { e.preventDefault(); G43.holding = true }
 function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
 function _g43KeyDn(e) {
+  // Practice only. A scored run never reaches this.
+  const hit = G43_cheat.feed(e, G43.active && G43.noclip)
+  if (hit === 'unlock') SFX.powerup()
+  else if (hit === 'speed') SFX.click()
+
   if (e.code === 'Space') { e.preventDefault(); G43.holding = true }
   else if (e.key === 'ArrowUp') { e.preventDefault(); G43.multi ? (G43.p2holding = true) : (G43.holding = true) }
 }
@@ -763,8 +772,11 @@ function _g43WallAt(col, h) {
 
 function _g43Loop(ts) {
   if (!G43.active) return
-  const dt = Math.min((ts - G43.lastTime) / 1000, 0.05)
+  let dt = Math.min((ts - G43.lastTime) / 1000, 0.05)
   G43.lastTime = ts
+  // Speedhack dilates time, so the corridor and the wave scale together
+  // and the level's geometry — and its difficulty — are unchanged.
+  if (G43.noclip && G43_cheat.on) dt *= G43_cheat.mul
   const c = _g43C(), w = c.width, h = c.height
   const WR = G43.waveR
 
@@ -1001,6 +1013,10 @@ function _g43Draw(ctx, w, h) {
   if (G43.noclip) {
     ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.fillText('NOCLIP — '+(G43.practiceDiff||'').toUpperCase(), w/2, 18)
+    if (G43_cheat.on) {
+      ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
+      ctx.fillText(G43_cheat.label(), w/2, 32)
+    }
   } else {
     ctx.font = 'bold 26px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.shadowColor = mainCol; ctx.shadowBlur = 16

@@ -230,6 +230,8 @@ function _spdGetPool(score) {
 
 // ── State ─────────────────────────────────────────────
 
+const SPD_cheat = makeCheat('speedhack')
+
 const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
@@ -317,6 +319,8 @@ function _spdStart(noclip, practiceDiff) {
   document.getElementById('spd-overlay').style.display = 'none'
   document.getElementById('spd-over').style.display    = 'none'
 
+  if (!noclip) SPD_cheat.reset()
+
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
     noclip:!!noclip, practiceDiff:practiceDiff||null,
@@ -392,6 +396,11 @@ function _spdLoadChallenge() {
 }
 
 function _spdKeyDn(e) {
+  // Practice only. A scored run never reaches this.
+  const hit = SPD_cheat.feed(e, _SPD.active && _SPD.noclip)
+  if (hit === 'unlock') SFX.powerup()
+  else if (hit === 'speed') SFX.click()
+
   if (e.code === 'Space') { e.preventDefault(); _spdDoFlip() }
 }
 function _spdInput(e) { e.preventDefault(); _spdDoFlip() }
@@ -411,8 +420,10 @@ function _spdDoFlip() {
 
 function _spdLoop(ts) {
   if (!_SPD.active) return
-  const dt = Math.min((ts - _SPD.lastTime) / 1000, 0.05)
+  let dt = Math.min((ts - _SPD.lastTime) / 1000, 0.05)
   _SPD.lastTime = ts
+  // Time dilation, so scroll and flip speed scale together
+  if (_SPD.noclip && SPD_cheat.on) dt *= SPD_cheat.mul
   const c = _spdC(), w = c.width, h = c.height
   const spX = Math.round(w * 0.25)
   const oh  = Math.round(h * 0.44)
@@ -593,6 +604,10 @@ function _spdDraw(ctx, w, h) {
   if (S.noclip) {
     ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.30)'
     ctx.fillText('NOCLIP — ' + (S.practiceDiff || '').toUpperCase(), w/2, 18)
+    if (SPD_cheat.on) {
+      ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
+      ctx.fillText(SPD_cheat.label(), w/2, 32)
+    }
   }
 
   // ── Announce overlay ──
