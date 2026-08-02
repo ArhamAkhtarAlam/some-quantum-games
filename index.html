@@ -24,6 +24,12 @@
     <div class="quantum-badge">Live quantum randomness from CURBy · University of Colorado</div>
   </div>
   <div class="game-cards">
+    <div class="game-card" onclick="showGame(46)">
+      <div class="card-icon">🪤</div>
+      <div class="card-title">Trap Race</div>
+      <div class="card-desc">Ultimate Chicken Horse style. Each round you both drop a trap into the course, then you both race it. You score big only if you finish and they don't — so keep it just barely possible.</div>
+      <span class="card-tag">Sabotage</span>
+    </div>
     <div class="game-card" onclick="showGame(45)">
       <div class="card-icon">🚀</div>
       <div class="card-title">Quantum Freighter</div>
@@ -278,6 +284,7 @@
         <button class="lb-tab" style="border-color:#22c55e;color:#22c55e;" id="lb-tab-43" onclick="switchLbTab('wavegauntlet')">Wave Gauntlet</button>
         <button class="lb-tab" style="border-color:#a855f7;color:#a855f7;" id="lb-tab-44" onclick="switchLbTab('spider')">Spider</button>
         <button class="lb-tab" style="border-color:#22d3ee;color:#22d3ee;" id="lb-tab-45" onclick="switchLbTab('freighter')">Freighter</button>
+        <button class="lb-tab" style="border-color:#fb923c;color:#fb923c;" id="lb-tab-46" onclick="switchLbTab('traprace')">Trap Race</button>
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-42" onclick="switchLbTab('typerracer')">Type Racer</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-mp" onclick="switchLbTab('mp')">⚔️ MP Wins</button>
       </div>
@@ -1815,6 +1822,51 @@
 </section>
 
 <script src="js/game45.js?v=1"></script>
+
+<!-- ══════════════════════════════════
+     GAME 46 — TRAP RACE
+══════════════════════════════════ -->
+<section id="game46" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🪤 Trap Race</span>
+    <div class="score-badge" style="border-color:#fb923c;color:#fb923c;">
+      R<span id="g46-round">1</span> &nbsp;
+      <span style="color:#38bdf8">P1 <span id="g46-s1">0</span></span> &nbsp;
+      <span style="color:#f472b6">P2 <span id="g46-s2">0</span></span>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g46-arena">
+    <canvas id="g46-canvas"></canvas>
+    <div class="canvas-overlay" id="g46-overlay">
+      <h3>🪤 Trap Race</h3>
+      <p style="color:var(--muted);font-size:.88rem;text-align:center;max-width:360px;margin-bottom:.9rem">
+        Every round you <b>both drop one trap</b> into the course, then you <b>both race it</b>.<br>
+        Finish when they don't: <b style="color:#22c55e">+3</b>. Both finish: only the faster one gets <b>+1</b>.
+        Nobody finishes: <b>nothing</b>.<br>
+        <span style="font-size:.78rem">So the course has to stay <i>just</i> possible. First to 10 wins.</span>
+      </p>
+      <button class="btn-primary" style="background:#fb923c;border-color:#fb923c;color:#2b1400;font-weight:700;" onclick="startTrapRaceLocal()">👥 Same Screen</button>
+      <div style="margin-top:.7rem;display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+        <button id="g46-match-btn" class="btn-primary" style="background:rgba(168,85,247,.18);border-color:#a855f7;color:#a855f7;font-weight:700;" onclick="g46FindMatch()">🌐 Play Online</button>
+        <span id="g46-match-status" style="font-size:.75rem;color:var(--muted);min-height:1rem;"></span>
+      </div>
+    </div>
+    <div class="game-over-overlay" id="g46-over" style="display:none;">
+      <div class="game-over-card">
+        <h2>Match Over! 🪤</h2>
+        <div class="final-score" id="g46-final-score" style="color:#fb923c">0 points</div>
+        <div id="g46-medal-display"></div>
+        <button class="btn-primary" style="background:#fb923c;border-color:#fb923c;color:#2b1400;" onclick="openSubmit('traprace')">Submit Score</button><br><br>
+        <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame46()">Play Again</button>
+        <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="js/game46.js?v=1"></script>
+
 
 
 </body>

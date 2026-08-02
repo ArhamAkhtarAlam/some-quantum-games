@@ -236,6 +236,7 @@ const GAME_SLUGS = {
   'cps':              36,
   'spider':           44,
   'freighter':        45,
+  'trap-race':        46,
 }
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
@@ -300,6 +301,7 @@ window.showGame = function(n) {
   if (n === 43) initGame43()
   if (n === 44) initSpider()
   if (n === 45) initGame45()
+  if (n === 46) initGame46()
 }
 
 window.goHome = function() {
@@ -417,6 +419,7 @@ const MEDALS = {
   wavegauntlet: { bronze: 5,  silver: 12, gold: 20 },
   spider:       { bronze: 4,  silver: 10, gold: 18 },
   freighter:    { bronze: 15, silver: 40, gold: 80 },
+  traprace:     { bronze: 3,  silver: 7,  gold: 10 },
 }
 
 let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null, cps: null }
@@ -609,6 +612,7 @@ const LB_TABS = [
   { id: 'lb-tab-43', game: 'wavegauntlet', label: 'Wave Gauntlet', color: '#22c55e' },
   { id: 'lb-tab-44', game: 'spider',       label: 'Spider',        color: '#a855f7' },
   { id: 'lb-tab-45', game: 'freighter',    label: 'Freighter',     color: '#22d3ee' },
+  { id: 'lb-tab-46', game: 'traprace',     label: 'Trap Race',     color: '#fb923c' },
 ]
 
 window.switchLbTab = function(game) {
@@ -812,6 +816,7 @@ const SCORE_COLORS = {
   wavegauntlet:  '#22c55e',
   spider:        '#a855f7',
   freighter:     '#22d3ee',
+  traprace:      '#fb923c',
 }
 
 window.openSubmit = function(game) {
@@ -854,6 +859,7 @@ window.openSubmit = function(game) {
   else if (game === 'wavegauntlet') score = window._g43Score  || 0
   else if (game === 'spider')       score = window._spdScore  || 0
   else if (game === 'freighter')    score = window._g45Score  || 0
+  else if (game === 'traprace')     score = window._g46Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -972,7 +978,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', rhythm:'g37-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', rhythm:'g37-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over', traprace:'g46-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
