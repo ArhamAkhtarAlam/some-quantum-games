@@ -368,23 +368,25 @@ const G43_POOL = {
     {
       name:'THE SAW', diff:'boss', speed:160,
       gen(h) {
-        // Hand-tuned in the editor — fixed shape, no randomness.
-        // Eight sawtooth swings between cf .39 and .50 at a crawl. Every
-        // slope sits under 51% of what the wave can cover, so the whole
-        // difficulty is gap precision: 20-27px against a 14px wave.
-        return { clearAt:800, keyframes:[
-          {at:0,   cf:0.5,    gapH:h*0.5},
-          {at:94,  cf:0.5019, gapH:h*0.5},
-          {at:145, cf:0.3903, gapH:h*0.1045},  // teeth begin
-          {at:200, cf:0.5075, gapH:h*0.0551},
-          {at:248, cf:0.3903, gapH:h*0.0593},
-          {at:302, cf:0.5033, gapH:h*0.0678},
-          {at:347, cf:0.3938, gapH:h*0.0847},
-          {at:400, cf:0.5011, gapH:h*0.0508},  // tightest — 20px
-          {at:445, cf:0.3966, gapH:h*0.0734},
-          {at:500, cf:0.4913, gapH:h*0.45},    // release
-          {at:800, cf:0.5,    gapH:h*0.5},
-        ]}
+        // Eight identical teeth: the corridor snaps between 0.44 and 0.56
+        // every 50 columns through a constant h*0.06 gap. Uniform on
+        // purpose — the rhythm is learnable, the precision is not.
+        // Difficulty is unchanged from the hand-placed version (one exact
+        // viable line at a 500px canvas), but the even spacing makes it
+        // clearable down to a ~380px canvas instead of ~440px.
+        const A = 0.06, G = h * 0.06, S = 50
+        const kf = [
+          {at:0,  cf:0.5, gapH:h*0.5},
+          {at:94, cf:0.5, gapH:h*0.5},
+        ]
+        let at = 94
+        for (let i = 0; i < 8; i++) {
+          at += S
+          kf.push({ at, cf: i % 2 ? 0.5 + A : 0.5 - A, gapH: G })
+        }
+        kf.push({ at: at + S,       cf:0.5, gapH:h*0.45 })   // release
+        kf.push({ at: at + S + 300, cf:0.5, gapH:h*0.5  })
+        return { clearAt: at + S + 300, keyframes: kf }
       }
     },
   ],
