@@ -24,6 +24,12 @@
     <div class="quantum-badge">Live quantum randomness from CURBy · University of Colorado</div>
   </div>
   <div class="game-cards">
+    <div class="game-card" onclick="showGame(45)">
+      <div class="card-icon">🚀</div>
+      <div class="card-title">Quantum Freighter</div>
+      <div class="card-desc">Co-op for two. One pilots the ship, the other mans the gun — neither can do both. Same screen or online. Survive the waves together.</div>
+      <span class="card-tag">Co-op</span>
+    </div>
     <div class="game-card game10" onclick="showGame(10)">
       <div class="card-icon">🌌</div>
       <div class="card-title">Gravity Wells</div>
@@ -271,6 +277,7 @@
         <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-37" onclick="switchLbTab('rhythm')">Rhythm</button>
         <button class="lb-tab" style="border-color:#22c55e;color:#22c55e;" id="lb-tab-43" onclick="switchLbTab('wavegauntlet')">Wave Gauntlet</button>
         <button class="lb-tab" style="border-color:#a855f7;color:#a855f7;" id="lb-tab-44" onclick="switchLbTab('spider')">Spider</button>
+        <button class="lb-tab" style="border-color:#22d3ee;color:#22d3ee;" id="lb-tab-45" onclick="switchLbTab('freighter')">Freighter</button>
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-42" onclick="switchLbTab('typerracer')">Type Racer</button>
         <button class="lb-tab" style="border-color:#a78bfa;color:#a78bfa;" id="lb-tab-mp" onclick="switchLbTab('mp')">⚔️ MP Wins</button>
       </div>
@@ -1765,6 +1772,50 @@
 </section>
 
 <script src="js/game44.js?v=3"></script>
+
+<!-- ══════════════════════════════════
+     GAME 45 — QUANTUM FREIGHTER (co-op)
+══════════════════════════════════ -->
+<section id="game45" class="screen game-screen">
+  <div class="top-bar">
+    <button class="btn-back" onclick="goHome()">← Back</button>
+    <span class="game-title">🚀 Quantum Freighter</span>
+    <div class="score-badge" style="border-color:#22d3ee;color:#22d3ee;">
+      <span id="g45-hull">❤❤❤</span> &nbsp; Kills <span id="g45-score-hud">0</span>
+    </div>
+  </div>
+  <div class="canvas-arena" id="g45-arena">
+    <canvas id="g45-canvas"></canvas>
+    <div class="canvas-overlay" id="g45-overlay">
+      <h3>🚀 Quantum Freighter</h3>
+      <p style="color:var(--muted);font-size:.88rem;text-align:center;max-width:340px;margin-bottom:.9rem">
+        One ship, two jobs.<br>
+        <b style="color:#22d3ee">Pilot</b> flies with <b>WASD</b>. <b style="color:#fde047">Gunner</b> aims with the
+        <b>mouse</b> and holds to fire.<br>
+        <span style="font-size:.78rem">Neither can do the other's job — 3 hull, shared. Talk to each other.</span>
+      </p>
+      <button class="btn-primary" style="background:#22d3ee;border-color:#22d3ee;color:#04222b;font-weight:700;" onclick="startFreighterLocal()">👥 Same Screen</button>
+      <div style="margin-top:.7rem;display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+        <button id="g45-match-btn" class="btn-primary" style="background:rgba(168,85,247,.18);border-color:#a855f7;color:#a855f7;font-weight:700;" onclick="g45FindMatch()">🌐 Play Online</button>
+        <span id="g45-match-status" style="font-size:.75rem;color:var(--muted);min-height:1rem;"></span>
+      </div>
+    </div>
+    <div class="game-over-overlay" id="g45-over" style="display:none;">
+      <div class="game-over-card">
+        <h2>Hull Breached! 💥</h2>
+        <div class="final-score" id="g45-final-score" style="color:#22d3ee">0 destroyed</div>
+        <div id="g45-medal-display"></div>
+        <button class="btn-primary" style="background:#22d3ee;border-color:#22d3ee;color:#04222b;" onclick="openSubmit('freighter')">Submit Score</button><br><br>
+        <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame45()">Play Again</button>
+        <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
+      </div>
+    </div>
+  </div>
+  <p id="g45-role" style="text-align:center;font-size:.78rem;color:var(--muted);min-height:1rem;"></p>
+</section>
+
+<script src="js/game45.js?v=1"></script>
+
 
 </body>
 </html>

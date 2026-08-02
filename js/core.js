@@ -234,6 +234,8 @@ const GAME_SLUGS = {
   'manual-sort':      34,
   'wave-dash':        35,
   'cps':              36,
+  'spider':           44,
+  'freighter':        45,
 }
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
@@ -296,6 +298,8 @@ window.showGame = function(n) {
   if (n === 41) initGame41()
   if (n === 42) initGame42()
   if (n === 43) initGame43()
+  if (n === 44) initSpider()
+  if (n === 45) initGame45()
 }
 
 window.goHome = function() {
@@ -795,6 +799,8 @@ const SCORE_COLORS = {
   jetrush:     '#f97316',
   typerracer:    '#06b6d4',
   wavegauntlet:  '#22c55e',
+  spider:        '#a855f7',
+  freighter:     '#22d3ee',
 }
 
 window.openSubmit = function(game) {
@@ -834,6 +840,8 @@ window.openSubmit = function(game) {
   else if (game === 'jetrush')      score = window._g41Score  || 0
   else if (game === 'typerracer')   score = window._g42Score  || 0
   else if (game === 'wavegauntlet') score = window._g43Score  || 0
+  else if (game === 'spider')       score = window._spdScore  || 0
+  else if (game === 'freighter')    score = window._g45Score  || 0
 
   pendingSubmit = { game, score }
   document.getElementById('sub-score-display').textContent = scoreToDisplay(game, score)
@@ -952,7 +960,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', wavegauntlet:'g43-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
