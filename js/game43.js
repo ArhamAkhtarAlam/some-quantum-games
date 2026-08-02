@@ -414,7 +414,9 @@ window._g43Score = 0
 // Falls back to a no-op if cheats.js is missing or loads late, so a
 // failed optional script can never take the whole game down with it.
 const _NO_CHEAT = { on:false, mul:1, feed:() => false, reset() {}, label:() => '' }
-const G43_cheat = (typeof makeCheat === 'function') ? makeCheat('speedhack') : _NO_CHEAT
+const G43_cheat = (typeof makeCheat === 'function')
+  ? makeCheat('speedhack', () => cheatScreenActive('game43'))
+  : _NO_CHEAT
 
 let G43_roomCode           = null
 let G43_isHost             = false
@@ -630,11 +632,8 @@ function _g43ApplyNetChallenge(data, h) {
 function _g43On(e)    { e.preventDefault(); G43.holding = true }
 function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
 function _g43KeyDn(e) {
-  // Practice only. A scored run never reaches this.
-  const hit = G43_cheat.feed(e, G43.active && G43.noclip)
-  if (hit === 'unlock') SFX.powerup()
-  else if (hit === 'speed') SFX.click()
-
+  // The cheat code is handled by the always-on listener in cheats.js,
+  // so it works on the start overlay too, not only mid-run.
   if (e.code === 'Space') { e.preventDefault(); G43.holding = true }
   else if (e.key === 'ArrowUp') { e.preventDefault(); G43.multi ? (G43.p2holding = true) : (G43.holding = true) }
 }

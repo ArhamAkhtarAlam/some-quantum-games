@@ -231,7 +231,9 @@ function _spdGetPool(score) {
 // ── State ─────────────────────────────────────────────
 
 const _NO_CHEAT_SPD = { on:false, mul:1, feed:() => false, reset() {}, label:() => '' }
-const SPD_cheat = (typeof makeCheat === 'function') ? makeCheat('speedhack') : _NO_CHEAT_SPD
+const SPD_cheat = (typeof makeCheat === 'function')
+  ? makeCheat('speedhack', () => cheatScreenActive('game44'))
+  : _NO_CHEAT_SPD
 
 const _SPD = {
   active:false, phase:'idle',
@@ -397,11 +399,6 @@ function _spdLoadChallenge() {
 }
 
 function _spdKeyDn(e) {
-  // Practice only. A scored run never reaches this.
-  const hit = SPD_cheat.feed(e, _SPD.active && _SPD.noclip)
-  if (hit === 'unlock') SFX.powerup()
-  else if (hit === 'speed') SFX.click()
-
   if (e.code === 'Space') { e.preventDefault(); _spdDoFlip() }
 }
 function _spdInput(e) { e.preventDefault(); _spdDoFlip() }
