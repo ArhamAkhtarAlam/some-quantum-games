@@ -273,6 +273,70 @@ const G43_POOL = {
         ]}
       }
     },
+    {
+      name:'SUPERSONIC', diff:'fp', speed:3000,
+      gen(h) {
+        // Hand-built in the editor. At 3000px/s the level lasts under two
+        // seconds and scrolls ~50 columns per frame at 60Hz, so the fine
+        // detail here reads as a blur rather than as gaps to thread.
+        // Geometrically it is the most forgiving level in the game — the
+        // tightest gap is h*0.0852, ~43px at a 500px canvas.
+        return { clearAt:5800, keyframes:[
+          {at:0, cf:0.5, gapH:h*0.5},
+          {at:200, cf:0.5, gapH:h*0.2236},
+          {at:215, cf:0.5943, gapH:h*0.5},
+          {at:500, cf:0.35, gapH:h*0.3902},
+          {at:800, cf:0.5, gapH:h*0.5},
+          {at:1071, cf:0.4658, gapH:h*0.4},
+          {at:1111, cf:0.4658, gapH:h*0.2739},
+          {at:1241, cf:0.4658, gapH:h*0.1174},
+          {at:1281, cf:0.4658, gapH:h*0.4},
+          {at:1305, cf:0.4389, gapH:h*0.1867},
+          {at:1381, cf:0.4481, gapH:h*0.0852},
+          {at:1481, cf:0.5581, gapH:h*0.37},
+          {at:1581, cf:0.4481, gapH:h*0.09},
+          {at:1686, cf:0.465, gapH:h*0.2387},
+          {at:1717, cf:0.3651, gapH:h*0.4094},
+          {at:1781, cf:0.4481, gapH:h*0.09},
+          {at:1905, cf:0.4389, gapH:h*0.2331},
+          {at:2008, cf:0.4527, gapH:h*0.2532},
+          {at:2105, cf:0.4389, gapH:h*0.2104},
+          {at:2584, cf:0.4648, gapH:h*0.4},
+          {at:2624, cf:0.4648, gapH:h*0.1267},
+          {at:2754, cf:0.4648, gapH:h*0.1308},
+          {at:2794, cf:0.4648, gapH:h*0.4},
+          {at:3369, cf:0.4185, gapH:h*0.1795},
+          {at:3469, cf:0.5285, gapH:h*0.265},
+          {at:3569, cf:0.4185, gapH:h*0.1739},
+          {at:3669, cf:0.5285, gapH:h*0.212},
+          {at:3769, cf:0.4185, gapH:h*0.1842},
+          {at:4033, cf:0.419, gapH:h*0.5},
+          {at:4231, cf:0.4648, gapH:h*0.5},
+          {at:4241, cf:0.5199, gapH:h*0.5},
+          {at:4241, cf:0.5292, gapH:h*0.5},
+          {at:4251, cf:0.4962, gapH:h*0.5},
+          {at:4312, cf:0.5554, gapH:h*0.5},
+          {at:4328, cf:0.3747, gapH:h*0.3723},
+          {at:4382, cf:0.4156, gapH:h*0.2307},
+          {at:4552, cf:0.5503, gapH:h*0.415},
+          {at:4574, cf:0.3397, gapH:h*0.3079},
+          {at:4683, cf:0.4864, gapH:h*0.3079},
+          {at:4693, cf:0.5755, gapH:h*0.3718},
+          {at:4706, cf:0.419, gapH:h*0.5},
+          {at:4962, cf:0.688, gapH:h*0.5},
+          {at:5237, cf:0.6471, gapH:h*0.5},
+          {at:5393, cf:0.6239, gapH:h*0.3296},
+          {at:5423, cf:0.6048, gapH:h*0.5},
+          {at:5431, cf:0.7094, gapH:h*0.5},
+          {at:5499, cf:0.5791, gapH:h*0.1164},
+          {at:5712, cf:0.6275, gapH:h*0.3584},
+          {at:5743, cf:0.5255, gapH:h*0.1586},
+          {at:5762, cf:0.456, gapH:h*0.2915},
+          {at:5791, cf:0.5394, gapH:h*0.2915},
+          {at:5954, cf:0.6437, gapH:h*0.5},
+        ]}
+      }
+    },
   ],
 
   extreme: [
