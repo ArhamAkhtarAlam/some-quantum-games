@@ -511,6 +511,7 @@ const G43 = {
   practice:false, noclip:false,
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
+  paused:false,         // frozen while the clear card is up
   taps:0, _lastHold:false,  // input count, measured as rising edges
   testLevel:null,
   raf:null, lastTime:0,
@@ -632,7 +633,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
-    attempts:0, fullTrail:[], taps:0, _lastHold:false,
+    attempts:0, fullTrail:[], taps:0, _lastHold:false, paused:false,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -693,6 +694,7 @@ window.g43TestLevel = function(tmpl, noclip) {
 
 window.stopGame43 = function() {
   G43.active = false
+  G43.paused = false
   if (G43.raf) { cancelAnimationFrame(G43.raf); G43.raf = null }
   const c = _g43C()
   if (c) {
@@ -922,6 +924,15 @@ function _g43Loop(ts) {
   if (G43.practice && G43_cheat.on) dt *= G43_cheat.mul
   const c = _g43C(), w = c.width, h = c.height
   const WR = G43.waveR
+
+  // The clear card freezes the run. Without this the next challenge
+  // loaded and started playing behind the picture, so dismissing it
+  // dropped you into a level already in progress.
+  if (G43.paused) {
+    _g43Draw(c.getContext('2d'), w, h)
+    G43.raf = requestAnimationFrame(_g43Loop)
+    return
+  }
 
   G43.t += dt                       // drives deco motion tracks
   if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
@@ -1166,11 +1177,20 @@ function _g43ShowCard(cv) {
   try { img.src = cv.toDataURL('image/png') } catch { return }
   wrap.dataset.name = (G43.challenge.name || 'run').toLowerCase().replace(/[^a-z0-9]+/g, '-')
   wrap.style.display = 'flex'
+  G43.paused = true
 }
 
+// Dismissing the card starts the next attempt from a standing start,
+// rather than resuming a run that carried on without you.
 window.g43CloseCard = function() {
   const wrap = document.getElementById('g43-card')
   if (wrap) wrap.style.display = 'none'
+  if (!G43.active || !G43.paused) return
+  G43.paused   = false
+  G43.holding  = false
+  G43.lastTime = performance.now()
+  const c = _g43C()
+  _g43LoadChallenge(c.width, c.height)
 }
 
 window.g43SaveCard = function() {
