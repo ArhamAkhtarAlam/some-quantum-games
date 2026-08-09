@@ -475,6 +475,22 @@ const G43_POOL = {
         ]}
       }
     },
+    {
+      name:'UPHILL DOWNHILL', diff:'boss', speed:160,
+      gen(h) {
+        // Submitted level, checked in review.html — clean at every window
+        // size. The gap clamps to ~h*0.092 at col 200 and stays there for
+        // 550 columns while the whole corridor ramps down to cf 0.35 and
+        // back up. No single hard input; just no let-up for 6 seconds.
+        return { clearAt:1000, keyframes:[
+          {at:0,    cf:0.5,    gapH:h*0.5},
+          {at:200,  cf:0.5,    gapH:h*0.0981},   // clamp shut
+          {at:500,  cf:0.35,   gapH:h*0.0925},   // downhill
+          {at:750,  cf:0.5041, gapH:h*0.0925},   // uphill
+          {at:1006, cf:0.4998, gapH:h*0.5},      // release
+        ]}
+      }
+    },
   ],
 }
 
