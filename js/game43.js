@@ -362,23 +362,26 @@ const G43_POOL = {
       }
     },
     {
-      name:'SQUEEZE SHIFT', diff:'extreme', speed:318,
+      name:'SPECIAL HOLD', diff:'extreme', speed:1000,
       gen(h) {
-        // 28px gap that slowly drifts while closed.
-        // Clearance = 7px/side — must tap-control to stay centered while tracking drift.
-        const maxPos = Math.floor(255/318 * 100 * 0.85)
-        const cy1px  = 10 + qRandInt(Math.min(maxPos - 15, 50))
-        const sign   = qRandInt(2) === 0 ? 1 : -1
-        const cy1    = Math.max(0.20, Math.min(0.80, 0.50 + sign * cy1px / h))
-        const drift  = (qRandInt(2) === 0 ? 1 : -1) * (6 + qRandInt(8))  // 6-13px
-        const cy2    = Math.max(0.18, Math.min(0.82, cy1 + drift / h))
+        // Hand-built in the editor, replacing the old SQUEEZE SHIFT.
+        // The pinch is the h*0.0603 gap around col 260 — one held line
+        // through it, which is where the name comes from. The three
+        // keyframes at 533/543/547 are 10 and 4 columns apart, under one
+        // frame at this speed, so that drop reads as an instant snap.
         return { clearAt:920, keyframes:[
-          {at:0,   cf:0.50, gapH:h*.36},
-          {at:100, cf:cy1,  gapH:h*.36},  // position
-          {at:160, cf:cy1,  gapH:52},     // SLAM — 52px tight gap
-          {at:260, cf:cy2,  gapH:52},     // slow drift 100 col (6-13px) while slammed
-          {at:330, cf:cy2,  gapH:h*.36},
-          {at:920, cf:0.50, gapH:h*.36},
+          {at:0, cf:0.5, gapH:h*0.36},
+          {at:100, cf:0.5348, gapH:h*0.36},
+          {at:160, cf:0.5348, gapH:h*0.2554},
+          {at:260, cf:0.5452, gapH:h*0.0603},   // the hold
+          {at:330, cf:0.5452, gapH:h*0.2},
+          {at:387, cf:0.5557, gapH:h*0.1226},
+          {at:439, cf:0.5845, gapH:h*0.36},
+          {at:485, cf:0.5933, gapH:h*0.2642},
+          {at:533, cf:0.4751, gapH:h*0.36},
+          {at:543, cf:0.4112, gapH:h*0.36},
+          {at:547, cf:0.3412, gapH:h*0.36},
+          {at:920, cf:0.5, gapH:h*0.36},
         ]}
       }
     },
