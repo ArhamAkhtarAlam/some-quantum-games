@@ -243,7 +243,7 @@ const _SPD = {
   challenge:null, clearAt:0,
   obstacles:[], deco:[],
   trail:[], threads:[],
-  announceT:0, clearedT:0,
+  announceT:0, clearedT:0, t:0,
   shake:0, hitFlash:0,
   noclip:false, practiceDiff:null, practiceLevel:null, testLevel:null,
   deadT:0, showOver:false,
@@ -395,6 +395,7 @@ function _spdLoadChallenge() {
     onFloor:    true,
     phase:      'announce',
     announceT:  0,
+    t:          0,
   })
 }
 
@@ -426,6 +427,7 @@ function _spdLoop(ts) {
   const spX = Math.round(w * 0.25)
   const oh  = Math.round(h * 0.44)
 
+  _SPD.t += dt
   if (_SPD.shake   > 0) _SPD.shake   = Math.max(0, _SPD.shake   - dt * 4)
   if (_SPD.hitFlash > 0) _SPD.hitFlash = Math.max(0, _SPD.hitFlash - dt * 5)
 
@@ -561,7 +563,7 @@ function _spdDraw(ctx, w, h) {
   ctx.globalAlpha = 1
 
   // Deco sits behind the obstacles so it can never read as a block
-  if (typeof drawDeco === 'function') drawDeco(ctx, S.deco, w, h, S.scrollX, spX)
+  if (typeof drawDeco === 'function') drawDeco(ctx, S.deco, w, h, S.scrollX, spX, { time: S.t })
 
   // Obstacles
   for (const obs of S.obstacles) {

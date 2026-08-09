@@ -487,7 +487,7 @@ const G43 = {
   score:0, challenge:null,
   keyframes:[], clearAt:0, scrollX:0, deco:[],
   trail:[],
-  announceT:0, clearedT:0,
+  announceT:0, clearedT:0, t:0,
   deadT:0, showOver:false, shake:0,
   noclip:false, practiceDiff:null, practiceLevel:null, hitFlash:0,
   testLevel:null,
@@ -589,7 +589,7 @@ function _g43Start(noclip, practiceDiff, multi) {
     waveR:G43_WAVE_R_NRM,
     score:0, challenge:null, keyframes:[], clearAt:0, scrollX:0,
     trail:[],
-    announceT:0, clearedT:0,
+    announceT:0, clearedT:0, t:0,
     deadT:0, showOver:false, shake:0,
     noclip:!!noclip, practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     testLevel:G43.testLevel || null,
@@ -868,6 +868,7 @@ function _g43Loop(ts) {
   const c = _g43C(), w = c.width, h = c.height
   const WR = G43.waveR
 
+  G43.t += dt                       // drives deco motion tracks
   if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
   if (G43.hitFlash > 0) G43.hitFlash = Math.max(0, G43.hitFlash - dt)
 
@@ -898,12 +899,14 @@ function _g43Loop(ts) {
     waveStep(false)
     G43.scrollX += G43.challenge.speed * dt
 
-    const wX = Math.round(w * 0.22)
-    G43.trail.push({ x: wX, y: G43.wy })
-    if (G43.trail.length > 30) G43.trail.shift()
+    // Store the world column, not the canvas x — every point used to share
+    // the wave's fixed x, so the "trail" was a vertical smear rather than a
+    // streak running back behind it.
+    G43.trail.push({ sx: G43.scrollX, y: G43.wy })
+    if (G43.trail.length > 140) G43.trail.shift()
     if (G43.multi) {
-      G43.p2trail.push({ x: wX, y: G43.p2wy })
-      if (G43.p2trail.length > 30) G43.p2trail.shift()
+      G43.p2trail.push({ sx: G43.scrollX, y: G43.p2wy })
+      if (G43.p2trail.length > 140) G43.p2trail.shift()
     }
 
     const wall    = _g43WallAt(Math.floor(G43.scrollX), h)
@@ -1016,7 +1019,7 @@ function _g43Draw(ctx, w, h) {
   }
 
   // Deco sits behind the corridor so it can never read as a wall
-  if (typeof drawDeco === 'function') drawDeco(ctx, G43.deco, w, h, scrollI, waveX)
+  if (typeof drawDeco === 'function') drawDeco(ctx, G43.deco, w, h, scrollI, waveX, { time: G43.t })
 
   // ── Corridor walls ───────────────────────────────────
   // Path sampled every G43_DRAW_STEP px.
@@ -1067,18 +1070,28 @@ function _g43Draw(ctx, w, h) {
   ctx.stroke(); ctx.shadowBlur = 0
 
   // ── Wave trails ──────────────────────────────────────
+  // Same look as Wave Dash: one wide translucent pass for the glow,
+  // one thin bright pass on top, both as a single continuous stroke.
   const _drawTrail = (trail, col) => {
-    for (let i = 1; i < trail.length; i++) {
-      const a = i / trail.length
-      ctx.globalAlpha = a * a * 0.55
-      ctx.strokeStyle = col; ctx.lineWidth = a * 2.2
-      ctx.shadowColor = col; ctx.shadowBlur = 3
-      ctx.beginPath()
-      ctx.moveTo(trail[i-1].x, trail[i-1].y)
-      ctx.lineTo(trail[i].x,   trail[i].y)
-      ctx.stroke(); ctx.shadowBlur = 0
+    if (trail.length < 2) return
+    const pts = []
+    for (const p of trail) {
+      const x = waveX - (G43.scrollX - p.sx)
+      if (x >= -6) pts.push({ x, y: p.y })
     }
-    ctx.globalAlpha = 1
+    if (pts.length < 2) return
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    const stroke = () => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+      ctx.stroke()
+    }
+    ctx.shadowColor = col; ctx.shadowBlur = 10
+    ctx.lineWidth = 5; ctx.globalAlpha = 0.25; ctx.strokeStyle = col
+    stroke()
+    ctx.shadowBlur = 6; ctx.lineWidth = 2; ctx.globalAlpha = 0.95
+    stroke()
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1
   }
   _drawTrail(G43.trail, mainCol)
   if (G43.multi) _drawTrail(G43.p2trail, '#38bdf8')

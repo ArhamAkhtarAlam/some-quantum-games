@@ -1018,3 +1018,11 @@ body {
 }
 .pp-btn:hover { filter: brightness(1.35); }
 .pp-btn.pp-any { font-weight: 700; }
+
+/* Editor — checkbox row (deco motion preview) */
+.ed-check {
+  flex-direction: row !important; align-items: center; gap: .4rem;
+  text-transform: none !important; letter-spacing: 0 !important;
+  cursor: pointer; font-size: .74rem;
+}
+.ed-check input { width: auto; accent-color: var(--accent); }
