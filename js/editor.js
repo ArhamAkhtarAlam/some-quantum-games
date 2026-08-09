@@ -761,27 +761,90 @@ ${obs}
 window.edSubmit = function() {
   const lv = _edCur(); if (!lv) { _edSetMsg('Nothing selected to submit.'); return }
 
-  // Run the checker first, so obviously broken levels don't get sent
-  let verdict = ''
+  // Check it first — a level that can't be cleared shouldn't be sent at all
+  let verdict = { text:'', cls:'ok', lines:[] }
   if (typeof lcReport === 'function') {
     const r = lcReport(lv)
     if (!r.clearable) {
-      alert("This level can't be cleared — no sequence of inputs survives it.\n\n"
-        + r.problems.join('\n') + '\n\nFix it before sending.')
-      return
+      verdict = { text:"This level can't be cleared", cls:'bad', lines:r.problems }
+      _edSubmitPanel(null, verdict); return
     }
-    if (r.problems.length && !confirm('The checker found problems:\n\n• '
-        + r.problems.join('\n• ') + '\n\nSend it anyway?')) return
-    verdict = r.problems.length ? 'has issues' : 'checks out'
+    verdict = r.problems.length
+      ? { text:'Playable, but the checker flagged things', cls:'warn', lines:r.problems.concat(r.warnings) }
+      : { text:'Checks out', cls:'good', lines:r.warnings }
+  }
+  _edSubmitPanel(JSON.stringify({ ...lv, submitted:new Date().toISOString() }, null, 2), verdict, lv)
+}
+
+// A real panel rather than an alert: the JSON is visible and selectable,
+// and there's a file to actually send.
+function _edSubmitPanel(payload, verdict, lv) {
+  let el = document.getElementById('ed-submit-panel')
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'ed-submit-panel'
+    el.className = 'ed-modal'
+    document.body.appendChild(el)
+  }
+  const colour = { good:'#4ade80', warn:'#fbbf24', bad:'#f87171', ok:'var(--muted)' }[verdict.cls]
+
+  if (!payload) {
+    el.innerHTML = `<div class="ed-modal-card">
+      <h3 style="color:${colour}">❌ ${_edEsc(verdict.text)}</h3>
+      ${verdict.lines.map(l => `<p class="ed-modal-line">• ${_edEsc(l)}</p>`).join('')}
+      <p class="ed-modal-note">Fix it and try again — there's no point sending a level nobody can finish.</p>
+      <div class="ed-modal-row"><button class="btn-primary" onclick="edCloseSubmit()">OK</button></div>
+    </div>`
+    el.style.display = 'flex'
+    return
   }
 
-  const payload = JSON.stringify({ ...lv, submitted: new Date().toISOString() }, null, 2)
-  navigator.clipboard?.writeText(payload)
-  console.log(payload)
-  _edSetMsg('📋 Copied — send it to Arham and he can add it.')
-  alert('Your level is on the clipboard' + (verdict ? ' (' + verdict + ')' : '') + '.\n\n'
-      + 'Send it to Arham however you normally talk to him and he can drop it into the game.\n\n'
-      + "It's also printed in the browser console if you need it again.")
+  const fname = (lv.name || 'level').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.qglevel.json'
+  el.innerHTML = `<div class="ed-modal-card">
+    <h3 style="color:${colour}">${verdict.cls === 'good' ? '✅' : '⚠'} ${_edEsc(verdict.text)}</h3>
+    ${verdict.lines.slice(0, 4).map(l => `<p class="ed-modal-line">• ${_edEsc(l)}</p>`).join('')}
+    <p class="ed-modal-note">Send this to Arham and he'll check it and add it to the game.
+      Download it as a file, or copy the text below.</p>
+    <textarea class="ed-modal-json" id="ed-submit-json" readonly onclick="this.select()">${_edEsc(payload)}</textarea>
+    <div class="ed-modal-row">
+      <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;"
+        onclick="edDownloadLevel()">⬇ Download ${_edEsc(fname)}</button>
+      <button class="btn-primary" onclick="edCopySubmit()">📋 Copy text</button>
+      <button class="btn-primary ghost" onclick="edCloseSubmit()">Close</button>
+    </div>
+  </div>`
+  el.style.display = 'flex'
+  el.dataset.fname = fname
+}
+
+window.edCloseSubmit = function() {
+  const el = document.getElementById('ed-submit-panel')
+  if (el) el.style.display = 'none'
+}
+
+window.edCopySubmit = function() {
+  const t = document.getElementById('ed-submit-json')
+  if (!t) return
+  t.select()
+  navigator.clipboard?.writeText(t.value).catch(() => {})
+  try { document.execCommand('copy') } catch {}
+  _edSetMsg('📋 Copied.')
+}
+
+// Saves a .json file — something concrete to send, and it works even
+// where clipboard access is blocked.
+window.edDownloadLevel = function() {
+  const t = document.getElementById('ed-submit-json')
+  const el = document.getElementById('ed-submit-panel')
+  if (!t || !el) return
+  const blob = new Blob([t.value], { type:'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = el.dataset.fname || 'level.qglevel.json'
+  document.body.appendChild(a); a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+  _edSetMsg('⬇ Saved — send that file to Arham.')
 }
 
 // ── Submissions inbox (local review) ──────────────────

@@ -36,22 +36,43 @@ function rvSave() {
 
 window.rvClearPaste = function() { document.getElementById('rv-paste').value = '' }
 
-window.rvAdd = function() {
-  const box = document.getElementById('rv-paste')
-  const raw = box.value.trim()
-  if (!raw) { rvMsg('Nothing pasted.'); return }
+// Shared by pasting, the file picker and drag-and-drop
+function rvAddText(raw, source) {
+  raw = (raw || '').trim()
+  if (!raw) { rvMsg('Nothing to add.'); return false }
   let lv
   try { lv = JSON.parse(raw) }
-  catch (e) { rvMsg('⚠ Not valid JSON: ' + e.message); return }
+  catch (e) { rvMsg(`⚠ ${source || 'That'} isn't valid JSON: ` + e.message); return false }
   if (!lv || typeof lv !== 'object' || (!lv.keyframes && !lv.obstacles)) {
-    rvMsg("⚠ That doesn't look like a level — no keyframes or obstacles."); return
+    rvMsg("⚠ That doesn't look like a level — no keyframes or obstacles."); return false
   }
   if (!lv.game) lv.game = lv.keyframes ? 'wavegauntlet' : 'spider'
   RV.items.unshift({ lv, at: Date.now() })
   RV.sel = 0
-  rvSave(); box.value = ''
-  rvRenderList(); rvRenderReport()
+  rvSave(); rvRenderList(); rvRenderReport()
   rvMsg(`Checked "${lv.name || 'unnamed'}".`)
+  return true
+}
+
+window.rvAdd = function() {
+  const box = document.getElementById('rv-paste')
+  if (rvAddText(box.value, 'That')) box.value = ''
+}
+
+// Submitters send .qglevel.json files, so take them directly
+window.rvFiles = function(files) {
+  const list = [...(files || [])]
+  if (!list.length) return
+  let done = 0, okCount = 0
+  for (const f of list) {
+    const r = new FileReader()
+    r.onload = () => {
+      if (rvAddText(String(r.result), f.name)) okCount++
+      if (++done === list.length && list.length > 1) rvMsg(`Added ${okCount} of ${list.length} files.`)
+    }
+    r.onerror = () => { if (++done === list.length) rvMsg('⚠ Could not read that file.') }
+    r.readAsText(f)
+  }
 }
 
 window.rvSelect = function(i) { RV.sel = i; rvRenderList(); rvRenderReport() }
@@ -245,7 +266,20 @@ ${(lv.obstacles || []).map(o => `          {col:${Math.round(o.col)}, floor:${!!
 document.addEventListener('DOMContentLoaded', () => {
   rvLoad(); rvRenderList(); rvRenderReport()
   // Paste straight into the box and hit Ctrl/Cmd+Enter to add
-  document.getElementById('rv-paste').addEventListener('keydown', e => {
+  const box = document.getElementById('rv-paste')
+  box.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); rvAdd() }
+  })
+
+  const fileIn = document.getElementById('rv-file')
+  if (fileIn) fileIn.addEventListener('change', e => { rvFiles(e.target.files); e.target.value = '' })
+
+  // Drop a .json anywhere on the page
+  const stop = e => { e.preventDefault(); e.stopPropagation() }
+  document.addEventListener('dragover', e => { stop(e); document.body.classList.add('rv-dragging') })
+  document.addEventListener('dragleave', e => { stop(e); document.body.classList.remove('rv-dragging') })
+  document.addEventListener('drop', e => {
+    stop(e); document.body.classList.remove('rv-dragging')
+    rvFiles(e.dataTransfer && e.dataTransfer.files)
   })
 })
