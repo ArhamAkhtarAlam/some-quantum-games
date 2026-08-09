@@ -510,6 +510,7 @@ const G43 = {
   // for real without it counting.
   practice:false, noclip:false,
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
+  fullTrail:[],         // whole run, for the clear-card picture
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -601,6 +602,8 @@ if (typeof document !== 'undefined') {
 
 async function initGame43() {
   try { _g43BuildPracticeUI() } catch (e) { console.error('practice picker:', e) }
+  const _c = document.getElementById('g43-card')
+  if (_c) _c.style.display = 'none'
   stopGame43(); _g43Canvas = null
   document.getElementById('g43-overlay').style.display = 'flex'
   document.getElementById('g43-over').style.display    = 'none'
@@ -615,6 +618,8 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
   c.height = c.parentElement.clientHeight
   document.getElementById('g43-overlay').style.display = 'none'
   document.getElementById('g43-over').style.display    = 'none'
+  const _card = document.getElementById('g43-card')
+  if (_card) _card.style.display = 'none'
 
   Object.assign(G43, {
     active:true, phase:'announce',
@@ -626,7 +631,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
-    attempts:0,
+    attempts:0, fullTrail:[],
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -878,6 +883,7 @@ function _g43LoadChallenge(w, h) {
   G43.wvy           = G43_WAVE_SPD
   G43.hitFlash      = 0
   G43.attempts      = 0
+  G43.fullTrail     = []
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
@@ -950,6 +956,11 @@ function _g43Loop(ts) {
     // streak running back behind it.
     G43.trail.push({ sx: G43.scrollX, y: G43.wy })
     if (G43.trail.length > 140) G43.trail.shift()
+    // Practice keeps the entire path so a clear can be drawn as one picture
+    if (G43.practice) {
+      const ft = G43.fullTrail
+      if (!ft.length || G43.scrollX - ft[ft.length-1].sx >= 2) ft.push({ sx:G43.scrollX, y:G43.wy })
+    }
     if (G43.multi) {
       G43.p2trail.push({ sx: G43.scrollX, y: G43.p2wy })
       if (G43.p2trail.length > 140) G43.p2trail.shift()
@@ -975,6 +986,7 @@ function _g43Loop(ts) {
     if (G43.scrollX >= G43.clearAt) {
       G43.phase    = 'cleared'
       G43.clearedT = 0
+      if (G43.practice) _g43TrailCard()
       if (!G43.practice) {
         G43.score++
         window._g43Score = G43.score
@@ -1038,9 +1050,10 @@ function _g43Die() {
     G43.wy       = c.height / 2
     G43.wvy      = G43_WAVE_SPD
     G43.holding  = false
-    G43.trail    = []
-    G43.shake    = 0.8
-    G43.hitFlash = 0.45
+    G43.trail     = []
+    G43.fullTrail = []
+    G43.shake     = 0.8
+    G43.hitFlash  = 0.45
     SFX.die()
     return
   }
@@ -1054,6 +1067,107 @@ function _g43Die() {
     const s = mpGetSocket(); s.off('opponent-state'); s.off('force-end')
     G43_roomCode = null
   }
+}
+
+// ── Clear card ───────────────────────────────────────
+// The whole level drawn end to end with the line you actually took
+// through it. Practice only — it needs the full path.
+
+function _g43TrailCard() {
+  const src = _g43C()
+  if (!src || G43.fullTrail.length < 2) return
+  const H = src.height
+  const cols = Math.max(1, G43.clearAt)
+  const W = Math.round(Math.min(2400, Math.max(900, cols)))
+  const sx = W / cols
+
+  const cv = document.createElement('canvas')
+  cv.width = W; cv.height = H + 46
+  const g = cv.getContext('2d')
+  const col = G43_DIFF_COL[G43.challenge.diff] || '#22c55e'
+  const top = 46
+
+  g.fillStyle = '#05010a'; g.fillRect(0, 0, W, H + top)
+
+  // Corridor across the whole level
+  const step = Math.max(1, Math.round(cols / W))
+  const wallPath = (which) => {
+    g.beginPath()
+    for (let c = 0, i = 0; c <= cols; c += step, i++) {
+      const wl = _g43WallAt(c, H)
+      const y = top + (which === 'top' ? wl.cy - wl.gapH/2 : wl.cy + wl.gapH/2)
+      i === 0 ? g.moveTo(c*sx, y) : g.lineTo(c*sx, y)
+    }
+  }
+  g.beginPath()
+  for (let c = 0, i = 0; c <= cols; c += step, i++) {
+    const wl = _g43WallAt(c, H)
+    const y = top + wl.cy - wl.gapH/2
+    i === 0 ? g.moveTo(c*sx, y) : g.lineTo(c*sx, y)
+  }
+  for (let c = cols; c >= 0; c -= step) {
+    const wl = _g43WallAt(c, H)
+    g.lineTo(c*sx, top + wl.cy + wl.gapH/2)
+  }
+  g.closePath()
+  g.fillStyle = col + '14'; g.fill()
+
+  g.strokeStyle = col; g.lineWidth = 1.6
+  g.shadowColor = col; g.shadowBlur = 6
+  wallPath('top'); g.stroke()
+  wallPath('bot'); g.stroke()
+  g.shadowBlur = 0
+
+  // The line you took
+  const pts = G43.fullTrail.map(p => ({ x: p.sx * sx, y: top + p.y }))
+  const stroke = () => {
+    g.beginPath(); g.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+    g.stroke()
+  }
+  g.lineJoin = 'round'; g.lineCap = 'round'
+  g.shadowColor = '#4ade80'; g.shadowBlur = 12
+  g.strokeStyle = 'rgba(74,222,128,0.30)'; g.lineWidth = 6; stroke()
+  g.shadowBlur = 7
+  g.strokeStyle = '#4ade80'; g.lineWidth = 2; stroke()
+  g.shadowBlur = 0
+
+  // Caption
+  g.textAlign = 'left'
+  g.font = 'bold 20px monospace'; g.fillStyle = '#fff'
+  g.fillText(G43.challenge.name, 16, 30)
+  g.font = '12px monospace'; g.fillStyle = col
+  g.fillText(G43.challenge.diff.toUpperCase(), 18 + g.measureText(G43.challenge.name).width + 90, 30)
+  g.textAlign = 'right'
+  g.fillStyle = 'rgba(255,255,255,0.45)'; g.font = '12px monospace'
+  const att = G43.attempts ? `${G43.attempts + 1} attempts` : 'first try'
+  g.fillText(`${att}  ·  ${(G43.clearAt / G43.challenge.speed).toFixed(1)}s  ·  Wave Gauntlet`, W - 16, 30)
+
+  _g43ShowCard(cv)
+}
+
+function _g43ShowCard(cv) {
+  const wrap = document.getElementById('g43-card')
+  const img  = document.getElementById('g43-card-img')
+  if (!wrap || !img) return
+  try { img.src = cv.toDataURL('image/png') } catch { return }
+  wrap.dataset.name = (G43.challenge.name || 'run').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  wrap.style.display = 'flex'
+}
+
+window.g43CloseCard = function() {
+  const wrap = document.getElementById('g43-card')
+  if (wrap) wrap.style.display = 'none'
+}
+
+window.g43SaveCard = function() {
+  const img  = document.getElementById('g43-card-img')
+  const wrap = document.getElementById('g43-card')
+  if (!img || !img.src) return
+  const a = document.createElement('a')
+  a.href = img.src
+  a.download = (wrap.dataset.name || 'run') + '-clear.png'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
 }
 
 // ── draw ─────────────────────────────────────────────────
