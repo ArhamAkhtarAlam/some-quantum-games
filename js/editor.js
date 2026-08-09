@@ -21,7 +21,6 @@
 // commit is the gate.
 const ED_LS_KEY  = 'qg_editor_drafts_v1'
 const ED_SUB_KEY = 'qg_editor_inbox_v1'
-const ED_ISSUES  = 'https://github.com/ArhamAkhtarAlam/some-quantum-games/issues/new'
 
 const ED_DIFFS = {
   wavegauntlet: ['easy','medium','hard','extreme','fp','dc'],
@@ -761,20 +760,28 @@ ${obs}
 
 window.edSubmit = function() {
   const lv = _edCur(); if (!lv) { _edSetMsg('Nothing selected to submit.'); return }
-  const warn = _edValidate(lv)
-  if (warn && warn.startsWith('⚠') &&
-      !confirm(warn + '\n\nSubmit anyway?')) return
+
+  // Run the checker first, so obviously broken levels don't get sent
+  let verdict = ''
+  if (typeof lcReport === 'function') {
+    const r = lcReport(lv)
+    if (!r.clearable) {
+      alert("This level can't be cleared — no sequence of inputs survives it.\n\n"
+        + r.problems.join('\n') + '\n\nFix it before sending.')
+      return
+    }
+    if (r.problems.length && !confirm('The checker found problems:\n\n• '
+        + r.problems.join('\n• ') + '\n\nSend it anyway?')) return
+    verdict = r.problems.length ? 'has issues' : 'checks out'
+  }
 
   const payload = JSON.stringify({ ...lv, submitted: new Date().toISOString() }, null, 2)
   navigator.clipboard?.writeText(payload)
   console.log(payload)
-  _edSetMsg('📋 Copied — paste it into the issue that just opened.')
-  const title = encodeURIComponent(`Level submission: ${lv.name} (${lv.game})`)
-  const body  = encodeURIComponent(
-    'Paste the level JSON here (it is already on your clipboard).\n\n' +
-    '```json\n\n```\n\n' +
-    `Game: ${lv.game}\nTier: ${lv.diff}\nSpeed: ${lv.speed}\n`)
-  window.open(`${ED_ISSUES}?title=${title}&body=${body}`, '_blank', 'noopener')
+  _edSetMsg('📋 Copied — send it to Arham and he can add it.')
+  alert('Your level is on the clipboard' + (verdict ? ' (' + verdict + ')' : '') + '.\n\n'
+      + 'Send it to Arham however you normally talk to him and he can drop it into the game.\n\n'
+      + "It's also printed in the browser console if you need it again.")
 }
 
 // ── Submissions inbox (local review) ──────────────────

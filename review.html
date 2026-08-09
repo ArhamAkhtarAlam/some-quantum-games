@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔍 Level Review — Quantum Games</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { margin: 0; min-height: 100vh; }
+    .rv-page { display: flex; flex-direction: column; min-height: 100vh; padding: 1rem 1.25rem; gap: .8rem; }
+    .rv-top { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    .rv-top h1 { font-size: 1.15rem; margin: 0; }
+    .rv-tag {
+      font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+      background: rgba(6,182,212,.16); color: var(--accent2);
+      border: 1px solid rgba(6,182,212,.3); border-radius: 5px; padding: .12rem .4rem;
+    }
+    .rv-msg { margin-left: auto; font-size: .8rem; color: var(--accent2); }
+
+    .rv-body { display: flex; gap: 1rem; flex: 1; min-height: 0; }
+    .rv-left  { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: .5rem; overflow-y: auto; }
+    .rv-right { flex: 1; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+
+    .rv-paste {
+      width: 100%; height: 130px; resize: vertical; font-family: monospace; font-size: .72rem;
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: .5rem;
+    }
+    .rv-paste:focus { border-color: var(--accent); outline: none; }
+    .rv-row { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .rv-row .btn-primary { font-size: .76rem; padding: .35rem .75rem; }
+
+    .rv-head {
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin-top: .3rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .rv-list { display: flex; flex-direction: column; gap: .25rem; }
+    .rv-item {
+      display: flex; align-items: center; gap: .5rem; cursor: pointer; font-size: .8rem;
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: .4rem .5rem;
+    }
+    .rv-item:hover { border-color: var(--muted); }
+    .rv-item.active { border-color: var(--accent); background: rgba(124,58,237,.15); }
+    .rv-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rv-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .rv-report { flex: 1; overflow-y: auto; background: var(--card);
+      border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1rem; }
+    .rv-verdict { font-size: 1.05rem; font-weight: 800; margin-bottom: .2rem; }
+    .rv-sub { font-size: .8rem; color: var(--muted); margin-bottom: .9rem; }
+    .rv-sec { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--muted); margin: .9rem 0 .35rem; }
+    .rv-line { font-size: .82rem; line-height: 1.55; }
+    .rv-line.bad  { color: #f87171; }
+    .rv-line.warn { color: #fbbf24; }
+    .rv-line.good { color: #4ade80; }
+    .rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .4rem; }
+    .rv-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: .45rem .6rem; }
+    .rv-stat b { display: block; font-size: 1rem; }
+    .rv-stat span { font-size: .68rem; color: var(--muted); }
+    .rv-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .rv-table td { padding: .22rem .4rem; border-bottom: 1px solid var(--border); }
+    .rv-table td:first-child { color: var(--muted); width: 72px; }
+    .rv-empty { color: var(--muted); font-size: .82rem; }
+
+    #rv-testhost { display: none; position: fixed; inset: 0; z-index: 50; background: var(--bg);
+                   flex-direction: column; padding: 1rem; gap: .6rem; }
+    #rv-testhost.on { display: flex; }
+    #rv-testhost .canvas-arena { flex: 1; position: relative; border: 1px solid var(--border);
+                                 border-radius: 10px; overflow: hidden; }
+    #rv-testhost canvas { display: block; width: 100%; height: 100%; }
+    .rv-testbar { display: flex; align-items: center; gap: .6rem; }
+    @media (max-width: 820px) { .rv-body { flex-direction: column; } .rv-left { width: 100%; } }
+  </style>
+</head>
+<body>
+
+<div class="rv-page">
+  <div class="rv-top">
+    <h1>🔍 Level Review</h1>
+    <span class="rv-tag">stays in your browser</span>
+    <span id="rv-msg" class="rv-msg"></span>
+  </div>
+
+  <div class="rv-body">
+    <aside class="rv-left">
+      <textarea id="rv-paste" class="rv-paste" placeholder="Paste a submitted level's JSON here…"></textarea>
+      <div class="rv-row">
+        <button class="btn-primary" onclick="rvAdd()">+ Add</button>
+        <button class="btn-primary ghost" onclick="rvClearPaste()">Clear</button>
+      </div>
+
+      <div class="rv-head">
+        Submissions <button class="ed-mini danger" onclick="rvClearAll()">Clear all</button>
+      </div>
+      <div id="rv-list" class="rv-list"></div>
+    </aside>
+
+    <main class="rv-right">
+      <div id="rv-report" class="rv-report">
+        <div class="rv-empty">Paste a level on the left and hit <b>+ Add</b>.
+          It gets checked automatically — clearability is worked out by trying every
+          possible sequence of inputs, not guessed.</div>
+      </div>
+      <div class="rv-row">
+        <button class="btn-primary" onclick="rvPlay()">▶ Play it</button>
+        <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;" onclick="rvCopyJS()">📋 Copy as JS</button>
+        <button class="btn-primary ghost" onclick="rvCopyJSON()">Copy JSON</button>
+        <button class="btn-primary danger" onclick="rvDrop()">Reject</button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="rv-testhost">
+  <div class="rv-testbar">
+    <button class="btn-back" onclick="rvStopTest()">← Back to review</button>
+    <span class="game-title" id="rv-test-title"></span>
+    <span class="score-badge">Clears <span id="g43-score-hud">0</span><span id="spd-score-hud" style="display:none"></span></span>
+  </div>
+  <div class="canvas-arena" id="rv-arena">
+    <canvas id="g43-canvas"></canvas>
+    <canvas id="spd-canvas" style="display:none"></canvas>
+    <div id="g43-overlay" style="display:none"></div>
+    <div id="spd-overlay" style="display:none"></div>
+    <div id="g43-over" style="display:none"><span id="g43-final-score"></span></div>
+    <div id="spd-over" style="display:none"><span id="spd-final-score"></span></div>
+    <span id="g43-match-btn" style="display:none"></span>
+    <span id="g43-match-status" style="display:none"></span>
+    <div id="g43-practice"></div><div id="spd-practice"></div>
+  </div>
+</div>
+
+<script>
+  function qRandInt(max) { return Math.floor(Math.random() * max) }
+  window.initCurby = async function() {}
+  window.mpFindMatch = function() {}
+</script>
+<script src="js/sfx.js"></script>
+<script src="js/deco.js"></script>
+<script src="js/levelcheck.js"></script>
+<script src="js/game43.js"></script>
+<script src="js/game44.js"></script>
+<script src="js/review.js"></script>
+
+</body>
+</html>
