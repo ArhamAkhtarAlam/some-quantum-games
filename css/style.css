@@ -731,6 +731,13 @@ body {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1rem;
   background: rgba(0,0,0,.7); z-index: 10; border-radius: 1.25rem;
+  /* Overlays taller than the arena (the practice picker especially) were
+     clipped at both ends with no way to reach the bottom. `safe center`
+     stops centring once content overflows so scrolling can reach it;
+     browsers without it fall back to the plain center above. */
+  overflow-y: auto;
+  justify-content: safe center;
+  padding: 1rem 0.5rem;
 }
 .canvas-overlay h3 { font-size: 1.5rem; font-weight: 800; }
 .canvas-timer {
@@ -997,7 +1004,7 @@ body {
 }
 
 /* Practice level picker — generated from the game pools */
-.practice-picker { display: flex; flex-direction: column; gap: .4rem; }
+.practice-picker { display: flex; flex-direction: column; gap: .4rem; width: 100%; }
 .pp-row { display: flex; align-items: flex-start; gap: .4rem; }
 .pp-tier {
   flex-shrink: 0; width: 58px; text-align: right; padding-top: .25rem;
