@@ -2,14 +2,14 @@
 --  LEVEL SUBMISSIONS
 --  Run this once in the Supabase SQL Editor.
 --
---  Anyone can submit a level. Only the admin emails below can
+--  Anyone can submit a level. Only the admin email below can
 --  read, update or delete them. That is enforced by RLS, so it
 --  holds even though the anon key is public and someone could
 --  call the REST API directly.
 --
---  ⚠ CHECK THE EMAIL BELOW. Both of Arham's known addresses are
---  listed; delete whichever is not the Supabase account you sign
---  in with, or review.html will show an empty queue.
+--  Admin is arham.akhtar111@gmail.com. If you ever sign in to
+--  Supabase with a different address, change it in all four
+--  policies below or review.html will show an empty queue.
 -- ═══════════════════════════════════════════════════════
 
 create table if not exists public.level_submissions (
@@ -50,16 +50,16 @@ create policy "submissions insert"
 -- Only the admin can see the queue or act on it
 create policy "submissions read"
   on public.level_submissions for select
-  using ((auth.jwt() ->> 'email') in ('arham.akhtar111@gmail.com', 'asfara.akhtar@gmail.com'));
+  using ((auth.jwt() ->> 'email') = 'arham.akhtar111@gmail.com');
 
 create policy "submissions update"
   on public.level_submissions for update
-  using      ((auth.jwt() ->> 'email') in ('arham.akhtar111@gmail.com', 'asfara.akhtar@gmail.com'))
-  with check ((auth.jwt() ->> 'email') in ('arham.akhtar111@gmail.com', 'asfara.akhtar@gmail.com'));
+  using      ((auth.jwt() ->> 'email') = 'arham.akhtar111@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'arham.akhtar111@gmail.com');
 
 create policy "submissions delete"
   on public.level_submissions for delete
-  using ((auth.jwt() ->> 'email') in ('arham.akhtar111@gmail.com', 'asfara.akhtar@gmail.com'));
+  using ((auth.jwt() ->> 'email') = 'arham.akhtar111@gmail.com');
 
 -- ── If it ever gets spammed ────────────────────────────
 -- Submissions are anonymous by design, so there is no per-user rate
