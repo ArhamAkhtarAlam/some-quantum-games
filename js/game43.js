@@ -511,6 +511,7 @@ const G43 = {
   practice:false, noclip:false,
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
+  taps:0, _lastHold:false,  // input count, measured as rising edges
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -631,7 +632,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
-    attempts:0, fullTrail:[],
+    attempts:0, fullTrail:[], taps:0, _lastHold:false,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -884,6 +885,8 @@ function _g43LoadChallenge(w, h) {
   G43.hitFlash      = 0
   G43.attempts      = 0
   G43.fullTrail     = []
+  G43.taps          = 0
+  G43._lastHold     = false
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
@@ -954,6 +957,11 @@ function _g43Loop(ts) {
     // Store the world column, not the canvas x — every point used to share
     // the wave's fixed x, so the "trail" was a vertical smear rather than a
     // streak running back behind it.
+    if (G43.holding !== G43._lastHold) {
+      if (G43.holding) G43.taps++          // a press; release is the same tap
+      G43._lastHold = G43.holding
+    }
+
     G43.trail.push({ sx: G43.scrollX, y: G43.wy })
     if (G43.trail.length > 140) G43.trail.shift()
     // Practice keeps the entire path so a clear can be drawn as one picture
@@ -1052,6 +1060,8 @@ function _g43Die() {
     G43.holding  = false
     G43.trail     = []
     G43.fullTrail = []
+    G43.taps      = 0
+    G43._lastHold = false
     G43.shake     = 0.8
     G43.hitFlash  = 0.45
     SFX.die()
@@ -1141,7 +1151,10 @@ function _g43TrailCard() {
   g.textAlign = 'right'
   g.fillStyle = 'rgba(255,255,255,0.45)'; g.font = '12px monospace'
   const att = G43.attempts ? `${G43.attempts + 1} attempts` : 'first try'
-  g.fillText(`${att}  ·  ${(G43.clearAt / G43.challenge.speed).toFixed(1)}s  ·  Wave Gauntlet`, W - 16, 30)
+  const secs = G43.clearAt / G43.challenge.speed
+  const rate = secs > 0 ? (G43.taps / secs).toFixed(1) : '0'
+  g.fillText(`${G43.taps} taps (${rate}/s)  ·  ${att}  ·  ${secs.toFixed(1)}s  ·  Wave Gauntlet`,
+             W - 16, 30)
 
   _g43ShowCard(cv)
 }
@@ -1292,7 +1305,8 @@ function _g43Draw(ctx, w, h) {
     ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.fillText((G43.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
                  (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : '') +
-                 (G43.attempts ? '    att ' + G43.attempts : ''), w/2, 18)
+                 (G43.attempts ? '   att ' + G43.attempts : '') +
+                 (G43.taps ? '   taps ' + G43.taps : ''), w/2, 18)
     if (G43_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(G43_cheat.label(), w/2, 32)
