@@ -362,9 +362,30 @@ const G43_POOL = {
       }
     },
     {
+      name:'SQUEEZE SHIFT', diff:'extreme', speed:318,
+      gen(h) {
+        // 28px gap that slowly drifts while closed.
+        // Clearance = 7px/side — must tap-control to stay centered while tracking drift.
+        const maxPos = Math.floor(255/318 * 100 * 0.85)
+        const cy1px  = 10 + qRandInt(Math.min(maxPos - 15, 50))
+        const sign   = qRandInt(2) === 0 ? 1 : -1
+        const cy1    = Math.max(0.20, Math.min(0.80, 0.50 + sign * cy1px / h))
+        const drift  = (qRandInt(2) === 0 ? 1 : -1) * (6 + qRandInt(8))  // 6-13px
+        const cy2    = Math.max(0.18, Math.min(0.82, cy1 + drift / h))
+        return { clearAt:920, keyframes:[
+          {at:0,   cf:0.50, gapH:h*.36},
+          {at:100, cf:cy1,  gapH:h*.36},  // position
+          {at:160, cf:cy1,  gapH:52},     // SLAM — 52px tight gap
+          {at:260, cf:cy2,  gapH:52},     // slow drift 100 col (6-13px) while slammed
+          {at:330, cf:cy2,  gapH:h*.36},
+          {at:920, cf:0.50, gapH:h*.36},
+        ]}
+      }
+    },
+    {
       name:'SPECIAL HOLD', diff:'extreme', speed:1000,
       gen(h) {
-        // Hand-built in the editor, replacing the old SQUEEZE SHIFT.
+        // Hand-built in the editor. Sits alongside SQUEEZE SHIFT.
         // The pinch is the h*0.0603 gap around col 260 — one held line
         // through it, which is where the name comes from. The three
         // keyframes at 533/543/547 are 10 and 4 columns apart, under one
