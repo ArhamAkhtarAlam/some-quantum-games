@@ -284,9 +284,10 @@ window.rvPlay = function() {
   document.getElementById('g43-canvas').style.display = wave ? 'block' : 'none'
   document.getElementById('spd-canvas').style.display = wave ? 'none' : 'block'
   // Runs in noclip so a bad level can be watched all the way through
+  const clip = !document.getElementById('rv-noclip') || document.getElementById('rv-noclip').checked
   setTimeout(() => {
-    if (wave) window.g43TestLevel(rvRuntime(lv))
-    else      window.spdTestLevel(rvRuntime(lv))
+    if (wave) window.g43TestLevel(rvRuntime(lv), clip)
+    else      window.spdTestLevel(rvRuntime(lv), clip)
   }, 30)
 }
 

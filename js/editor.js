@@ -68,6 +68,7 @@ const ED = {
   stamp:null,           // id of the armed stamp preset
   decoSel:-1,           // index into lv.deco
   animate:false,        // preview deco motion in the editor
+  testNoclip:true,      // Test Play with walls off by default
   decoType:'rect',      // shape placed on next click
   decoCol:1,            // colour index for new deco
 }
@@ -642,6 +643,13 @@ window.edDelete = function() {
 
 // Test Play runs the REAL game against a hidden host that carries the
 // canvas ids game43/game44 expect. Same physics as the live site.
+window.edToggleTestNoclip = function() {
+  ED.testNoclip = ED.testNoclip === false
+  _edSetMsg(ED.testNoclip ? 'Test Play: noclip on.' : 'Test Play: walls kill.')
+  const b = document.getElementById('ed-noclip-btn')
+  if (b) b.textContent = ED.testNoclip ? '🛡 noclip' : '💀 walls kill'
+}
+
 window.edTestPlay = async function() {
   const lv = _edCur(); if (!lv) return
   const built = _edBuildRuntime(lv)

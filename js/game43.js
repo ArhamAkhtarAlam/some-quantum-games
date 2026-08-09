@@ -489,7 +489,11 @@ const G43 = {
   trail:[],
   announceT:0, clearedT:0, t:0,
   deadT:0, showOver:false, shake:0,
-  noclip:false, practiceDiff:null, practiceLevel:null, hitFlash:0,
+  // practice = this run never scores. noclip = walls don't kill.
+  // They used to be one flag; separating them lets you practise a level
+  // for real without it counting.
+  practice:false, noclip:false,
+  practiceDiff:null, practiceLevel:null, hitFlash:0,
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -523,6 +527,19 @@ function _g43BuildPracticeUI() {
   if (!el) return
   const label = { easy:'Easy', medium:'Medium', hard:'Hard', extreme:'Extreme', fp:'Frame P.', dc:'Boss' }
   el.innerHTML = ''
+
+  try {
+    const saved = localStorage.getItem('qg_practice_noclip')
+    if (saved !== null) window.g43UseNoclip = saved === '1'
+  } catch {}
+
+  const on = window.g43UseNoclip
+  const tog = document.createElement('button')
+  tog.className = 'pp-toggle' + (on ? ' on' : '')
+  tog.textContent = on ? '🛡 Noclip ON — walls won\'t kill' : '💀 Noclip OFF — walls kill'
+  tog.title = 'Either way, practice never counts towards the leaderboard'
+  tog.addEventListener('click', () => g43ToggleNoclip())
+  el.appendChild(tog)
 
   for (const key of ['easy','medium','hard','extreme','fp','dc']) {
     const arr = G43_POOL[key] || []
@@ -575,7 +592,7 @@ async function initGame43() {
 }
 window.initGame43 = initGame43
 
-function _g43Start(noclip, practiceDiff, multi) {
+function _g43Start(practice, practiceDiff, multi, noclip) {
   SFX.resume(); SFX.click()
   const c = _g43C()
   c.width  = c.parentElement.clientWidth
@@ -591,15 +608,16 @@ function _g43Start(noclip, practiceDiff, multi) {
     trail:[],
     announceT:0, clearedT:0, t:0,
     deadT:0, showOver:false, shake:0,
-    noclip:!!noclip, practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
+    practice:!!practice, noclip:practice ? (noclip !== false) : false,
+    practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
   })
   window._g43Score = 0
-  document.getElementById('g43-score-hud').textContent = noclip ? '—' : '0'
+  document.getElementById('g43-score-hud').textContent = practice ? '—' : '0'
 
-  if (!noclip) G43_cheat.reset()
+  if (!practice) G43_cheat.reset()
 
   if (G43_roomCode && !G43_isHost) {
     // Joiner: wait for host to send first challenge via state-sync
@@ -627,17 +645,27 @@ function _g43Start(noclip, practiceDiff, multi) {
 window.startWaveGauntlet   = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, false) }
 window.startWaveGauntlet2P = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, true)  }
 
-// name omitted -> random within the tier; name given -> that level on repeat
-window.startWaveGauntletPractice = function(d, name) {
-  G43.testLevel     = null
-  G43.practiceLevel = name || null
-  _g43Start(true, d, false)
+// Practice never scores. Noclip is a separate choice on top of that.
+window.g43UseNoclip = true
+window.g43ToggleNoclip = function() {
+  window.g43UseNoclip = !window.g43UseNoclip
+  // Save BEFORE rebuilding: the builder re-reads this key, so rebuilding
+  // first would immediately overwrite the flip with the old value.
+  try { localStorage.setItem('qg_practice_noclip', window.g43UseNoclip ? '1' : '0') } catch {}
+  _g43BuildPracticeUI()
 }
 
-// Editor test play: loop one level in noclip so it can be studied
-window.g43TestLevel = function(tmpl) {
+// name omitted -> random within the tier; name given -> that level on repeat
+window.startWaveGauntletPractice = function(d, name, noclip) {
+  G43.testLevel     = null
+  G43.practiceLevel = name || null
+  _g43Start(true, d, false, noclip === undefined ? window.g43UseNoclip : noclip)
+}
+
+// Editor / review test play. Practice rules, noclip optional.
+window.g43TestLevel = function(tmpl, noclip) {
   G43.testLevel = tmpl
-  _g43Start(true, null, false)
+  _g43Start(true, null, false, noclip === undefined ? true : noclip)
 }
 
 window.stopGame43 = function() {
@@ -807,7 +835,7 @@ function _g43LoadChallenge(w, h) {
   let pool
   if (G43.testLevel) {
     pool = [G43.testLevel]
-  } else if (G43.noclip && G43.practiceDiff) {
+  } else if (G43.practice && G43.practiceDiff) {
     // Practice ignores score gates so every level in the tier is reachable
     pool = [..._g43B(G43_POOL[G43.practiceDiff] || G43_POOL.easy), ..._g43Custom(G43.practiceDiff, null)]
     if (G43.practiceLevel) {
@@ -864,7 +892,7 @@ function _g43Loop(ts) {
   G43.lastTime = ts
   // Speedhack dilates time, so the corridor and the wave scale together
   // and the level's geometry — and its difficulty — are unchanged.
-  if (G43.noclip && G43_cheat.on) dt *= G43_cheat.mul
+  if (G43.practice && G43_cheat.on) dt *= G43_cheat.mul
   const c = _g43C(), w = c.width, h = c.height
   const WR = G43.waveR
 
@@ -929,7 +957,7 @@ function _g43Loop(ts) {
     if (G43.scrollX >= G43.clearAt) {
       G43.phase    = 'cleared'
       G43.clearedT = 0
-      if (!G43.noclip) {
+      if (!G43.practice) {
         G43.score++
         window._g43Score = G43.score
         document.getElementById('g43-score-hud').textContent = G43.score
@@ -1111,9 +1139,10 @@ function _g43Draw(ctx, w, h) {
 
   // Score / mode indicator
   ctx.textAlign = 'center'
-  if (G43.noclip) {
+  if (G43.practice) {
     ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
-    ctx.fillText('NOCLIP — '+(G43.practiceDiff||'').toUpperCase(), w/2, 18)
+    ctx.fillText((G43.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
+                 (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : ''), w/2, 18)
     if (G43_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(G43_cheat.label(), w/2, 32)
@@ -1169,7 +1198,11 @@ function _g43Draw(ctx, w, h) {
       ctx.fillStyle = 'rgba(239,68,68,.85)'; ctx.shadowColor='#ef4444'; ctx.shadowBlur=8
       ctx.fillText('⚡ spam to survive — two rounds', w/2, h/2+38); ctx.shadowBlur=0
     }
-    if (G43.noclip) { ctx.font='11px monospace'; ctx.fillStyle='rgba(255,255,255,0.30)'; ctx.fillText("noclip — walls won't kill you", w/2, h/2+58) }
+    if (G43.practice) {
+      ctx.font='11px monospace'; ctx.fillStyle='rgba(255,255,255,0.30)'
+      ctx.fillText(G43.noclip ? "noclip — walls won't kill you"
+                              : "practice — walls kill, but nothing is scored", w/2, h/2+58)
+    }
     ctx.globalAlpha = 1
   }
 

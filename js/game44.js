@@ -245,7 +245,9 @@ const _SPD = {
   trail:[], threads:[],
   announceT:0, clearedT:0, t:0,
   shake:0, hitFlash:0,
-  noclip:false, practiceDiff:null, practiceLevel:null, testLevel:null,
+  // practice = never scores. noclip = blocks don't kill. Separate flags.
+  practice:false, noclip:false,
+  practiceDiff:null, practiceLevel:null, testLevel:null,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -263,6 +265,19 @@ function _spdBuildPracticeUI() {
   if (!el) return
   const label = { easy:'Easy', medium:'Medium', hard:'Hard', extreme:'Extreme' }
   el.innerHTML = ''
+
+  try {
+    const saved = localStorage.getItem('qg_practice_noclip_spd')
+    if (saved !== null) window.spdUseNoclip = saved === '1'
+  } catch {}
+
+  const on = window.spdUseNoclip
+  const tog = document.createElement('button')
+  tog.className = 'pp-toggle' + (on ? ' on' : '')
+  tog.textContent = on ? '🛡 Noclip ON — blocks won\'t kill' : '💀 Noclip OFF — blocks kill'
+  tog.title = 'Either way, practice never counts towards the leaderboard'
+  tog.addEventListener('click', () => spdToggleNoclip())
+  el.appendChild(tog)
 
   for (const key of ['easy','medium','hard','extreme']) {
     const arr = SPD_POOL[key] || []
@@ -314,7 +329,7 @@ window.initSpider = initSpider
 window.initGame44 = initSpider
 window.stopGame44 = function() { stopSpider() }
 
-function _spdStart(noclip, practiceDiff) {
+function _spdStart(practice, practiceDiff, noclip) {
   SFX.resume(); SFX.click()
   const c = _spdC()
   c.width  = c.parentElement.clientWidth
@@ -322,16 +337,17 @@ function _spdStart(noclip, practiceDiff) {
   document.getElementById('spd-overlay').style.display = 'none'
   document.getElementById('spd-over').style.display    = 'none'
 
-  if (!noclip) SPD_cheat.reset()
+  if (!practice) SPD_cheat.reset()
 
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
-    noclip:!!noclip, practiceDiff:practiceDiff||null,
+    practice:!!practice, noclip:practice ? (noclip !== false) : false,
+    practiceDiff:practiceDiff||null,
     practiceLevel:_SPD.practiceLevel || null,
     testLevel:_SPD.testLevel || null,
   })
   window._spdScore = 0
-  document.getElementById('spd-score-hud').textContent = noclip ? '—' : '0'
+  document.getElementById('spd-score-hud').textContent = practice ? '—' : '0'
 
   _spdLoadChallenge()
 
@@ -344,17 +360,26 @@ function _spdStart(noclip, practiceDiff) {
 }
 window.startSpider = function() { _SPD.testLevel = null; _SPD.practiceLevel = null; _spdStart(false, null) }
 
-// name omitted -> random within the tier; name given -> that level on repeat
-window.startSpiderPractice = function(d, name) {
-  _SPD.testLevel     = null
-  _SPD.practiceLevel = name || null
-  _spdStart(true, d)
+window.spdUseNoclip = true
+window.spdToggleNoclip = function() {
+  window.spdUseNoclip = !window.spdUseNoclip
+  // Save BEFORE rebuilding: the builder re-reads this key, so rebuilding
+  // first would immediately overwrite the flip with the old value.
+  try { localStorage.setItem('qg_practice_noclip_spd', window.spdUseNoclip ? '1' : '0') } catch {}
+  _spdBuildPracticeUI()
 }
 
-// Editor test play: loop one level in noclip so it can be studied
-window.spdTestLevel = function(tmpl) {
+// name omitted -> random within the tier; name given -> that level on repeat
+window.startSpiderPractice = function(d, name, noclip) {
+  _SPD.testLevel     = null
+  _SPD.practiceLevel = name || null
+  _spdStart(true, d, noclip === undefined ? window.spdUseNoclip : noclip)
+}
+
+// Editor / review test play. Practice rules, noclip optional.
+window.spdTestLevel = function(tmpl, noclip) {
   _SPD.testLevel = tmpl
-  _spdStart(true, null)
+  _spdStart(true, null, noclip === undefined ? true : noclip)
 }
 
 window.stopSpider = function() {
@@ -372,7 +397,7 @@ function _spdLoadChallenge() {
   const c    = _spdC()
   let pool = _SPD.testLevel
     ? [_SPD.testLevel]
-    : (_SPD.noclip && _SPD.practiceDiff)
+    : (_SPD.practice && _SPD.practiceDiff)
       // Practice ignores score gates so every level in the tier is reachable
       ? [..._spdB(SPD_POOL[_SPD.practiceDiff] || SPD_POOL.easy), ..._spdCustom(_SPD.practiceDiff, null)]
       : _spdGetPool(_SPD.score)
@@ -422,7 +447,7 @@ function _spdLoop(ts) {
   let dt = Math.min((ts - _SPD.lastTime) / 1000, 0.05)
   _SPD.lastTime = ts
   // Time dilation, so scroll and flip speed scale together
-  if (_SPD.noclip && SPD_cheat.on) dt *= SPD_cheat.mul
+  if (_SPD.practice && SPD_cheat.on) dt *= SPD_cheat.mul
   const c = _spdC(), w = c.width, h = c.height
   const spX = Math.round(w * 0.25)
   const oh  = Math.round(h * 0.44)
@@ -461,7 +486,7 @@ function _spdLoop(ts) {
 
     if (_SPD.scrollX >= _SPD.clearAt) {
       _SPD.phase = 'cleared'; _SPD.clearedT = 0
-      if (!_SPD.noclip) {
+      if (!_SPD.practice) {
         _SPD.score++
         window._spdScore = _SPD.score
         document.getElementById('spd-score-hud').textContent = _SPD.score
@@ -598,12 +623,13 @@ function _spdDraw(ctx, w, h) {
   ctx.font = 'bold 26px monospace'
   ctx.fillStyle = 'rgba(255,255,255,0.92)'
   ctx.shadowColor = mainCol; ctx.shadowBlur = 16
-  ctx.fillText(S.noclip ? '—' : S.score, w/2, 42); ctx.shadowBlur = 0
+  ctx.fillText(S.practice ? '—' : S.score, w/2, 42); ctx.shadowBlur = 0
 
   // Noclip label
-  if (S.noclip) {
+  if (S.practice) {
     ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.30)'
-    ctx.fillText('NOCLIP — ' + (S.practiceDiff || '').toUpperCase(), w/2, 18)
+    ctx.fillText((S.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
+                 (S.practiceDiff ? ' — ' + S.practiceDiff.toUpperCase() : ''), w/2, 18)
     if (SPD_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(SPD_cheat.label(), w/2, 32)
