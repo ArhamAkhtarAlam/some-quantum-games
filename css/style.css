@@ -1047,3 +1047,9 @@ body {
 }
 .ed-modal-row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
 .ed-modal-row .btn-primary { font-size: .78rem; padding: .38rem .8rem; }
+.ed-modal-fields { display: flex; flex-direction: column; gap: .35rem; margin: .5rem 0; }
+.ed-modal-fields input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: .35rem .5rem; font-size: .8rem; font-family: inherit;
+}
+.ed-modal-fields input:focus { border-color: var(--accent); outline: none; }

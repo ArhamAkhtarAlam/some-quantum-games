@@ -6,7 +6,12 @@
 
 const RV_KEY = 'qg_review_inbox_v1'
 
-const RV = { items: [], sel: -1 }
+const RV_SB_URL = 'https://kuvpxhuvednptyfqccea.supabase.co'
+const RV_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1dnB4aHV2ZWRucHR5ZnFjY2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NjY4MTcsImV4cCI6MjA5MDQ0MjgxN30.tYb15AI3DfwSjYrYrLVUPhOJjh8tfAvglPGXmunEA4k'
+
+const RV = { items: [], sel: -1, user: null }
+const _rvSb = (typeof supabase !== 'undefined')
+  ? supabase.createClient(RV_SB_URL, RV_SB_KEY) : null
 
 const RV_DIFF_COL = {
   easy:'#4ade80', medium:'#fbbf24', hard:'#f87171',
@@ -77,9 +82,10 @@ window.rvFiles = function(files) {
 
 window.rvSelect = function(i) { RV.sel = i; rvRenderList(); rvRenderReport() }
 
-window.rvDrop = function() {
+window.rvDrop = async function() {
   const it = RV.items[RV.sel]; if (!it) return
-  if (!confirm(`Reject and remove "${it.lv.name || 'unnamed'}"?`)) return
+  if (!confirm(`Reject "${it.lv.name || 'unnamed'}"?`)) return
+  await rvMark(it, 'rejected')
   RV.items.splice(RV.sel, 1)
   RV.sel = RV.items.length ? 0 : -1
   rvSave(); rvRenderList(); rvRenderReport()
@@ -90,6 +96,91 @@ window.rvClearAll = function() {
   if (!confirm(`Remove all ${RV.items.length} submissions?`)) return
   RV.items = []; RV.sel = -1
   rvSave(); rvRenderList(); rvRenderReport()
+}
+
+// ── Server queue ──────────────────────────────────────
+// Reading is gated by RLS on your email, so signing in is what makes
+// the queue visible. Local paste and file import work without it.
+
+function rvRenderAuth() {
+  const el = document.getElementById('rv-auth')
+  if (!el) return
+  if (!_rvSb) { el.innerHTML = '<span class="rv-empty">Offline — local review only.</span>'; return }
+  if (RV.user) {
+    el.innerHTML = `<span style="color:#4ade80;font-size:.76rem">✓ ${rvEsc(RV.user.email)}</span>
+      <button class="ed-mini" onclick="rvFetch()">↻ Refresh</button>
+      <button class="ed-mini" onclick="rvSignOut()">Sign out</button>`
+  } else {
+    el.innerHTML = `<input id="rv-em" type="email" placeholder="email" autocomplete="username">
+      <input id="rv-pw" type="password" placeholder="password" autocomplete="current-password">
+      <button class="ed-mini" onclick="rvSignIn()">Sign in</button>`
+  }
+}
+
+window.rvSignIn = async function() {
+  if (!_rvSb) return
+  const email = (document.getElementById('rv-em') || {}).value
+  const pw    = (document.getElementById('rv-pw') || {}).value
+  if (!email || !pw) { rvMsg('Enter both fields.'); return }
+  rvMsg('Signing in…')
+  const { data, error } = await _rvSb.auth.signInWithPassword({ email, password: pw })
+  if (error) { rvMsg('⚠ ' + error.message); return }
+  RV.user = data.user
+  rvRenderAuth(); rvMsg('Signed in.')
+  rvFetch()
+}
+
+window.rvSignOut = async function() {
+  if (_rvSb) await _rvSb.auth.signOut()
+  RV.user = null
+  rvRenderAuth()
+}
+
+// Pull pending submissions. RLS returns nothing unless the signed-in
+// email is on the admin list in sql/level_submissions.sql.
+window.rvFetch = async function() {
+  if (!_rvSb || !RV.user) { rvMsg('Sign in first.'); return }
+  rvMsg('Fetching…')
+  const { data, error } = await _rvSb.from('level_submissions')
+    .select('*').eq('status', 'pending').order('created_at', { ascending: false })
+  if (error) { rvMsg('⚠ ' + error.message); return }
+  if (!data || !data.length) { rvMsg('Queue is empty.'); return }
+
+  let added = 0
+  for (const row of data) {
+    if (RV.items.some(it => it.id === row.id)) continue
+    RV.items.push({
+      id: row.id, at: new Date(row.created_at).getTime(),
+      author: row.author, note: row.note, remote: true,
+      lv: {
+        game: row.game, name: row.name, diff: row.diff,
+        speed: row.speed, clearAt: row.clear_at,
+        ...(row.data || {}),
+      },
+    })
+    added++
+  }
+  RV.items.sort((a, b) => b.at - a.at)
+  if (RV.sel < 0 && RV.items.length) RV.sel = 0
+  rvSave(); rvRenderList(); rvRenderReport()
+  rvMsg(added ? `Pulled ${added} new submission(s).` : 'Nothing new.')
+}
+
+// Mark a submission so it stops showing up in the queue
+async function rvMark(item, status) {
+  if (!item || !item.remote || !_rvSb || !RV.user) return true
+  const { error } = await _rvSb.from('level_submissions')
+    .update({ status }).eq('id', item.id)
+  if (error) { rvMsg('⚠ ' + error.message); return false }
+  return true
+}
+
+window.rvAccept = async function() {
+  const it = RV.items[RV.sel]; if (!it) return
+  if (await rvMark(it, 'accepted')) {
+    rvCopyJS()
+    rvMsg('✅ Marked accepted — pool entry copied.')
+  }
 }
 
 // ── Rendering ─────────────────────────────────────────
@@ -122,7 +213,9 @@ function rvRenderReport() {
   let html = `<div class="rv-verdict" style="color:${okAll ? '#4ade80' : r.clearable ? '#fbbf24' : '#f87171'}">
       ${okAll ? '✅ Looks good' : r.clearable ? '⚠ Playable, with issues' : '❌ Not clearable'}
     </div>
-    <div class="rv-sub">${rvEsc(r.name)} — ${rvEsc(r.game)} · ${rvEsc(r.diff)} · speed ${r.speed} · ${r.clearAt} columns</div>`
+    <div class="rv-sub">${rvEsc(r.name)} — ${rvEsc(r.game)} · ${rvEsc(r.diff)} · speed ${r.speed} · ${r.clearAt} columns</div>
+    ${it.author ? `<div class="rv-line">by <b>${rvEsc(it.author)}</b></div>` : ''}
+    ${it.note ? `<div class="rv-line" style="color:var(--muted)">"${rvEsc(it.note)}"</div>` : ''}`
 
   if (r.problems.length) {
     html += `<div class="rv-sec">Problems</div>`
@@ -264,7 +357,13 @@ ${(lv.obstacles || []).map(o => `          {col:${Math.round(o.col)}, floor:${!!
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  rvLoad(); rvRenderList(); rvRenderReport()
+  rvLoad(); rvRenderList(); rvRenderReport(); rvRenderAuth()
+  // Restore a session if there is one, then pull the queue
+  if (_rvSb) {
+    _rvSb.auth.getSession().then(({ data }) => {
+      if (data && data.session) { RV.user = data.session.user; rvRenderAuth(); rvFetch() }
+    }).catch(() => {})
+  }
   // Paste straight into the box and hit Ctrl/Cmd+Enter to add
   const box = document.getElementById('rv-paste')
   box.addEventListener('keydown', e => {

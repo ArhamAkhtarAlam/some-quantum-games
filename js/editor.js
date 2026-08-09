@@ -22,6 +22,12 @@
 const ED_LS_KEY  = 'qg_editor_drafts_v1'
 const ED_SUB_KEY = 'qg_editor_inbox_v1'
 
+// Public anon key, same one index.html already ships. Row-level security
+// is what actually protects the table — this key only allows inserting a
+// pending submission, never reading the queue.
+const ED_SB_URL = 'https://kuvpxhuvednptyfqccea.supabase.co'
+const ED_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1dnB4aHV2ZWRucHR5ZnFjY2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NjY4MTcsImV4cCI6MjA5MDQ0MjgxN30.tYb15AI3DfwSjYrYrLVUPhOJjh8tfAvglPGXmunEA4k'
+
 const ED_DIFFS = {
   wavegauntlet: ['easy','medium','hard','extreme','fp','dc'],
   spider:       ['easy','medium','hard','extreme'],
@@ -773,7 +779,53 @@ window.edSubmit = function() {
       ? { text:'Playable, but the checker flagged things', cls:'warn', lines:r.problems.concat(r.warnings) }
       : { text:'Checks out', cls:'good', lines:r.warnings }
   }
-  _edSubmitPanel(JSON.stringify({ ...lv, submitted:new Date().toISOString() }, null, 2), verdict, lv)
+  const payload = JSON.stringify({ ...lv, submitted:new Date().toISOString() }, null, 2)
+  _edSubmitPanel(payload, verdict, lv)
+  _edUpload(lv)
+}
+
+// Send it to the queue. The file download stays either way, so a failed
+// upload never leaves someone with nothing to send.
+async function _edUpload(lv) {
+  const st = document.getElementById('ed-upload-status')
+  const set = (html, col) => { if (st) { st.innerHTML = html; st.style.color = col || 'var(--muted)' } }
+  set('Sending to Arham…')
+  const row = {
+    game: lv.game || 'wavegauntlet',
+    name: String(lv.name || 'unnamed').slice(0, 40),
+    diff: String(lv.diff || 'easy').slice(0, 12),
+    speed: Math.round(lv.speed || 200),
+    clear_at: Math.round(lv.clearAt || 800),
+    data: {
+      keyframes: lv.keyframes, obstacles: lv.obstacles, deco: lv.deco || [],
+      rank: lv.rank, minScore: lv.minScore, maxScore: lv.maxScore, weight: lv.weight,
+    },
+    author: (document.getElementById('ed-sub-author') || {}).value?.slice(0, 40) || null,
+    note:   (document.getElementById('ed-sub-note')   || {}).value?.slice(0, 300) || null,
+  }
+  try {
+    const res = await fetch(ED_SB_URL + '/rest/v1/level_submissions', {
+      method: 'POST',
+      headers: {
+        apikey: ED_SB_KEY, Authorization: 'Bearer ' + ED_SB_KEY,
+        'Content-Type': 'application/json', Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(row),
+    })
+    if (res.ok) set('✅ Sent — it\'s in Arham\'s queue.', '#4ade80')
+    else {
+      const t = await res.text()
+      set(`⚠ Couldn't send (${res.status}). Download the file below and send it manually.`, '#fbbf24')
+      console.warn('submission failed:', res.status, t)
+    }
+  } catch (e) {
+    set('⚠ No connection. Download the file below and send it manually.', '#fbbf24')
+    console.warn('submission failed:', e)
+  }
+}
+
+window.edResend = function() {
+  const lv = _edCur(); if (lv) _edUpload(lv)
 }
 
 // A real panel rather than an alert: the JSON is visible and selectable,
@@ -803,13 +855,21 @@ function _edSubmitPanel(payload, verdict, lv) {
   el.innerHTML = `<div class="ed-modal-card">
     <h3 style="color:${colour}">${verdict.cls === 'good' ? '✅' : '⚠'} ${_edEsc(verdict.text)}</h3>
     ${verdict.lines.slice(0, 4).map(l => `<p class="ed-modal-line">• ${_edEsc(l)}</p>`).join('')}
-    <p class="ed-modal-note">Send this to Arham and he'll check it and add it to the game.
-      Download it as a file, or copy the text below.</p>
+    <p class="ed-modal-note">This gets sent straight to Arham's queue. Add your name if you'd like
+      the credit.</p>
+    <div class="ed-modal-fields">
+      <input id="ed-sub-author" maxlength="40" placeholder="Your name (optional)">
+      <input id="ed-sub-note" maxlength="300" placeholder="Anything you want to say about it (optional)">
+    </div>
+    <p id="ed-upload-status" class="ed-modal-line"></p>
+    <p class="ed-modal-note" style="font-size:.78rem">If sending fails, download the file below and
+      get it to him however you like — it works just the same.</p>
     <textarea class="ed-modal-json" id="ed-submit-json" readonly onclick="this.select()">${_edEsc(payload)}</textarea>
     <div class="ed-modal-row">
       <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;"
         onclick="edDownloadLevel()">⬇ Download ${_edEsc(fname)}</button>
       <button class="btn-primary" onclick="edCopySubmit()">📋 Copy text</button>
+      <button class="btn-primary ghost" onclick="edResend()">↻ Retry send</button>
       <button class="btn-primary ghost" onclick="edCloseSubmit()">Close</button>
     </div>
   </div>`
