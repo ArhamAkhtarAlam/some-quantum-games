@@ -509,7 +509,7 @@ const G43 = {
   // They used to be one flag; separating them lets you practise a level
   // for real without it counting.
   practice:false, noclip:false,
-  practiceDiff:null, practiceLevel:null, hitFlash:0,
+  practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -626,6 +626,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
+    attempts:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -876,6 +877,7 @@ function _g43LoadChallenge(w, h) {
   G43.wy            = h / 2
   G43.wvy           = G43_WAVE_SPD
   G43.hitFlash      = 0
+  G43.attempts      = 0
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
@@ -1026,6 +1028,23 @@ function _g43Loop(ts) {
 
 function _g43Die() {
   if (G43.phase === 'dead') return
+
+  // Practice restarts the same attempt straight away — no game-over card
+  // to click through when you're drilling one section.
+  if (G43.practice) {
+    const c = _g43C()
+    G43.attempts = (G43.attempts || 0) + 1
+    G43.scrollX  = 0
+    G43.wy       = c.height / 2
+    G43.wvy      = G43_WAVE_SPD
+    G43.holding  = false
+    G43.trail    = []
+    G43.shake    = 0.8
+    G43.hitFlash = 0.45
+    SFX.die()
+    return
+  }
+
   G43.phase = 'dead'; G43.deadT = 0; G43.shake = 1
   SFX.die()
   window.removeEventListener('keydown', _g43KeyDn)
@@ -1158,7 +1177,8 @@ function _g43Draw(ctx, w, h) {
   if (G43.practice) {
     ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.fillText((G43.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
-                 (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : ''), w/2, 18)
+                 (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : '') +
+                 (G43.attempts ? '    att ' + G43.attempts : ''), w/2, 18)
     if (G43_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(G43_cheat.label(), w/2, 32)

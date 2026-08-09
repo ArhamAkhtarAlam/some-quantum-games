@@ -247,7 +247,7 @@ const _SPD = {
   shake:0, hitFlash:0,
   // practice = never scores. noclip = blocks don't kill. Separate flags.
   practice:false, noclip:false,
-  practiceDiff:null, practiceLevel:null, testLevel:null,
+  practiceDiff:null, practiceLevel:null, testLevel:null, attempts:0,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -342,7 +342,7 @@ function _spdStart(practice, practiceDiff, noclip) {
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
-    practiceDiff:practiceDiff||null,
+    practiceDiff:practiceDiff||null, attempts:0,
     practiceLevel:_SPD.practiceLevel || null,
     testLevel:_SPD.testLevel || null,
   })
@@ -421,6 +421,7 @@ function _spdLoadChallenge() {
     phase:      'announce',
     announceT:  0,
     t:          0,
+    attempts:   0,
   })
 }
 
@@ -516,6 +517,20 @@ function _spdLoop(ts) {
 
 function _spdDie() {
   if (_SPD.phase === 'dead') return
+
+  // Practice restarts the attempt immediately
+  if (_SPD.practice) {
+    _SPD.attempts = (_SPD.attempts || 0) + 1
+    _SPD.scrollX  = 0
+    _SPD.onFloor  = true
+    _SPD.trail    = []
+    _SPD.threads  = []
+    _SPD.shake    = 0.8
+    _SPD.hitFlash = 0.45
+    SFX.die()
+    return
+  }
+
   _SPD.phase = 'dead'; _SPD.deadT = 0; _SPD.shake = 1.2
   SFX.die()
   window.removeEventListener('keydown', _spdKeyDn)
@@ -629,7 +644,8 @@ function _spdDraw(ctx, w, h) {
   if (S.practice) {
     ctx.font = '11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.30)'
     ctx.fillText((S.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
-                 (S.practiceDiff ? ' — ' + S.practiceDiff.toUpperCase() : ''), w/2, 18)
+                 (S.practiceDiff ? ' — ' + S.practiceDiff.toUpperCase() : '') +
+                 (S.attempts ? '   att ' + S.attempts : ''), w/2, 18)
     if (SPD_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(SPD_cheat.label(), w/2, 32)
