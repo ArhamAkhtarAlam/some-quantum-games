@@ -77,89 +77,104 @@ window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btn
 }
 
 // ═══════════════════════════════════════════════════════
-//  CURBy quantum entropy client (dynamic import)
+//  QUANTUM ENTROPY — measured on real hardware
+//
+//  data/quantum.bin is 10 qubits x 204,683 measurements taken on a
+//  quantum computer, then whitened. Every qubit came out biased toward
+//  |0> (49.12% ones overall, z = -25 against a fair coin) because T1
+//  relaxation decays |1> during readout — a real property of the chip,
+//  not noise. A von Neumann extractor fixed that exactly: read bits in
+//  pairs, 01 -> 0, 10 -> 1, discard 00 and 11. Costs 75% of the bits and
+//  leaves 511,736 provably unbiased ones.
+//
+//  Bits are consumed a few at a time with rejection sampling, so
+//  qRandInt is uniform for any max — the usual `raw % max` skews results
+//  whenever max isn't a power of two, which would have quietly undone
+//  the whitening.
 // ═══════════════════════════════════════════════════════
-let curbyClient = null
-let latestRandomness = null
-let entropyPool = []
-let poolIndex = 0
-let curbyInitPromise = null
+
+let qBits      = null   // Uint8Array of packed quantum bits
+let qBitPos    = 0      // read cursor, in bits
+let qWraps     = 0      // times the pool has been reused
+let qInitPromise = null
+
+const QUANTUM_SRC = 'data/quantum.bin'
 
 async function initCurby() {
-  if (curbyInitPromise) return curbyInitPromise
-  const deadline = new Promise(resolve => setTimeout(() => resolve('timeout'), 5000))
-  curbyInitPromise = Promise.race([
-    (async () => {
-      try {
-        const mod = await import('https://esm.sh/@buff-beacon-project/curby-client@1.2.0')
-        curbyClient = await mod.Client.create()
-        await refreshEntropy()
-        return true
-      } catch (e) {
-        console.warn('CURBy init failed, using fallback PRNG:', e)
-        setEntropyLive(false)
-        return false
-      }
-    })(),
-    deadline
-  ]).then(result => {
-    if (result === 'timeout') {
-      console.warn('CURBy timed out after 5s, using fallback PRNG')
+  if (qInitPromise) return qInitPromise
+  qInitPromise = (async () => {
+    try {
+      const res = await fetch(QUANTUM_SRC, { cache: 'force-cache' })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      qBits = new Uint8Array(await res.arrayBuffer())
+      if (!qBits.length) throw new Error('empty')
+      qBitPos = 0
+      setEntropyLive(true)
+      return true
+    } catch (e) {
+      console.warn('Quantum data unavailable, using fallback PRNG:', e)
+      qBits = null
       setEntropyLive(false)
       return false
     }
-    return result
-  })
-  return curbyInitPromise
+  })()
+  return qInitPromise
 }
+window.initCurby = initCurby
 
-async function refreshEntropy() {
-  if (!curbyClient) return
-  try {
-    latestRandomness = await curbyClient.randomness()
-    const base = Array.from({ length: 4096 }, (_, i) => i)
-    entropyPool = latestRandomness.shuffled(base)
-    poolIndex = 0
-    setEntropyLive(true)
-  } catch (e) {
-    setEntropyLive(false)
-    console.warn('Entropy refresh failed:', e)
-  }
+// One bit off the pool. Wraps when exhausted — 511k bits is a lot for a
+// browser game, but a long session will loop, which is fine here.
+function qBit() {
+  const byte = qBits[(qBitPos >> 3) % qBits.length]
+  const bit  = (byte >> (7 - (qBitPos & 7))) & 1
+  qBitPos++
+  if (qBitPos >= qBits.length * 8) { qBitPos = 0; qWraps++ }
+  return bit
 }
-
-setInterval(refreshEntropy, 60_000)
 
 function setEntropyLive(live) {
   document.querySelectorAll('.entropy-dot').forEach(el => {
     el.className = 'entropy-dot' + (live ? ' live' : '')
   })
-  const label = live ? 'quantum live' : 'local fallback'
+  const label = live ? 'quantum bits' : 'local fallback'
   document.querySelectorAll('.entropy-indicator span').forEach(el => {
     el.textContent = label
   })
 }
 
-function qRandInt(max) {
-  if (entropyPool.length > 0) {
-    const raw = entropyPool[poolIndex % entropyPool.length]
-    poolIndex++
-    if (poolIndex >= entropyPool.length) {
-      poolIndex = 0
-      refreshEntropy()
-    }
-    return raw % max
+// How much of the pool is left — for the badge / a debug readout
+window.qEntropyStatus = function() {
+  if (!qBits) return { live:false }
+  const total = qBits.length * 8
+  return {
+    live: true, totalBits: total, used: qBitPos, wraps: qWraps,
+    remaining: total - qBitPos,
+    percent: +(100 * (1 - qBitPos / total)).toFixed(1),
   }
-  return Math.floor(Math.random() * max)
+}
+
+function qRandInt(max) {
+  max = Math.floor(max)
+  if (max <= 1) return 0
+  if (!qBits) return Math.floor(Math.random() * max)
+
+  // Rejection sampling: draw the fewest whole bits that can hold max-1,
+  // discard anything out of range. Unbiased for every max, unlike `% max`.
+  const width = 32 - Math.clz32(max - 1)
+  for (let tries = 0; tries < 64; tries++) {
+    let v = 0
+    for (let i = 0; i < width; i++) v = (v << 1) | qBit()
+    if (v < max) return v
+  }
+  return Math.floor(Math.random() * max)   // pathological only
 }
 
 function qPickUnique(n, max) {
   if (n > max) n = max
   const arr = Array.from({ length: max }, (_, i) => i)
-  if (latestRandomness) {
-    return latestRandomness.shuffled(arr).slice(0, n)
-  }
+  // Fisher-Yates driven by qRandInt, so the shuffle is quantum too
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = qRandInt(i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]]
   }
   return arr.slice(0, n)

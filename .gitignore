@@ -2,3 +2,4 @@
 *.fcpproj/
 .claude/
 c--Users-arham-quantum-project/
+qubit_*_sequence.npy
