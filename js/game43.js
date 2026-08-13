@@ -514,7 +514,7 @@ const G43 = {
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
   retrying:false, retryT:0,  // brief hold on the death before restarting
-  taps:0, _lastHold:false,  // input count, measured as rising edges
+  taps:0,  // input count, measured as rising edges
   testLevel:null,
   raf:null, lastTime:0,
   multi:false,
@@ -635,7 +635,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
-    attempts:0, fullTrail:[], taps:0, _lastHold:false, paused:false,
+    attempts:0, fullTrail:[], taps:0, paused:false,
     retrying:false, retryT:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
@@ -772,13 +772,26 @@ function _g43ApplyNetChallenge(data, h) {
   G43.wy       = h / 2; G43.wvy = G43_WAVE_SPD; G43.hitFlash = 0
 }
 
-function _g43On(e)    { e.preventDefault(); G43.holding = true }
+// Counted on the event, not sampled per frame. A tap that goes down and
+// back up inside one frame is invisible to frame sampling, which capped
+// the count at the refresh rate — 30/s on a 60Hz screen — and made the
+// same mashing score differently on different monitors.
+function _g43Hold() {
+  if (!G43.holding && G43.practice) G43.taps++
+  G43.holding = true
+}
+
+function _g43On(e)    { e.preventDefault(); _g43Hold() }
 function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
 function _g43KeyDn(e) {
   // The cheat code is handled by the always-on listener in cheats.js,
   // so it works on the start overlay too, not only mid-run.
-  if (e.code === 'Space') { e.preventDefault(); G43.holding = true }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); G43.multi ? (G43.p2holding = true) : (G43.holding = true) }
+  if (e.repeat) return          // key auto-repeat is not a new press
+  if (e.code === 'Space') { e.preventDefault(); _g43Hold() }
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    G43.multi ? (G43.p2holding = true) : _g43Hold()
+  }
 }
 function _g43KeyUp(e) {
   if (e.code === 'Space') G43.holding = false
@@ -892,7 +905,6 @@ function _g43LoadChallenge(w, h) {
   G43.attempts      = 0
   G43.fullTrail     = []
   G43.taps          = 0
-  G43._lastHold     = false
   G43.retrying      = false
   G43.retryT        = 0
   if (G43.multi) {
@@ -984,11 +996,6 @@ function _g43Loop(ts) {
     // Store the world column, not the canvas x — every point used to share
     // the wave's fixed x, so the "trail" was a vertical smear rather than a
     // streak running back behind it.
-    if (G43.holding !== G43._lastHold) {
-      if (G43.holding) G43.taps++          // a press; release is the same tap
-      G43._lastHold = G43.holding
-    }
-
     G43.trail.push({ sx: G43.scrollX, y: G43.wy })
     if (G43.trail.length > 140) G43.trail.shift()
     // Practice keeps the entire path so a clear can be drawn as one picture
@@ -1114,7 +1121,6 @@ function _g43RetryNow() {
   G43.trail     = []
   G43.fullTrail = []
   G43.taps      = 0
-  G43._lastHold = false
 }
 
 // ── Clear card ───────────────────────────────────────
