@@ -6,6 +6,7 @@
 
 const SPD_R   = 9    // spider body radius
 const SPD_OBW = 26   // obstacle block width
+const SPD_RETRY_WAIT = 0.45   // seconds you see the death before it resets
 
 // ── Challenge pool ────────────────────────────────────
 
@@ -248,6 +249,7 @@ const _SPD = {
   // practice = never scores. noclip = blocks don't kill. Separate flags.
   practice:false, noclip:false,
   practiceDiff:null, practiceLevel:null, testLevel:null, attempts:0,
+  retrying:false, retryT:0,
   deadT:0, showOver:false,
   raf:null, lastTime:0,
 }
@@ -342,7 +344,7 @@ function _spdStart(practice, practiceDiff, noclip) {
   Object.assign(_SPD, {
     active:true, score:0, shake:0, hitFlash:0, deadT:0, showOver:false,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
-    practiceDiff:practiceDiff||null, attempts:0,
+    practiceDiff:practiceDiff||null, attempts:0, retrying:false, retryT:0,
     practiceLevel:_SPD.practiceLevel || null,
     testLevel:_SPD.testLevel || null,
   })
@@ -422,6 +424,8 @@ function _spdLoadChallenge() {
     announceT:  0,
     t:          0,
     attempts:   0,
+    retrying:   false,
+    retryT:     0,
   })
 }
 
@@ -452,6 +456,20 @@ function _spdLoop(ts) {
   const c = _spdC(), w = c.width, h = c.height
   const spX = Math.round(w * 0.25)
   const oh  = Math.round(h * 0.44)
+
+  if (_SPD.retrying) {
+    _SPD.retryT += dt
+    if (_SPD.shake    > 0) _SPD.shake    = Math.max(0, _SPD.shake    - dt * 4)
+    if (_SPD.hitFlash > 0) _SPD.hitFlash = Math.max(0, _SPD.hitFlash - dt * 5)
+    if (_SPD.retryT >= SPD_RETRY_WAIT) {
+      _SPD.retrying = false; _SPD.retryT = 0
+      _SPD.scrollX  = 0; _SPD.onFloor = true
+      _SPD.trail    = []; _SPD.threads = []
+    }
+    _spdDraw(c.getContext('2d'), w, h)
+    _SPD.raf = requestAnimationFrame(_spdLoop)
+    return
+  }
 
   _SPD.t += dt
   if (_SPD.shake   > 0) _SPD.shake   = Math.max(0, _SPD.shake   - dt * 4)
@@ -517,16 +535,16 @@ function _spdLoop(ts) {
 
 function _spdDie() {
   if (_SPD.phase === 'dead') return
+  if (_SPD.retrying) return   // already mid-retry; don't double-count
 
   // Practice restarts the attempt immediately
   if (_SPD.practice) {
+    // Hold on the death for a beat, then restart
     _SPD.attempts = (_SPD.attempts || 0) + 1
-    _SPD.scrollX  = 0
-    _SPD.onFloor  = true
-    _SPD.trail    = []
-    _SPD.threads  = []
-    _SPD.shake    = 0.8
-    _SPD.hitFlash = 0.45
+    _SPD.retrying = true
+    _SPD.retryT   = 0
+    _SPD.shake    = 0.9
+    _SPD.hitFlash = 0.55
     SFX.die()
     return
   }

@@ -11,6 +11,7 @@ const G43_WAVE_SPD    = 255
 const G43_WAVE_R_NRM  = 7
 const G43_WAVE_R_MINI = 4
 const G43_DRAW_STEP   = 2
+const G43_RETRY_WAIT  = 0.45   // seconds you see the death before it resets
 
 // Corridor is defined by keyframes: {at, cf (cy as 0–1 fraction of h), gapH (px)}
 // Linear interpolation between keyframes → angular slope walls.
@@ -512,6 +513,7 @@ const G43 = {
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
+  retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0, _lastHold:false,  // input count, measured as rising edges
   testLevel:null,
   raf:null, lastTime:0,
@@ -634,6 +636,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     attempts:0, fullTrail:[], taps:0, _lastHold:false, paused:false,
+    retrying:false, retryT:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
     p2wy:c.height/2, p2wvy:G43_WAVE_SPD, p2holding:false, p2trail:[],
@@ -695,6 +698,7 @@ window.g43TestLevel = function(tmpl, noclip) {
 window.stopGame43 = function() {
   G43.active = false
   G43.paused = false
+  G43.retrying = false
   if (G43.raf) { cancelAnimationFrame(G43.raf); G43.raf = null }
   const c = _g43C()
   if (c) {
@@ -889,6 +893,8 @@ function _g43LoadChallenge(w, h) {
   G43.fullTrail     = []
   G43.taps          = 0
   G43._lastHold     = false
+  G43.retrying      = false
+  G43.retryT        = 0
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
@@ -929,6 +935,16 @@ function _g43Loop(ts) {
   // loaded and started playing behind the picture, so dismissing it
   // dropped you into a level already in progress.
   if (G43.paused) {
+    _g43Draw(c.getContext('2d'), w, h)
+    G43.raf = requestAnimationFrame(_g43Loop)
+    return
+  }
+
+  if (G43.retrying) {
+    G43.retryT += dt
+    if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
+    if (G43.hitFlash > 0) G43.hitFlash = Math.max(0, G43.hitFlash - dt)
+    if (G43.retryT >= G43_RETRY_WAIT) _g43RetryNow()
     _g43Draw(c.getContext('2d'), w, h)
     G43.raf = requestAnimationFrame(_g43Loop)
     return
@@ -1059,22 +1075,19 @@ function _g43Loop(ts) {
 
 function _g43Die() {
   if (G43.phase === 'dead') return
+  if (G43.retrying) return   // already mid-retry; don't double-count
 
   // Practice restarts the same attempt straight away — no game-over card
   // to click through when you're drilling one section.
   if (G43.practice) {
-    const c = _g43C()
+    // Hold on the death for a beat so you can see where it went wrong.
+    // _g43RetryNow does the actual reset once the timer runs out.
     G43.attempts = (G43.attempts || 0) + 1
-    G43.scrollX  = 0
-    G43.wy       = c.height / 2
-    G43.wvy      = G43_WAVE_SPD
+    G43.retrying = true
+    G43.retryT   = 0
     G43.holding  = false
-    G43.trail     = []
-    G43.fullTrail = []
-    G43.taps      = 0
-    G43._lastHold = false
-    G43.shake     = 0.8
-    G43.hitFlash  = 0.45
+    G43.shake    = 0.9
+    G43.hitFlash = 0.55
     SFX.die()
     return
   }
@@ -1088,6 +1101,20 @@ function _g43Die() {
     const s = mpGetSocket(); s.off('opponent-state'); s.off('force-end')
     G43_roomCode = null
   }
+}
+
+function _g43RetryNow() {
+  const c = _g43C()
+  G43.retrying  = false
+  G43.retryT    = 0
+  G43.scrollX   = 0
+  G43.wy        = c.height / 2
+  G43.wvy       = G43_WAVE_SPD
+  G43.holding   = false
+  G43.trail     = []
+  G43.fullTrail = []
+  G43.taps      = 0
+  G43._lastHold = false
 }
 
 // ── Clear card ───────────────────────────────────────
