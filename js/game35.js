@@ -8,6 +8,27 @@ const G35_PR       = 7
 
 let G35_roomCode   = null
 let G35_sideBySide = false
+let G35_shared     = false   // same track for both players (online)
+let G35_seed       = 0       // the agreed seed — constant for the whole race
+let G35_rngState   = 0       // PRNG cursor, advances as walls are generated
+let G35_isHost     = false
+let G35_oppAlive   = true
+let G35_spectating = false   // you crashed; still watching them run
+
+// Walls normally come from qRandInt, which differs on every machine. For a
+// shared track both clients must produce byte-identical output, so online
+// runs swap in this seeded generator. mulberry32 — small, fast, and the
+// same sequence everywhere.
+function _g35Rand(max) {
+  if (!G35_shared) return qRandInt(max)
+  // Advances G35_rngState, never G35_seed — the seed has to stay constant
+  // or every sync packet would broadcast a different starting point and a
+  // joiner rebuilding from a late packet would land on a different track.
+  G35_rngState = (G35_rngState + 0x6D2B79F5) | 0
+  let t = Math.imul(G35_rngState ^ (G35_rngState >>> 15), 1 | G35_rngState)
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+  return ((t ^ (t >>> 14)) >>> 0) % max
+}
 let G35_oppScore   = null
 let G35_oppY       = null   // opponent Y (in their panel-height coordinates)
 let G35_oppWallCy  = null   // opponent wall centre Y
@@ -121,9 +142,20 @@ window.g35FindMatch = function() {
   mpFindMatch('wavedash', {
     statusEl: document.getElementById('g35-queue-status'),
     btnEl:    document.getElementById('g35-queue-btn'),
-    onMatched: ({ code, sideBySide }) => {
+    onMatched: ({ code, sideBySide, isHost }) => {
       G35_roomCode   = code
-      G35_sideBySide = sideBySide
+      // Same track for both, overlaid — not split screen on separate tracks
+      G35_sideBySide = false
+  G35_shared     = false
+  G35_spectating = false
+      G35_shared     = true
+      G35_isHost     = !!isHost
+      G35_oppAlive   = true
+      G35_spectating = false
+      // Host mints the seed and ships it; the joiner waits for it so both
+      // buffers start from the same state.
+      G35_seed = isHost ? (Date.now() ^ (qRandInt(1e9) << 4)) | 0 : 0
+      G35_rngState = G35_seed
       G35_oppScore   = 0
       G35_oppY       = null
       G35_oppWallCy  = null
@@ -134,24 +166,24 @@ window.g35FindMatch = function() {
       sock.off('opponent-score'); sock.off('opponent-state'); sock.off('opponent-done')
       sock.off('force-end'); sock.off('opponent-left')
       sock.on('opponent-score', score => { G35_oppScore = score; _g35UpdateOppHud() })
-      sock.on('opponent-state', ({ y, wallCy, wallGap, panelH }) => {
-        G35_oppY       = y
-        G35_oppWallCy  = wallCy
-        G35_oppWallGap = wallGap
-        G35_oppPanelH  = panelH
-        G35_oppHistory.unshift({ cy: wallCy, gap: wallGap })
-        if (G35_oppHistory.length > 500) G35_oppHistory.length = 500
+      sock.on('opponent-state', (st) => {
+        if (typeof st.seed === 'number' && !G35_isHost && st.seed !== G35_seed) {
+          // First packet from the host carries the seed — rebuild the track
+          G35_seed = st.seed
+          _g35RebuildTrack()
+        }
+        if (typeof st.y === 'number')     G35_oppY     = st.y
+        if (typeof st.panelH === 'number')G35_oppPanelH = st.panelH
+        if (typeof st.alive === 'boolean')G35_oppAlive = st.alive
+        if (typeof st.score === 'number') { G35_oppScore = st.score; _g35UpdateOppHud() }
       })
       sock.on('opponent-done',  score  => { G35_oppScore = score; G35_oppDone = true; _g35UpdateOppHud() })
+      // They crashed — you keep going. Surviving longer is the whole point,
+      // so ending your run here would throw away the lead you just earned.
       sock.on('force-end', ({ loserScore }) => {
-        stopGame35()
-        window._g35Score = G35.score
-        document.getElementById('g35-final-score').textContent = G35.score + ' blocks'
-        renderMedalDisplay('g35-medal-display', 'wavedash', G35.score)
-        document.getElementById('g35-mp-result').innerHTML =
-          `Opponent crashed at ${loserScore} blocks! 🏆 <b>You win!</b>`
-        document.getElementById('g35-over').classList.add('show')
-        if (typeof recordMpResult === 'function') recordMpResult('wavedash', true)
+        G35_oppAlive = false
+        G35_oppScore = loserScore
+        _g35UpdateOppHud()
       })
       sock.on('opponent-left', () => {
         G35_oppScore = null
@@ -243,6 +275,7 @@ window.startWaveDash = function() {
   _g35LimboNextScore = _g35LimboInterval
   _g35LimboResume    = false
 
+  G35_rngState      = G35_seed
   G35.wallBuf       = []
   G35.wallGenCy     = panelH / 2
   G35.wallGenTarget = panelH / 2
@@ -266,6 +299,24 @@ window.startWaveDash = function() {
   G35.raf = requestAnimationFrame(g35Loop)
 }
 
+// Joiner got the host's seed after starting — throw away the locally
+// generated walls and regenerate from the agreed seed.
+function _g35RebuildTrack() {
+  const c = _g35C(); if (!c || !G35.active) return
+  const pH = G35.panelH || c.height
+  G35_rngState      = G35_seed        // rewind to the agreed start
+  G35.wallBuf       = []
+  G35.wallGenCy     = pH / 2
+  G35.wallGenTarget = pH / 2
+  G35.wallGenVel    = 0
+  G35.wallGenDist   = 0
+  const need = Math.ceil(c.width) + 400
+  for (let x = 0; x < Math.min(need, 400); x++) G35.wallBuf.push({ cy: pH / 2, gapH: G35.gapH })
+  g35GenCols(need - Math.min(need, 400), pH)
+  G35.scrollX = 0
+  G35.score   = 0
+}
+
 function g35GenCols(n, h) {
   for (let i = 0; i < n; i++) {
     G35.wallGenDist++
@@ -280,9 +331,9 @@ function g35GenCols(n, h) {
       G35.wallGenCy = G35.wallGenTarget
       const mid = (lo + hi) / 2
       if (G35.wallGenCy <= mid) {
-        G35.wallGenTarget = mid + qRandInt(Math.max(1, Math.floor(hi - mid + 1)))
+        G35.wallGenTarget = mid + _g35Rand(Math.max(1, Math.floor(hi - mid + 1)))
       } else {
-        G35.wallGenTarget = lo + qRandInt(Math.max(1, Math.floor(mid - lo + 1)))
+        G35.wallGenTarget = lo + _g35Rand(Math.max(1, Math.floor(mid - lo + 1)))
       }
     } else {
       G35.wallGenCy += Math.sign(G35.wallGenTarget - G35.wallGenCy) * step
@@ -290,6 +341,21 @@ function g35GenCols(n, h) {
 
     G35.wallBuf.push({ cy: G35.wallGenCy, gapH: G35.gapH })
   }
+}
+
+// Shared track: send your line, your score and whether you're still up.
+// The host repeats the seed every packet so a joiner that missed the first
+// one still converges. Called during the countdown as well, so the joiner
+// has the right track before GO rather than popping to it afterwards.
+function _g35Sync(ts, pH) {
+  if (!G35_roomCode || !G35_shared) return
+  if (ts - G35.lastSyncTime <= 100) return
+  G35.lastSyncTime = ts
+  mpGetSocket().emit('state-sync', { code: G35_roomCode, state: {
+    y: G35.y, panelH: pH, score: G35.score,
+    alive: !G35_spectating,
+    ...(G35_isHost ? { seed: G35_seed } : {}),
+  }})
 }
 
 function g35Loop(ts) {
@@ -318,6 +384,7 @@ function g35Loop(ts) {
       ctx.fillText(label, w / 2, countY + 28)
       ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.textAlign = 'left'
     }
+    _g35Sync(ts, G35.panelH || h)
     G35.raf = requestAnimationFrame(g35Loop)
     return
   }
@@ -338,7 +405,7 @@ function g35Loop(ts) {
   // Score
   const newScore = Math.floor(G35.scrollX / 80)
   if (newScore !== G35.score) {
-    G35.score = newScore
+    if (!G35_spectating) G35.score = newScore
     document.getElementById('g35-score-hud').textContent = G35.score
     if (G35_roomCode && G35.score % 5 === 0) {
       mpGetSocket().emit('score-update', { code: G35_roomCode, score: G35.score })
@@ -351,17 +418,7 @@ function g35Loop(ts) {
     _g35LimboStart()
   }
 
-  // State sync for side-by-side (every ~100ms)
-  if (G35_sideBySide && G35_roomCode && ts - G35.lastSyncTime > 100) {
-    G35.lastSyncTime = ts
-    const wall = G35.wallBuf[G35.cx]
-    mpGetSocket().emit('state-sync', { code: G35_roomCode, state: {
-      y:       G35.y,
-      wallCy:  wall?.cy  ?? pH / 2,
-      wallGap: wall?.gapH ?? G35.gapH,
-      panelH:  pH,
-    }})
-  }
+  _g35Sync(ts, pH)
 
   // Wave physics
   G35.vy = G35.holding ? -G35_WAVE_SPD : G35_WAVE_SPD
@@ -380,9 +437,16 @@ function g35Loop(ts) {
   if (!inLimboOpen) {
     const wallIdx = Math.min(G35.cx, G35.wallBuf.length - 1)
     const wall    = G35.wallBuf[wallIdx]
-    if (G35.y <= wall.cy - wall.gapH / 2 + G35_PR || G35.y >= wall.cy + wall.gapH / 2 - G35_PR) {
+    if (!G35_spectating &&
+        (G35.y <= wall.cy - wall.gapH / 2 + G35_PR || G35.y >= wall.cy + wall.gapH / 2 - G35_PR)) {
       endGame35(); return
     }
+  }
+
+  // Watching them run: once they're down too, show the comparison.
+  if (G35_spectating && !G35_oppAlive) {
+    G35_spectating = false
+    endGame35(); return
   }
 
   g35Draw(ctx, w, h)
@@ -485,7 +549,41 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
     }
   }
 
-  // Player arrow
+  // Opponent's wave, on the same corridor. Drawn first so yours sits on
+  // top, and scaled by their panel height in case the windows differ.
+  if (G35_shared && G35_oppY !== null) {
+    const scale = (G35_oppPanelH && G35_oppPanelH > 0) ? (pH / G35_oppPanelH) : 1
+    const oy = yOff + G35_oppY * scale
+    ctx.save()
+    ctx.globalAlpha = G35_oppAlive ? 0.85 : 0.3
+    ctx.translate(G35.cx, oy)
+    const os = G35_PR
+    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 14
+    ctx.fillStyle = G35_oppAlive ? '#bae6fd' : '#475569'
+    ctx.beginPath()
+    ctx.moveTo(os * 1.5, 0)
+    ctx.lineTo(-os * 0.5, -os)
+    ctx.lineTo(-os * 0.1, 0)
+    ctx.lineTo(-os * 0.5, os)
+    ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.stroke()
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1
+    ctx.restore()
+    if (!G35_oppAlive) {
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(G35.cx - 7, oy - 7); ctx.lineTo(G35.cx + 7, oy + 7)
+      ctx.moveTo(G35.cx + 7, oy - 7); ctx.lineTo(G35.cx - 7, oy + 7)
+      ctx.stroke()
+    }
+  }
+
+  // Your wave — hidden once you've crashed and are just watching
+  if (G35_spectating) {
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#f87171'
+    ctx.fillText(`YOU CRASHED AT ${G35.score} — watching them run`, ctx.canvas.width / 2, 26)
+  } else {
   const angle = Math.atan2(G35.vy, G35.speed)
   ctx.save()
   ctx.translate(G35.cx, yOff + G35.y)
@@ -502,6 +600,7 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 1.5; ctx.stroke()
   ctx.shadowBlur = 0
   ctx.restore()
+  }
 
   // "YOU" label in player panel
   if (G35_sideBySide) {
@@ -874,7 +973,14 @@ function endGame35() {
   stopGame35()
   window._g35Score = G35.score
 
-  if (G35_roomCode) {
+  if (G35_roomCode && G35_shared && !G35_spectating) {
+    mpGetSocket().emit('player-died', { code: G35_roomCode, score: G35.score })
+    // Don't end the run — watch them finish theirs, then compare.
+    if (G35_oppAlive) {
+      G35_spectating = true
+      return
+    }
+  } else if (G35_roomCode) {
     mpGetSocket().emit('player-died', { code: G35_roomCode, score: G35.score })
     if (typeof recordMpResult === 'function') recordMpResult('wavedash', false)
   }
@@ -884,9 +990,20 @@ function endGame35() {
 
   const mpEl = document.getElementById('g35-mp-result')
   if (mpEl && G35_roomCode) {
-    mpEl.innerHTML = G35_oppScore !== null
-      ? `Opponent was at ${G35_oppScore} blocks. 😔 <b>You crashed first!</b>`
-      : ''
+    if (G35_shared && G35_oppScore !== null) {
+      const won = G35.score > G35_oppScore
+      const tie = G35.score === G35_oppScore
+      mpEl.innerHTML = tie
+        ? `Dead heat — both of you reached ${G35.score} blocks.`
+        : won
+          ? `You ${G35.score} · them ${G35_oppScore}. 🏆 <b>You went further!</b>`
+          : `You ${G35.score} · them ${G35_oppScore}. 😔 <b>They went further.</b>`
+      if (typeof recordMpResult === 'function' && !tie) recordMpResult('wavedash', won)
+    } else {
+      mpEl.innerHTML = G35_oppScore !== null
+        ? `Opponent was at ${G35_oppScore} blocks. 😔 <b>You crashed first!</b>`
+        : ''
+    }
   }
 
   document.getElementById('g35-over').classList.add('show')
