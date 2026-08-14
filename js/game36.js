@@ -62,7 +62,7 @@ function stopGame36() {
   if (G36.raf) { cancelAnimationFrame(G36.raf); G36.raf = null }
   G36.active = false
   const c = document.getElementById('g36-canvas')
-  if (c) c.onclick = null
+  if (c) { c.onclick = null; c.removeEventListener('pointerdown', _g36Pointer) }
   document.removeEventListener('keydown', _g36Key)
   document.removeEventListener('keyup',   _g36KeyUp)
 }
@@ -99,10 +99,26 @@ window.startCPS = function() {
   G36 = { active: true, done: false, clicks: 0, timeLeft: G36_DURATION, startTime: 0, ripples: [], raf: null, lastTime: performance.now(), heldKeys: new Set() }
   G36_opponentCPS  = G36_roomCode ? (G36_opponentCPS ?? 0) : null
   G36_opponentDone = false
-  c.onclick = e => _g36Click(e.offsetX, e.offsetY)
+  // pointerdown, not click. `click` only fires after release AND requires
+  // the press and release to land on the same spot, so jitter clicking —
+  // shaking the mouse while clicking — silently loses clicks. pointerdown
+  // fires the instant the button goes down and covers mouse, touch and pen
+  // with one handler.
+  c.addEventListener('pointerdown', _g36Pointer)
+  c.style.touchAction = 'none'          // stop touch scrolling eating presses
   document.addEventListener('keydown', _g36Key)
   document.addEventListener('keyup',   _g36KeyUp)
   G36.raf = requestAnimationFrame(_g36Loop)
+}
+
+function _g36Pointer(e) {
+  e.preventDefault()
+  const r = e.currentTarget.getBoundingClientRect()
+  const c = e.currentTarget
+  // Map to canvas pixels — the canvas is usually scaled by CSS
+  const x = (e.clientX - r.left) * (c.width  / r.width)
+  const y = (e.clientY - r.top)  * (c.height / r.height)
+  _g36Click(x, y)
 }
 
 function _g36Key(e) {
@@ -123,9 +139,8 @@ function _g36Click(x, y) {
   G36.clicks++
   SFX.click?.()
   if (x !== null) {
-    const c = document.getElementById('g36-canvas')
-    const yOff = G36_sideBySide ? c.height / 2 : 0
-    G36.ripples.push({ x, y: y + yOff, r: 0, maxR: 60, alpha: 1, t: 0 })
+    // x/y already arrive in canvas pixels from _g36Pointer
+    G36.ripples.push({ x, y, r: 0, maxR: 60, alpha: 1, t: 0 })
   } else {
     const c = document.getElementById('g36-canvas')
     G36.ripples.push({ x: c.width/2, y: G36_sideBySide ? c.height * 0.75 : c.height/2, r: 0, maxR: 80, alpha: 1, t: 0 })
