@@ -440,7 +440,26 @@ const MEDALS = {
 let authorScores   = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null, cps: null }
 let coauthorScores = { equation: null, aim: null, reaction: null, dodge: null, flash: null, deltae: null, gravity: null, typing: null, mrts: null, runsnake: null, gravflip: null, memseq: null, manualsort: null, wavedash: null, cps: null }
 
-const ARAV_NAMES = ['arav','aravthegoat','arav:)','ARAV','ARAVTHEGOAT']
+// Co-authors and the leaderboard names they play under. Beating any of
+// them earns the co-author medal; add a name here and everything else —
+// the medal, the badge, the "you beat X" line — follows automatically.
+const COAUTHORS = {
+  ARAV: ['arav', 'aravthegoat', 'arav:)'],
+  AMEY: ['amey'],
+}
+const COAUTHOR_NAMES = Object.values(COAUTHORS).flat()
+
+// Which co-author currently holds the bar in each game, so the medal can
+// name them instead of guessing.
+let coauthorHolder = {}
+
+function _coauthorFor(name) {
+  const n = String(name || '').trim().toLowerCase()
+  for (const [who, names] of Object.entries(COAUTHORS)) {
+    if (names.includes(n)) return who
+  }
+  return null
+}
 
 async function fetchAuthorScores() {
   for (const game of ['equation','aim','reaction','dodge','flash','deltae','gravity','typing','mrts','runsnake','gravflip','memseq','manualsort','wavedash','cps']) {
@@ -448,17 +467,19 @@ async function fetchAuthorScores() {
       const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&name=eq.ARHAM&order=score.desc&limit=1`)
       if (rows && rows.length > 0 && rows[0].score > 0) authorScores[game] = rows[0].score
     } catch {}
-    // fetch Arav's best score across all his name variants
+    // Best co-author score across every co-author and every name variant
     try {
-      let best = null
-      for (const name of ARAV_NAMES) {
+      let best = null, holder = null
+      for (const name of COAUTHOR_NAMES) {
         const rows = await sbFetch(`/rest/v1/leaderboard?game=eq.${game}&name=eq.${encodeURIComponent(name)}&order=score.desc&limit=1`)
         if (rows && rows.length > 0) {
           const s = rows[0].score
-          if (s > 0 && (best === null || (LOWER_IS_BETTER.has(game) ? s < best : s > best))) best = s
+          if (s > 0 && (best === null || (LOWER_IS_BETTER.has(game) ? s < best : s > best))) {
+            best = s; holder = _coauthorFor(name)
+          }
         }
       }
-      if (best !== null) coauthorScores[game] = best
+      if (best !== null) { coauthorScores[game] = best; coauthorHolder[game] = holder }
     } catch {}
   }
 }
@@ -506,7 +527,8 @@ function renderMedalDisplay(elId, game, score) {
   el.innerHTML = `<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">` +
     medals.map(medal => {
       const m = MEDAL_META[medal]
-      const sub = medal === 'author' ? ' — You beat ARHAM!' : medal === 'coauthor' ? ' — You beat ARAV!' : ''
+      const sub = medal === 'author' ? ' — You beat ARHAM!'
+                : medal === 'coauthor' ? ` — You beat ${coauthorHolder[game] || 'a co-author'}!` : ''
       return `<div class="medal-earned" style="background:${m.bg};">
         <div class="medal-icon">${m.icon}</div>
         <div class="medal-label ${m.cls}">${m.label}${sub}</div>
@@ -693,7 +715,7 @@ async function loadLeaderboard(game) {
     list.innerHTML = rows.map((r, i) => {
       const isAdmin = r.name.toUpperCase() === ADMIN_NAME
       const isMe = myName && r.name === myName
-      const isArav = /^arav(thegoat|:\))?$/i.test(r.name.trim())
+      const isArav = _coauthorFor(r.name) !== null
       const aravBadge = isArav
         ? ' <span class="medal medal-coauthor">🌟 co-author</span>' : ''
       const authorBadge = isAdmin
