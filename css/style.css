@@ -1080,3 +1080,33 @@ body {
 }
 .trail-card-row { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
 .trail-card-row .btn-primary { font-size: .8rem; padding: .4rem .9rem; }
+
+/* ══════════════════════════════════
+   BETA SITE
+══════════════════════════════════ */
+#beta-banner {
+  position: relative; z-index: 30;
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  flex-wrap: wrap; padding: .45rem .8rem;
+  background: rgba(251,146,60,.14);
+  border-bottom: 1px solid rgba(251,146,60,.35);
+  font-size: .78rem; color: #fdba74;
+}
+#beta-banner button {
+  background: transparent; border: 1px solid rgba(251,146,60,.45);
+  color: #fdba74; border-radius: 6px; padding: .2rem .5rem;
+  font-size: .72rem; cursor: pointer; font-family: inherit;
+}
+#beta-banner button:hover { background: rgba(251,146,60,.18); }
+.beta-chip {
+  background: #fb923c; color: #2b1400; font-weight: 800;
+  font-size: .64rem; letter-spacing: .08em;
+  border-radius: 4px; padding: .1rem .35rem;
+}
+.game-card { position: relative; }
+.beta-flag {
+  position: absolute; top: .6rem; right: .6rem;
+  background: rgba(251,146,60,.9); color: #2b1400;
+  font-size: .58rem; font-weight: 800; letter-spacing: .07em;
+  border-radius: 4px; padding: .1rem .3rem;
+}

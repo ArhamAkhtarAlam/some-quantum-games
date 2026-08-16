@@ -106,12 +106,77 @@ let qInitPromise = null
 // Deliberately not getBasePath(): that only strips the last segment when
 // it recognises the slug, so any game missing from GAME_SLUGS would break
 // this again. Taking the directory part of the path works either way.
+// ═══════════════════════════════════════════════════════
+//  BETA SITE
+//  Same app, reached at /beta. Games listed here are hidden
+//  from the main site entirely — no card, no leaderboard tab,
+//  and showGame refuses them — so the only way in is knowing
+//  the URL. Nothing links to it.
+// ═══════════════════════════════════════════════════════
+
+const BETA_GAMES = new Set([
+  37,  // Rhythm
+  38,  // Crossy
+  45,  // Quantum Freighter
+  46,  // Trap Race
+])
+
+// Beta sticks for the tab once entered, so navigating into a game (which
+// rewrites the URL to its slug) doesn't silently drop you back to main.
+let QG_BETA = false
+try {
+  const p = (typeof location !== 'undefined' && location.pathname) || ''
+  const q = (typeof location !== 'undefined' && location.search) || ''
+  const fromUrl = /(^|\/)beta\/?$/.test(p) || /[?&]game=beta(&|$)/.test(q)
+  QG_BETA = fromUrl || sessionStorage.getItem('qg_beta') === '1'
+  if (fromUrl) sessionStorage.setItem('qg_beta', '1')
+} catch { QG_BETA = false }
+window.QG_BETA = QG_BETA
+
+window.qgLeaveBeta = function() {
+  try { sessionStorage.removeItem('qg_beta') } catch {}
+  location.href = QG_ROOT
+}
+
 const QG_ROOT = (() => {
   const p = (typeof location !== 'undefined' && location.pathname) || '/'
   return p.endsWith('/') ? p : p.slice(0, p.lastIndexOf('/') + 1)
 })()
 
 function _quantumSrc() { return QG_ROOT + 'data/quantum.bin' }
+
+// Strip the ?game=beta the 404 shim leaves behind, so the address bar
+// reads /beta rather than /?game=beta
+if (QG_BETA && typeof history !== 'undefined' && /[?&]game=beta(&|$)/.test(location.search)) {
+  try { history.replaceState({}, '', QG_ROOT + 'beta') } catch {}
+}
+
+// Strip beta games out of the main site, and label them on the beta one.
+function qgApplyBeta() {
+  document.querySelectorAll('.game-card').forEach(card => {
+    const m = (card.getAttribute('onclick') || '').match(/showGame\((\d+)\)/)
+    if (!m) return
+    if (!BETA_GAMES.has(+m[1])) return
+    if (!QG_BETA) { card.remove(); return }
+    if (!card.querySelector('.beta-flag')) {
+      const f = document.createElement('span')
+      f.className = 'beta-flag'
+      f.textContent = 'BETA'
+      card.appendChild(f)
+    }
+  })
+  // Leaderboard tabs for beta games
+  for (const id of BETA_GAMES) {
+    const tab = document.getElementById('lb-tab-' + id)
+    if (tab && !QG_BETA) tab.remove()
+  }
+  const banner = document.getElementById('beta-banner')
+  if (banner) banner.style.display = QG_BETA ? 'flex' : 'none'
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', qgApplyBeta)
+}
 
 async function initCurby() {
   if (qInitPromise) return qInitPromise
@@ -292,6 +357,8 @@ function pushHomeUrl() {
 }
 
 window.showGame = function(n) {
+  // Beta games simply do not exist on the main site
+  if (BETA_GAMES.has(n) && !QG_BETA) { if (typeof goHome === 'function') goHome(); return }
   document.getElementById('home').classList.remove('active')
   document.getElementById(`game${n}`).classList.add('active')
   pushGameUrl(n)
