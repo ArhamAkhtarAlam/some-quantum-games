@@ -49,13 +49,10 @@ window.startAimGame = async function(e) {
 }
 
 async function prefillEntropyBuffer() {
+  // 200 target positions drawn straight from the quantum pool
   G2.entropyBuffer = []
-  if (latestRandomness) {
-    const xs = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
-    const ys = latestRandomness.shuffled(Array.from({ length: 200 }, (_, i) => i))
-    for (let i = 0; i < 200; i++) {
-      G2.entropyBuffer.push({ xFrac: xs[i] / 199, yFrac: ys[i] / 199 })
-    }
+  for (let i = 0; i < 200; i++) {
+    G2.entropyBuffer.push({ xFrac: qRandInt(1000) / 999, yFrac: qRandInt(1000) / 999 })
   }
 }
 

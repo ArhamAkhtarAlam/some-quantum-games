@@ -98,13 +98,26 @@ let qBitPos    = 0      // read cursor, in bits
 let qWraps     = 0      // times the pool has been reused
 let qInitPromise = null
 
-const QUANTUM_SRC = 'data/quantum.bin'
+// Where index.html lives, worked out once at load. SPA routing pushes
+// paths like /some-quantum-games/equation-builder, so a relative fetch
+// from there asks for .../equation-builder/data/quantum.bin — a 404 that
+// silently dropped the games back to Math.random.
+//
+// Deliberately not getBasePath(): that only strips the last segment when
+// it recognises the slug, so any game missing from GAME_SLUGS would break
+// this again. Taking the directory part of the path works either way.
+const QG_ROOT = (() => {
+  const p = (typeof location !== 'undefined' && location.pathname) || '/'
+  return p.endsWith('/') ? p : p.slice(0, p.lastIndexOf('/') + 1)
+})()
+
+function _quantumSrc() { return QG_ROOT + 'data/quantum.bin' }
 
 async function initCurby() {
   if (qInitPromise) return qInitPromise
   qInitPromise = (async () => {
     try {
-      const res = await fetch(QUANTUM_SRC, { cache: 'force-cache' })
+      const res = await fetch(_quantumSrc(), { cache: 'force-cache' })
       if (!res.ok) throw new Error('HTTP ' + res.status)
       qBits = new Uint8Array(await res.arrayBuffer())
       if (!qBits.length) throw new Error('empty')

@@ -49,9 +49,13 @@ function buildPalette() {
     }
     nums.push(n)
   }
-  const shuffled = latestRandomness
-    ? latestRandomness.shuffled(nums)
-    : nums.sort(() => Math.random() - .5)
+  // Fisher-Yates over qRandInt — quantum bits, and an unbiased shuffle.
+  // (sort(() => random() - .5) was never a correct shuffle either.)
+  const shuffled = nums.slice()
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = qRandInt(i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
   for (const n of shuffled) {
     palette.appendChild(makeTile(String(n), 'num-tile', false))
   }
