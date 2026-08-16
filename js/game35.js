@@ -146,8 +146,6 @@ window.g35FindMatch = function() {
       G35_roomCode   = code
       // Same track for both, overlaid — not split screen on separate tracks
       G35_sideBySide = false
-  G35_shared     = false
-  G35_spectating = false
       G35_shared     = true
       G35_isHost     = !!isHost
       G35_oppAlive   = true
@@ -225,6 +223,10 @@ async function initGame35() {
   _g35WallPat  = null
   G35_roomCode = null
   G35_sideBySide = false
+  G35_shared     = false   // back to solo: quantum walls, no opponent
+  G35_spectating = false
+  G35_isHost     = false
+  G35_oppAlive   = true
   G35_oppScore   = null
   G35_oppY       = null
   G35_oppWallCy  = null
@@ -552,7 +554,7 @@ function _g35DrawCore(ctx, w, h, panelH, yOff) {
   // Opponent's wave, on the same corridor. Drawn first so yours sits on
   // top, and scaled by their panel height in case the windows differ.
   if (G35_shared && G35_oppY !== null) {
-    const scale = (G35_oppPanelH && G35_oppPanelH > 0) ? (pH / G35_oppPanelH) : 1
+    const scale = (G35_oppPanelH && G35_oppPanelH > 0) ? (panelH / G35_oppPanelH) : 1
     const oy = yOff + G35_oppY * scale
     ctx.save()
     ctx.globalAlpha = G35_oppAlive ? 0.85 : 0.3
