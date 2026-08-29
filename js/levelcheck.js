@@ -53,7 +53,7 @@ function lcSolveWave(lv, h) {
   while (scroll < clear) {
     const next = new Set()
     const { cy, gapH } = lcWallAt(kfs, scroll, h)
-    const top = cy - gapH/2, bot = cy + gapH/2
+    const top = Math.max(cy - gapH/2, 0), bot = Math.min(cy + gapH/2, h)
     for (const q of states) {
       const y = q / LC_QUANT
       for (const up of [true, false]) {
@@ -74,6 +74,86 @@ function lcSolveWave(lv, h) {
     frame++
   }
   return { ok:true, band:worst === Infinity ? 0 : worst, atCol:worstCol, frames:frame }
+}
+
+// The actual inputs of an ideal run — not just whether one exists.
+// Same exhaustive search as lcSolveWave, but keeping a parent pointer per
+// state so the winning line can be walked back. Prefers the fewest presses,
+// which is what a clean line looks like rather than a jittery one.
+// `margin` shrinks the corridor while solving, so the line keeps clearance
+// instead of grazing the walls. Replaying a discrete plan against
+// continuous physics never lands exactly where the solver predicted —
+// positions are quantised to 1/8px, and with variable frame times an
+// input switch can land up to a frame late (4.25px). Without margin a
+// long level accumulates that and eventually clips a wall.
+function lcSolveLine(lv, h, margin, dt) {
+  const pad = margin || 0
+  const DT = dt || LC_DT
+  const kfs = lv.keyframes || []
+  const speed = lv.speed || 200
+  const clear = lv.clearAt || 800
+  const start = Math.round(h / 2 * LC_QUANT)
+
+  // layers[f] : Map(stateKey -> { prev, hold, taps })
+  const layers = []
+  let cur = new Map([[start + ':0', { prev: null, hold: false, taps: 0 }]])
+  let scroll = 0, frame = 0
+
+  while (scroll < clear) {
+    // The game moves the wave, advances the scroll, and only then tests
+    // the wall at the new column. Checking at the old column instead put
+    // the solved line one frame out of step and it died on its own plan.
+    const at = scroll + speed * DT
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(at), h)
+    // Same screen bound the game applies
+    const top = Math.max(cy - gapH / 2, 0) + pad
+    const bot = Math.min(cy + gapH / 2, h) - pad
+    const next = new Map()
+    for (const [key, node] of cur) {
+      const [q, last] = key.split(':')
+      const y = +q / LC_QUANT
+      for (const hold of [true, false]) {
+        const ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
+        if (ny - LC_R < top || ny + LC_R > bot) continue
+        const nk = Math.round(ny * LC_QUANT) + ':' + (hold ? '1' : '0')
+        const taps = node.taps + ((hold && last === '0') ? 1 : 0)
+        const seen = next.get(nk)
+        if (!seen || seen.taps > taps) next.set(nk, { prev: key, hold, taps })
+      }
+    }
+    if (next.size === 0) return { ok: false, diedAt: Math.round(scroll), frame }
+    layers.push(next)
+    cur = next
+    scroll += speed * DT
+    frame++
+  }
+
+  // Walk back from the cheapest surviving end state
+  let bestKey = null, bestTaps = Infinity
+  for (const [k, n] of cur) if (n.taps < bestTaps) { bestTaps = n.taps; bestKey = k }
+  const holds = new Array(layers.length)
+  const ys    = new Array(layers.length)   // the height the line sits at
+  let key = bestKey
+  for (let f = layers.length - 1; f >= 0; f--) {
+    const node = layers[f].get(key)
+    holds[f] = node.hold
+    ys[f]    = +key.split(':')[0] / LC_QUANT
+    key = node.prev
+  }
+  return { ok: true, holds, ys, frames: holds.length, taps: bestTaps, margin: pad, dt: DT }
+}
+
+// Prefer a line with room to spare; fall back to tighter ones, and finally
+// to an exact line, so a level that only just works still gets a bot.
+// `dt` should be the frame time the game is actually running at. Planning
+// in 1/60s steps and replaying at 120Hz puts the plan and the game on
+// different grids, which is fatal on a level with no margin to absorb it.
+function lcSolveLineSafe(lv, h, dt) {
+  for (const pad of [6, 3, 1.5, 0]) {
+    const r = lcSolveLine(lv, h, pad, dt)
+    if (r.ok) return r
+  }
+  return { ok: false }
 }
 
 // Spider: alternating blocks, so each surface switch needs flip time
@@ -148,6 +228,16 @@ function lcReport(lv) {
     r.warnings.push(`Last keyframe is at ${kfs[kfs.length-1].at} but the level runs to ${r.clearAt} — the corridor holds its final shape for the rest.`)
   }
 
+  // Corridor outside the canvas is invisible, and the wave can reach it
+  let offscreen = 0
+  for (let c = 0; c <= r.clearAt; c += 5) {
+    const wl = lcWallAt(kfs, c, 500)
+    if (wl.cy - wl.gapH / 2 < 0 || wl.cy + wl.gapH / 2 > 500) offscreen += 5
+  }
+  if (offscreen) {
+    r.warnings.push(`Corridor sits outside the visible screen for ${offscreen} of ${r.clearAt} columns — those walls can't be seen, though the game now bounds the corridor to the screen.`)
+  }
+
   // Speed feel: how much of the level a player can actually see and react to
   r.colsPerFrame = speed * LC_DT
   r.lookahead    = 900 / speed          // seconds of level visible on a 900px arena
@@ -198,9 +288,11 @@ function lcReport(lv) {
 if (typeof window !== 'undefined') {
   window.lcReport = lcReport
   window.lcSolveWave = lcSolveWave
+  window.lcSolveLine = lcSolveLine
+  window.lcSolveLineSafe = lcSolveLineSafe
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcWallAt, lcLabel }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcWallAt, lcLabel }

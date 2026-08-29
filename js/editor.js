@@ -650,7 +650,19 @@ window.edToggleTestNoclip = function() {
   if (b) b.textContent = ED.testNoclip ? '🛡 noclip' : '💀 walls kill'
 }
 
-window.edTestPlay = async function() {
+// Watch the solver's ideal line instead of playing it yourself
+window.edBotPlay = function() {
+  const lv = _edCur(); if (!lv) return
+  if (lv.game !== 'wavegauntlet') { _edSetMsg('Bot mode is Wave Gauntlet only for now.'); return }
+  if (typeof lcReport === 'function') {
+    const r = lcReport(lv)
+    if (!r.clearable) { _edSetMsg("\u26a0 Nothing to show \u2014 this level can't be cleared."); return }
+  }
+  ED.testNoclip = false          // the ideal line shouldn't need noclip
+  edTestPlay(true)
+}
+
+window.edTestPlay = async function(bot) {
   const lv = _edCur(); if (!lv) return
   const built = _edBuildRuntime(lv)
   const wave  = ED.game === 'wavegauntlet'
@@ -664,8 +676,9 @@ window.edTestPlay = async function() {
   document.getElementById('spd-score-hud').style.display = wave ? 'none' : ''
 
   try {
-    if (wave) { await initGame43(); window.g43TestLevel(built) }
-    else      { await initSpider(); window.spdTestLevel(built) }
+    const clip = ED.testNoclip !== false
+    if (wave) { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
+    else      { await initSpider(); window.spdTestLevel(built, clip) }
   } catch (e) {
     console.error('[editor] test play failed', e)
     _edSetMsg('⚠ Test play failed: ' + e.message)
@@ -1405,13 +1418,18 @@ function _edMove(e) {
   if (lv.game === 'wavegauntlet') {
     const k = lv.keyframes[d.i]; if (!k) return
     if (d.type === 'center') {
-      k.cf = Math.max(0.05, Math.min(0.95, y / h))
+      // Keep the whole corridor on screen — walls outside the canvas are
+      // invisible, and the wave dies against them without warning
+      const half = (k.gapHf || 0.4) / 2
+      k.cf = Math.max(half, Math.min(1 - half, y / h))
       k.at = Math.max(0, Math.round(x / ppc))
       lv.keyframes.sort((a,b) => a.at - b.at)
       ED.drag.i = lv.keyframes.indexOf(k)
     } else {
       const half = Math.abs(y / h - k.cf)
-      k.gapHf = Math.max(0.04, Math.min(0.95, half * 2))
+      // Widen only as far as the nearer edge allows
+      const room = Math.min(k.cf, 1 - k.cf)
+      k.gapHf = Math.max(0.04, Math.min(room * 2, half * 2))
     }
   } else {
     const o = lv.obstacles[d.i]; if (!o) return

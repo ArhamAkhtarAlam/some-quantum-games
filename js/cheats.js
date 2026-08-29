@@ -70,8 +70,16 @@ if (typeof document !== 'undefined') {
   })
 }
 
-// True when the given game <section> is the one on screen
+// True when the given game <section> is on screen, or when a Test Play
+// host is up. editor.html and review.html run the real game inside their
+// own container rather than index.html's <section>, so without this the
+// cheat would never arm there.
 function cheatScreenActive(id) {
   const el = document.getElementById(id)
-  return !!(el && el.classList.contains('active'))
+  if (el && el.classList.contains('active')) return true
+  for (const host of ['ed-testhost', 'rv-testhost']) {
+    const h = document.getElementById(host)
+    if (h && h.classList.contains('on')) return true
+  }
+  return false
 }

@@ -513,6 +513,7 @@ const G43 = {
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
+  botMode:false, bot:null, botPending:false,  // autopilot playing the solved ideal line
   retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0,  // input count, measured as rising edges
   testLevel:null,
@@ -553,6 +554,13 @@ function _g43BuildPracticeUI() {
     const saved = localStorage.getItem('qg_practice_noclip')
     if (saved !== null) window.g43UseNoclip = saved === '1'
   } catch {}
+
+  const bot = document.createElement('button')
+  bot.className = 'pp-toggle' + (G43.botMode ? ' bot' : '')
+  bot.textContent = G43.botMode ? '\ud83e\udd16 Bot ON — watch the ideal line' : '\ud83e\udd16 Bot OFF — you play'
+  bot.title = 'Plays the fewest-input line the solver can find'
+  bot.addEventListener('click', () => g43ToggleBot())
+  el.appendChild(bot)
 
   const on = window.g43UseNoclip
   const tog = document.createElement('button')
@@ -636,6 +644,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     attempts:0, fullTrail:[], taps:0, paused:false,
+    botMode:G43.botMode || false, bot:null,
     retrying:false, retryT:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
@@ -669,8 +678,23 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
   G43.raf = requestAnimationFrame(_g43Loop)
 }
 
-window.startWaveGauntlet   = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, false) }
-window.startWaveGauntlet2P = function() { G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, true)  }
+window.startWaveGauntlet   = function() { G43.botMode = false; G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, false) }
+window.startWaveGauntlet2P = function() { G43.botMode = false; G43.testLevel = null; G43.practiceLevel = null; _g43Start(false, null, true)  }
+
+// Autopilot. Practice rules (never scores), walls on so a mistake would
+// show, and the solved line drives the wave.
+window.g43ToggleBot = function() {
+  G43.botMode = !G43.botMode
+  try { localStorage.setItem('qg_bot', G43.botMode ? '1' : '0') } catch {}
+  _g43BuildPracticeUI()
+}
+
+window.g43BotPlay = function(tmpl, noclip) {
+  G43.botMode = true
+  G43.testLevel = tmpl || null
+  G43.practiceLevel = null
+  _g43Start(true, null, false, noclip === undefined ? false : noclip)
+}
 
 // Practice never scores. Noclip is a separate choice on top of that.
 window.g43UseNoclip = true
@@ -686,11 +710,13 @@ window.g43ToggleNoclip = function() {
 window.startWaveGauntletPractice = function(d, name, noclip) {
   G43.testLevel     = null
   G43.practiceLevel = name || null
+  try { G43.botMode = localStorage.getItem('qg_bot') === '1' } catch {}
   _g43Start(true, d, false, noclip === undefined ? window.g43UseNoclip : noclip)
 }
 
 // Editor / review test play. Practice rules, noclip optional.
-window.g43TestLevel = function(tmpl, noclip) {
+window.g43TestLevel = function(tmpl, noclip, bot) {
+  G43.botMode = !!bot
   G43.testLevel = tmpl
   _g43Start(true, null, false, noclip === undefined ? true : noclip)
 }
@@ -904,6 +930,8 @@ function _g43LoadChallenge(w, h) {
   G43.hitFlash      = 0
   G43.attempts      = 0
   G43.fullTrail     = []
+  G43.bot           = null
+  G43.botPending    = G43.botMode
   G43.taps          = 0
   G43.retrying      = false
   G43.retryT        = 0
@@ -966,6 +994,41 @@ function _g43Loop(ts) {
   if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
   if (G43.hitFlash > 0) G43.hitFlash = Math.max(0, G43.hitFlash - dt)
 
+  // Autopilot. Rather than replaying the solved inputs blindly, it steers
+  // towards the height the ideal line sits at and corrects every frame.
+  //
+  // Blind replay only works if the game's timing matches the solver's
+  // exactly. It doesn't: positions are quantised, frame times vary, and a
+  // 120Hz screen takes two frames per solved step. Any of that puts the
+  // wave somewhere the rest of the plan doesn't expect, and the error
+  // compounds. Tracking the path instead means drift is corrected on the
+  // next frame instead of accumulating.
+  // Plan on the first playing frame, once the real frame time is known
+  if (G43.botPending && G43.phase === 'playing' && typeof lcSolveLineSafe === 'function') {
+    G43.botPending = false
+    const solved = lcSolveLineSafe({
+      speed: G43.challenge.speed, clearAt: G43.clearAt,
+      keyframes: G43.keyframes.map(k => ({ at:k.at, cf:k.cf, gapHf:k.gapH / h })),
+    }, h, Math.max(0.004, Math.min(0.05, dt)))
+    if (solved.ok) G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
+  }
+
+  if (G43.bot && G43.phase === 'playing') {
+    // Index by scroll, not elapsed time. The solver pairs each target
+    // height with the column it applies to, and the game tests collision
+    // at its own scroll position — at 120Hz those drift half a step apart
+    // and the wave aims for the corridor as it was 25 columns ago.
+    // Rounding to the nearest step keeps target and wall in step; the
+    // off-by-one that made scroll indexing unusable for blind replay is
+    // harmless here, because tracking corrects it on the next frame.
+    const step = (G43.challenge.speed || 200) * G43.bot.dt
+    const i = Math.min(G43.bot.ys.length - 1,
+                       Math.max(0, Math.round(G43.scrollX / step)))
+    G43.bot.idx = i
+    // hold sends the wave up, release sends it down
+    G43.holding = G43.wy > G43.bot.ys[i]
+  }
+
   const waveStep = (doClamp) => {
     G43.wvy = G43.holding ? -G43_WAVE_SPD : G43_WAVE_SPD
     G43.wy += G43.wvy * dt
@@ -1009,8 +1072,13 @@ function _g43Loop(ts) {
     }
 
     const wall    = _g43WallAt(Math.floor(G43.scrollX), h)
-    const topWall = wall.cy - wall.gapH / 2
-    const botWall = wall.cy + wall.gapH / 2
+    // Bound the corridor by the screen. A level can be authored with walls
+    // outside the canvas, and the wave isn't clamped while playing — so
+    // without this you fly off the top of the view and die against a wall
+    // you were never shown. No built-in level is affected: none of them
+    // put corridor outside the canvas.
+    const topWall = Math.max(wall.cy - wall.gapH / 2, 0)
+    const botWall = Math.min(wall.cy + wall.gapH / 2, h)
     const hit     = G43.wy - WR < topWall || G43.wy + WR > botWall
     // In online mode, P2 collision is checked on their own device
     const hit2    = G43.multi && !G43_roomCode && (G43.p2wy - WR < topWall || G43.p2wy + WR > botWall)
@@ -1112,6 +1180,9 @@ function _g43Die() {
 
 function _g43RetryNow() {
   const c = _g43C()
+  // Re-plan on a retry: the frame rate may have changed, and a fresh plan
+  // costs nothing next to the 0.45s death hold
+  if (G43.botMode) { G43.bot = null; G43.botPending = true }
   G43.retrying  = false
   G43.retryT    = 0
   G43.scrollX   = 0
@@ -1359,7 +1430,8 @@ function _g43Draw(ctx, w, h) {
     ctx.fillText((G43.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
                  (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : '') +
                  (G43.attempts ? '   att ' + G43.attempts : '') +
-                 (G43.taps ? '   taps ' + G43.taps : ''), w/2, 18)
+                 (G43.taps ? '   taps ' + G43.taps : '') +
+                 (G43.bot ? '   \ud83e\udd16 BOT ' + G43.bot.taps + ' taps' : ''), w/2, 18)
     if (G43_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(G43_cheat.label(), w/2, 32)

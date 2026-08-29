@@ -1110,3 +1110,4 @@ body {
   font-size: .58rem; font-weight: 800; letter-spacing: .07em;
   border-radius: 4px; padding: .1rem .3rem;
 }
+.pp-toggle.bot { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,.14); }
