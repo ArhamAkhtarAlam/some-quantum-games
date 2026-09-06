@@ -12,6 +12,13 @@ function mpGetSocket() {
 
 // Joins queue for a game. Calls onMatched({ code, sideBySide }) when matched.
 window.mpFindMatch = function(game, { onQueued, onMatched, onLeft, statusEl, btnEl }) {
+  // The stall build has no online play at all. Refuse here as well as
+  // removing the buttons, so any handler left wired up is still a dead end
+  // and the stand never opens a socket to the match server.
+  if (window.QG_STALL) {
+    if (statusEl) statusEl.textContent = 'Online play is off on this machine.'
+    return
+  }
   const sock = mpGetSocket()
   const setStatus = (html, color = 'var(--muted)') => {
     if (statusEl) { statusEl.style.color = color; statusEl.innerHTML = html }
@@ -145,6 +152,60 @@ const QG_ROOT = (() => {
 
 function _quantumSrc() { return QG_ROOT + 'data/quantum.bin' }
 
+// ═══════════════════════════════════════════════════════
+//  STALL MODE
+//  Same app, reached at /stall — a cut-down build for running
+//  the games on a stand. Unlike BETA_GAMES (a blocklist), this
+//  is an ALLOWLIST: only the games named here exist at all.
+//  Server multiplayer is off entirely, so nothing on the stand
+//  depends on the match server being up or on a second machine.
+//  Same-device 2P (Wave Gauntlet's 👥 button) still works.
+//
+//  To add a game: put its number in STALL_GAMES.
+// ═══════════════════════════════════════════════════════
+
+const STALL_GAMES = new Set([
+  40,  // UFO
+  43,  // Wave Gauntlet
+  44,  // Spider
+])
+
+let QG_STALL = false
+try {
+  const sp = (typeof location !== 'undefined' && location.pathname) || ''
+  const sq = (typeof location !== 'undefined' && location.search) || ''
+  const stallUrl = /(^|\/)stall\/?$/.test(sp) || /[?&]game=stall(&|$)/.test(sq)
+  QG_STALL = stallUrl || sessionStorage.getItem('qg_stall') === '1'
+  if (stallUrl) sessionStorage.setItem('qg_stall', '1')
+} catch { QG_STALL = false }
+window.QG_STALL = QG_STALL
+
+window.qgLeaveStall = function() {
+  try { sessionStorage.removeItem('qg_stall') } catch {}
+  location.href = QG_ROOT
+}
+
+// Tidy the address bar the same way beta does
+if (QG_STALL && typeof history !== 'undefined' && /[?&]game=stall(&|$)/.test(location.search)) {
+  try { history.replaceState({}, '', QG_ROOT + 'stall') } catch {}
+}
+
+// Remove every game that is not on the stall list, and every route to the
+// match server. The buttons go rather than just being disabled, so there is
+// nothing on the stand to press that could sit there saying "searching…".
+function qgApplyStall() {
+  if (!QG_STALL) return
+  document.querySelectorAll('.game-card').forEach(card => {
+    const m = (card.getAttribute('onclick') || '').match(/showGame\((\d+)\)/)
+    if (!m || !STALL_GAMES.has(+m[1])) card.remove()
+  })
+  // Online-match controls: every game's queue/match button and its status line
+  document.querySelectorAll('[id$="-match-btn"], [id$="-queue-btn"], [id$="-match-status"], [id$="-queue-status"]')
+    .forEach(el => el.remove())
+  const banner = document.getElementById('beta-banner')
+  if (banner) banner.style.display = 'none'
+}
+
 // Strip the ?game=beta the 404 shim leaves behind, so the address bar
 // reads /beta rather than /?game=beta
 if (QG_BETA && typeof history !== 'undefined' && /[?&]game=beta(&|$)/.test(location.search)) {
@@ -176,6 +237,7 @@ function qgApplyBeta() {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', qgApplyBeta)
+  document.addEventListener('DOMContentLoaded', qgApplyStall)
 }
 
 async function initCurby() {
@@ -359,6 +421,9 @@ function pushHomeUrl() {
 window.showGame = function(n) {
   // Beta games simply do not exist on the main site
   if (BETA_GAMES.has(n) && !QG_BETA) { if (typeof goHome === 'function') goHome(); return }
+  // On the stall, only the listed games exist — a stale link or a typed
+  // ?game= slug for anything else lands back on the home screen
+  if (QG_STALL && !STALL_GAMES.has(n)) { if (typeof goHome === 'function') goHome(); return }
   document.getElementById('home').classList.remove('active')
   document.getElementById(`game${n}`).classList.add('active')
   pushGameUrl(n)
