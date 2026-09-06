@@ -13,6 +13,16 @@ const G43_WAVE_R_MINI = 4
 const G43_DRAW_STEP   = 2
 const G43_RETRY_WAIT  = 0.45   // seconds you see the death before it resets
 
+// The simulation runs on a fixed timestep, decoupled from the display.
+// Stepping with the monitor's own frame time made the level depend on the
+// monitor: collision is only tested at the column the wave lands on, so a
+// 144Hz screen tested more than twice as many columns as a 60Hz one, and
+// frame-time jitter randomised which ones. Same level, different game.
+// 240Hz is fine enough to feel smooth and to sample input closely, while
+// still coarse enough that a fast level plays as it always has.
+const G43_SIM_DT      = 1 / 240
+const G43_MAX_STEPS   = 16     // catch-up cap; a stall slows time rather than teleporting
+
 // Corridor is defined by keyframes: {at, cf (cy as 0–1 fraction of h), gapH (px)}
 // Linear interpolation between keyframes → angular slope walls.
 // SHORT transition = steep slope (GD tile feel)
@@ -513,7 +523,7 @@ const G43 = {
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
-  botMode:false, bot:null, botPending:false,  // autopilot playing the solved ideal line
+  botMode:false, bot:null, botPending:false, simAcc:0,  // autopilot playing the solved ideal line
   retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0,  // input count, measured as rising edges
   testLevel:null,
@@ -644,7 +654,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
     attempts:0, fullTrail:[], taps:0, paused:false,
-    botMode:G43.botMode || false, bot:null,
+    botMode:G43.botMode || false, bot:null, simAcc:0,
     retrying:false, retryT:0,
     testLevel:G43.testLevel || null,
     multi:!!multi,
@@ -1006,21 +1016,22 @@ function _g43Loop(ts) {
   // Plan on the first playing frame, once the real frame time is known
   if (G43.botPending && G43.phase === 'playing' && typeof lcSolveLineSafe === 'function') {
     G43.botPending = false
+    // Plan on the simulation clock — the same one playback runs on
     const solved = lcSolveLineSafe({
       speed: G43.challenge.speed, clearAt: G43.clearAt,
       keyframes: G43.keyframes.map(k => ({ at:k.at, cf:k.cf, gapHf:k.gapH / h })),
-    }, h, Math.max(0.004, Math.min(0.05, dt)))
-    if (solved.ok) G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
+    }, h, G43_SIM_DT)
+    if (solved.ok) {
+      G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
+    }
   }
 
-  if (G43.bot && G43.phase === 'playing') {
-    // Index by scroll, not elapsed time. The solver pairs each target
-    // height with the column it applies to, and the game tests collision
-    // at its own scroll position — at 120Hz those drift half a step apart
-    // and the wave aims for the corridor as it was 25 columns ago.
-    // Rounding to the nearest step keeps target and wall in step; the
-    // off-by-one that made scroll indexing unusable for blind replay is
-    // harmless here, because tracking corrects it on the next frame.
+  // Index by scroll, not elapsed time. The solver pairs each target
+  // height with the column it applies to, and the game tests collision
+  // at its own scroll position — at 120Hz those drift half a step apart
+  // and the wave aims for the corridor as it was 25 columns ago.
+  const _botAim = () => {
+    if (!G43.bot || G43.phase !== 'playing') return
     const step = (G43.challenge.speed || 200) * G43.bot.dt
     const i = Math.min(G43.bot.ys.length - 1,
                        Math.max(0, Math.round(G43.scrollX / step)))
@@ -1029,32 +1040,23 @@ function _g43Loop(ts) {
     G43.holding = G43.wy > G43.bot.ys[i]
   }
 
-  const waveStep = (doClamp) => {
+  const waveStep = (doClamp, sdt = dt) => {
     G43.wvy = G43.holding ? -G43_WAVE_SPD : G43_WAVE_SPD
-    G43.wy += G43.wvy * dt
+    G43.wy += G43.wvy * sdt
     if (doClamp) G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.wy))
     if (G43.multi) {
       G43.p2wvy = G43.p2holding ? -G43_WAVE_SPD : G43_WAVE_SPD
-      G43.p2wy += G43.p2wvy * dt
+      G43.p2wy += G43.p2wvy * sdt
       if (doClamp) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
     }
   }
 
-  if (G43.phase === 'waiting') {
-    // Online joiner: waiting for host to send first challenge
-    waveStep(true)
-    if (G43_pendingNetChallenge) {
-      _g43ApplyNetChallenge(G43_pendingNetChallenge, h)
-      G43_pendingNetChallenge = null
-    }
-
-  } else if (G43.phase === 'announce') {
-    G43.announceT += dt
-    if (G43.announceT >= 0.9) G43.phase = 'playing'
-
-  } else if (G43.phase === 'playing') {
-    waveStep(false)
-    G43.scrollX += G43.challenge.speed * dt
+  // One simulation step. Split out so bot mode can run it on a fixed
+  // timestep instead of the display's variable frame time.
+  const _g43PlayStep = (sdt) => {
+    _botAim()
+    waveStep(false, sdt)
+    G43.scrollX += G43.challenge.speed * sdt
 
     // Store the world column, not the canvas x — every point used to share
     // the wave's fixed x, so the "trail" was a vertical smear rather than a
@@ -1103,6 +1105,43 @@ function _g43Loop(ts) {
         document.getElementById('g43-score-hud').textContent = G43.score
       }
       SFX.win()
+    }
+  }
+
+  if (G43.phase === 'waiting') {
+    // Online joiner: waiting for host to send first challenge
+    waveStep(true)
+    if (G43_pendingNetChallenge) {
+      _g43ApplyNetChallenge(G43_pendingNetChallenge, h)
+      G43_pendingNetChallenge = null
+    }
+
+  } else if (G43.phase === 'announce') {
+    G43.announceT += dt
+    if (G43.announceT >= 0.9) G43.phase = 'playing'
+
+  } else if (G43.phase === 'playing') {
+    // Fixed timestep: the display's frame time never reaches the physics, so
+    // the level plays identically at 60, 144 or 240Hz and a stutter can't
+    // shift which columns get tested.
+    //
+    // Still beta-only for normal play — it changes the feel of every
+    // single-player run, so main keeps the display-driven step until this
+    // has been played in properly. The bot always uses the fixed clock
+    // regardless: its plan is solved on that clock, and replaying it against
+    // a variable frame time is exactly what made it fly into walls.
+    if (G43.bot || window.QG_BETA) {
+      G43.simAcc = (G43.simAcc || 0) + dt
+      let steps = 0
+      while (G43.simAcc >= G43_SIM_DT && steps < G43_MAX_STEPS && G43.phase === 'playing') {
+        G43.simAcc -= G43_SIM_DT
+        steps++
+        _g43PlayStep(G43_SIM_DT)
+      }
+      // After a stall, drop the backlog rather than fast-forwarding into a wall
+      if (steps >= G43_MAX_STEPS) G43.simAcc = 0
+    } else {
+      _g43PlayStep(dt)
     }
 
   } else if (G43.phase === 'cleared') {

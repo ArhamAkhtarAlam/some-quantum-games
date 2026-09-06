@@ -17,6 +17,12 @@ const LC_FPS   = 60
 const LC_DT    = 1 / LC_FPS
 const LC_FRAME = LC_WAVE * LC_DT      // px of travel in one frame
 const LC_QUANT = 8                    // positions per px when searching
+// Wave Gauntlet runs its simulation on this fixed step (G43_SIM_DT), so the
+// solver models the same clock the game actually uses. Before the game was
+// fixed-stepped, this had to guess at 60Hz and the verdict on a fast level
+// turned on the guess: ULTRASONIC came out unclearable at 59, 60 and 61Hz —
+// each dying at a different column — yet clear at 75Hz and above.
+const LC_SIM_DT = 1 / 240
 
 const LC_HEIGHTS = [360, 400, 460, 520, 600, 700, 800]
 
@@ -42,7 +48,8 @@ function lcWallAt(kfs, col, h) {
 
 // Every position reachable by any hold/release sequence, frame by frame.
 // Returns the narrowest surviving band — the real margin for error.
-function lcSolveWave(lv, h) {
+function lcSolveWave(lv, h, dt) {
+  const DT = dt || LC_DT
   const kfs = lv.keyframes || []
   const speed = lv.speed || 200
   const clear = lv.clearAt || 800
@@ -57,7 +64,7 @@ function lcSolveWave(lv, h) {
     for (const q of states) {
       const y = q / LC_QUANT
       for (const up of [true, false]) {
-        const ny = y + (up ? -LC_WAVE : LC_WAVE) * LC_DT
+        const ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
         if (ny - LC_R < top || ny + LC_R > bot) continue
         next.add(Math.round(ny * LC_QUANT))
       }
@@ -70,7 +77,7 @@ function lcSolveWave(lv, h) {
       if (span < worst) { worst = span; worstCol = Math.round(scroll) }
     }
     states = next
-    scroll += speed * LC_DT
+    scroll += speed * DT
     frame++
   }
   return { ok:true, band:worst === Infinity ? 0 : worst, atCol:worstCol, frames:frame }
@@ -242,16 +249,24 @@ function lcReport(lv) {
   r.colsPerFrame = speed * LC_DT
   r.lookahead    = 900 / speed          // seconds of level visible on a 900px arena
   if (r.colsPerFrame > 10) {
-    r.warnings.push(`Scrolls ${r.colsPerFrame.toFixed(0)} columns per frame at 60Hz — detail finer than that is skipped, and the level plays differently on a higher-refresh screen.`)
+    r.warnings.push(`Scrolls ${(speed * LC_SIM_DT).toFixed(0)} columns per simulation step — detail finer than that is skipped entirely, so very narrow features here are decoration rather than obstacles.`)
   }
   if (r.lookahead < 0.35) {
     r.warnings.push(`Only ${r.lookahead.toFixed(2)}s of warning, below human reaction time — this has to be memorised rather than read.`)
   }
 
-  // Exhaustive clearability across a range of window sizes
+  // Exhaustive clearability across a range of window sizes.
+  // The solver walks the level one 60Hz frame at a time, so it only tests
+  // the columns that stepping happens to land on. That is fine at normal
+  // speeds, but a level scrolling 167 columns a frame is sampled less than
+  // 1 column in 100, and the verdict then turns on the sampling phase
+  // rather than the level: ULTRASONIC came out unclearable at 59, 60 and
+  // 61Hz — each dying at a different column — yet clear at 75Hz and above.
+  // So on fast levels, re-test at several refresh rates and only call it
+  // unclearable when no rate survives.
   let anyFail = false
   for (const h of LC_HEIGHTS) {
-    const s = lcSolveWave(lv, h)
+    const s = lcSolveWave(lv, h, LC_SIM_DT)
     if (!s.ok) { anyFail = true; r.heights.push({ h, ok:false, diedAt:s.diedAt }) }
     else {
       const frames = s.band / LC_FRAME
@@ -294,5 +309,6 @@ if (typeof window !== 'undefined') {
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
+  window.LC_SIM_DT = LC_SIM_DT
 }
 if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcWallAt, lcLabel }
