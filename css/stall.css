@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════
+   CARNIVAL THEME — /stall only
+   Loaded by qgApplyStall(), scoped entirely under
+   body.stall-mode, so the main site and /beta never see it.
+
+   Everything here is drawn with gradients and borders — no
+   images, no webfonts, no CDN. A stand may be on bad wifi or
+   none at all, and the page still has to look right.
+   ═══════════════════════════════════════════════════════ */
+
+body.stall-mode {
+  --fair-red:   #d81e3f;
+  --fair-cream: #fff4e0;
+  --fair-gold:  #ffc23c;
+  --fair-deep:  #1a0b1f;
+  padding-top: 92px;
+  background:
+    radial-gradient(ellipse 120% 70% at 50% 0%, #3a1030 0%, transparent 60%),
+    radial-gradient(ellipse 90% 50% at 50% 100%, #241033 0%, transparent 70%),
+    var(--bg);
+}
+
+/* ── Big-top canopy ─────────────────────────────────── */
+.stall-canopy {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 46px; z-index: 60; pointer-events: none;
+  background: repeating-linear-gradient(90deg,
+    var(--fair-red) 0 44px, var(--fair-cream) 44px 88px);
+  box-shadow: 0 4px 22px rgba(0,0,0,.6);
+}
+/* Scalloped hem: same stripes, cut into half-circles by a mask */
+.stall-canopy::after {
+  content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 22px;
+  background: inherit;
+  -webkit-mask-image: radial-gradient(circle at 22px 0, #000 19px, transparent 19.5px);
+  -webkit-mask-size: 44px 22px; -webkit-mask-repeat: repeat-x;
+  mask-image: radial-gradient(circle at 22px 0, #000 19px, transparent 19.5px);
+  mask-size: 44px 22px; mask-repeat: repeat-x;
+}
+
+/* ── String lights ──────────────────────────────────── */
+.stall-lights {
+  position: fixed; top: 66px; left: 0; right: 0;
+  z-index: 59; pointer-events: none;
+  display: flex; justify-content: space-around; align-items: flex-start;
+  padding: 0 10px;
+}
+.stall-lights i {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--fair-gold);
+  box-shadow: 0 0 10px 2px rgba(255,194,60,.85);
+  animation: stall-twinkle 2.4s ease-in-out infinite;
+}
+.stall-lights i:nth-child(3n+1) { background:#ff6b8a; box-shadow:0 0 10px 2px rgba(255,107,138,.8); animation-delay:.35s }
+.stall-lights i:nth-child(3n+2) { background:#6ee7f0; box-shadow:0 0 10px 2px rgba(110,231,240,.8); animation-delay:.75s }
+@keyframes stall-twinkle {
+  0%, 100% { opacity: 1;   transform: scale(1) }
+  50%      { opacity: .45; transform: scale(.82) }
+}
+
+/* ── Bunting ────────────────────────────────────────── */
+.stall-bunting {
+  position: relative;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 0; margin: -.6rem auto .4rem; max-width: 900px; padding: 0 4px;
+}
+/* the string the flags hang from */
+.stall-bunting::before {
+  content: ''; position: absolute; top: 1px; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,205,110,.8) 12%,
+              rgba(255,205,110,.8) 88%, transparent);
+  border-radius: 2px;
+}
+.stall-bunting i {
+  width: 0; height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 26px solid var(--fair-red);
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.45));
+  transform-origin: top center;
+  animation: stall-sway 3.6s ease-in-out infinite;
+}
+.stall-bunting i:nth-child(4n+2) { border-top-color: var(--fair-gold);  animation-delay:.3s }
+.stall-bunting i:nth-child(4n+3) { border-top-color: var(--fair-cream); animation-delay:.6s }
+.stall-bunting i:nth-child(4n)   { border-top-color: #6ee7f0;           animation-delay:.9s }
+@keyframes stall-sway {
+  0%, 100% { transform: rotate(-3deg) }
+  50%      { transform: rotate(3deg) }
+}
+
+/* ── Marquee heading ────────────────────────────────── */
+.stall-mode .home-header { position: relative; padding-top: .4rem }
+.stall-kicker {
+  display: block; text-align: center;
+  font-size: .8rem; font-weight: 800; letter-spacing: .34em;
+  color: var(--fair-gold); text-transform: uppercase;
+  margin-bottom: .5rem; text-shadow: 0 0 14px rgba(255,194,60,.6);
+}
+.stall-mode .home-header h1 {
+  background: linear-gradient(180deg, #fff6df 0%, var(--fair-gold) 55%, #ff8a3d 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 3px 0 rgba(0,0,0,.4)) drop-shadow(0 0 22px rgba(255,150,60,.45));
+  letter-spacing: 1px;
+}
+.stall-mode .home-header p { color: #f7d9b0; opacity: .9 }
+.stall-mode .quantum-badge {
+  background: rgba(216,30,63,.18);
+  border-color: rgba(255,194,60,.5);
+  color: var(--fair-gold);
+}
+
+/* ── Booth cards ────────────────────────────────────── */
+.stall-mode .game-cards { gap: 1.6rem; margin-top: .4rem }
+.stall-mode .game-card {
+  background:
+    linear-gradient(180deg, rgba(255,244,224,.06) 0%, transparent 40%),
+    #24102b;
+  border-width: 2px;
+  border-radius: 1rem;
+  padding-top: 1.9rem;
+  box-shadow: 0 10px 26px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,194,60,.18);
+  overflow: hidden;
+}
+/* Striped awning across the top of each booth */
+.stall-mode .game-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 12px;
+  background: repeating-linear-gradient(90deg,
+    var(--fair-red) 0 16px, var(--fair-cream) 16px 32px);
+  opacity: .95;
+}
+.stall-mode .game-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 16px 34px rgba(0,0,0,.6), 0 0 26px rgba(255,194,60,.35),
+              inset 0 0 0 1px rgba(255,194,60,.4);
+}
+.stall-mode .card-title { color: #fff6df; letter-spacing: .3px }
+.stall-mode .card-desc  { color: #d9bfa4 }
+
+/* ── Chrome that a walk-up player does not need ─────── */
+.stall-mode #beta-banner { display: none !important }
+
+/* Motion is decoration here — switch it off when asked to. */
+@media (prefers-reduced-motion: reduce) {
+  .stall-lights i, .stall-bunting i { animation: none }
+}
+
+/* Narrow screens: fewer, smaller decorations */
+@media (max-width: 620px) {
+  body.stall-mode { padding-top: 74px }
+  .stall-canopy { height: 34px }
+  .stall-lights { top: 50px }
+  .stall-bunting i { border-left-width: 11px; border-right-width: 11px; border-top-width: 19px }
+}

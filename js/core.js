@@ -195,9 +195,54 @@ if (QG_STALL && typeof history !== 'undefined' && /[?&]game=stall(&|$)/.test(loc
 // nothing on the stand to press that could sit there saying "searching…".
 function qgApplyStall() {
   if (!QG_STALL) return
+
+  // Carnival dressing. The stylesheet is injected rather than linked from
+  // index.html so the main site never downloads or applies it.
+  document.body.classList.add('stall-mode')
+  if (!document.getElementById('stall-css')) {
+    const link = document.createElement('link')
+    link.id = 'stall-css'
+    link.rel = 'stylesheet'
+    link.href = QG_ROOT + 'css/stall.css?v=1'
+    document.head.appendChild(link)
+  }
+  const deco = (cls, n) => {
+    if (document.querySelector('.' + cls)) return null
+    const el = document.createElement('div')
+    el.className = cls
+    el.setAttribute('aria-hidden', 'true')   // pure decoration
+    for (let i = 0; i < n; i++) el.appendChild(document.createElement('i'))
+    return el
+  }
+  const canopy = deco('stall-canopy', 0)
+  if (canopy) document.body.insertBefore(canopy, document.body.firstChild)
+  const lights = deco('stall-lights', 26)
+  if (lights) document.body.insertBefore(lights, document.body.firstChild)
+  const header = document.querySelector('.home-header')
+  if (header && !document.querySelector('.stall-kicker')) {
+    const kicker = document.createElement('span')
+    kicker.className = 'stall-kicker'
+    kicker.textContent = 'Step right up'
+    header.insertBefore(kicker, header.firstChild)
+    const bunting = deco('stall-bunting', 15)
+    if (bunting) header.parentNode.insertBefore(bunting, header.nextSibling)
+  }
+
   document.querySelectorAll('.game-card').forEach(card => {
     const m = (card.getAttribute('onclick') || '').match(/showGame\((\d+)\)/)
     if (!m || !STALL_GAMES.has(+m[1])) card.remove()
+  })
+
+  // Leaderboard tabs for games that are not on the stall, and the MP-wins
+  // tab, would otherwise sit there listing games nobody can reach from here.
+  document.querySelectorAll('[id^="lb-tab-"]').forEach(tab => {
+    const m = tab.id.match(/^lb-tab-(\d+)$/)
+    if (!m || !STALL_GAMES.has(+m[1])) tab.remove()
+  })
+  // Building a level is not a stand activity
+  document.querySelectorAll('a[href^="editor.html"]').forEach(a => {
+    const line = a.closest('p') || a
+    line.remove()
   })
   // Online-match controls: every game's queue/match button and its status line
   document.querySelectorAll('[id$="-match-btn"], [id$="-queue-btn"], [id$="-match-status"], [id$="-queue-status"]')
@@ -1182,4 +1227,4 @@ window.skipSubmit = function() {
 
 // Load on page start
 initCurby()
-fetchAuthorScores().then(() => switchLbTab('parkour'))
+fetchAuthorScores().then(() => switchLbTab(window.QG_STALL ? 'wavegauntlet' : 'parkour'))
