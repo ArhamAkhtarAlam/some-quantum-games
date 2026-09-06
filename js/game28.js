@@ -14,6 +14,25 @@ let G28_oppScore  = null
 let G28_oppDone   = false
 let G28_iDied     = false   // I died first, now watching opponent
 let G28_oppPos    = null    // { x, y } tile pos for ghost rendering
+let G28_seed      = 0       // agreed room seed; 0 = solo, generate freely
+let G28_isHost    = false
+let G28_lastSync  = 0
+
+// Levels used to come out of Math.random(), so each player in a match got a
+// different layout — and the opponent ghost was then drawn at coordinates
+// from a level you were not playing. Both sides now build the same level
+// from one agreed seed. Level N is seeded from (seed, N) rather than from a
+// running cursor, so the two players stay in step even though they reach
+// each level at different times.
+function _g28Rng(seed) {
+  let s = seed | 0
+  return function() {
+    s = (s + 0x6D2B79F5) | 0
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
 
 function _g28ShowFinalResult(myScore, oppScore, won) {
   document.getElementById('g28-final-score').textContent = myScore.toLocaleString()
@@ -45,9 +64,12 @@ window.g28FindMatch = function() {
   mpFindMatch('parkour', {
     statusEl: document.getElementById('g28-queue-status'),
     btnEl:    document.getElementById('g28-queue-btn'),
-    onMatched: ({ code, sideBySide }) => {
+    onMatched: ({ code, sideBySide, isHost }) => {
       G28_roomCode   = code
       G28_sideBySide = sideBySide
+      G28_isHost     = !!isHost
+      // Host chooses the layout for both players
+      G28_seed       = isHost ? ((Date.now() ^ (qRandInt(1e9) << 4)) | 0) || 1 : 0
       G28_oppScore   = 0
       G28_iDied      = false
       G28_oppPos     = null
@@ -56,7 +78,17 @@ window.g28FindMatch = function() {
       sock.off('opponent-left'); sock.off('force-end')
 
       sock.on('opponent-score', score => { G28_oppScore = score; _g28UpdateOppHud() })
-      sock.on('opponent-state', ({ x, y }) => { G28_oppPos = { x, y } })
+      sock.on('opponent-state', (st) => {
+        if (!st) return
+        if (typeof st.x === 'number') G28_oppPos = { x: st.x, y: st.y, level: st.level }
+        // Joiner takes the host's seed and rebuilds the level it is standing
+        // on, so both players are on the identical layout from here.
+        if (typeof st.seed === 'number' && !G28_isHost && st.seed !== G28_seed) {
+          G28_seed = st.seed
+          // Rebuild the level we are standing on from the agreed seed
+          if (G28 && G28.grid) { G28.grid = g28GenLevel(G28.level); g28SpawnPlayer() }
+        }
+      })
 
       // Parkour: opponent died — they're spectating us now. We keep playing!
       sock.on('opponent-died', score => {
@@ -102,6 +134,8 @@ window.initGame28 = function() {
   G28_oppDone   = false
   G28_iDied     = false
   G28_oppPos    = null
+  G28_seed      = 0      // solo generates its own layouts again
+  G28_isHost    = false
   const arena = document.getElementById('g28-arena')
   g28Canvas.width  = Math.max(arena.clientWidth,  300)
   g28Canvas.height = Math.max(arena.clientHeight, 240)
@@ -176,6 +210,10 @@ function g28GenLevel(lvl) {
   // use handcrafted level if one exists for this index
   if (g28CustomLevels[lvl]) return g28CustomLevels[lvl].grid.map(row => [...row])
 
+  // In a match every level comes from the agreed seed, so both players get
+  // the identical layout. Solo keeps using unseeded randomness.
+  const rand = G28_seed ? _g28Rng(Math.imul(G28_seed ^ (lvl + 1), 0x9E3779B1)) : Math.random
+
   const R = G28_ROWS, C = G28_COLS
   const g = Array.from({length: R}, () => Array(C).fill('0'))
   const lava = g28IsLavaLevel(lvl)
@@ -200,11 +238,11 @@ function g28GenLevel(lvl) {
   const diff = Math.min(lvl / 6, 1.0)   // reaches full diff at level 6
 
   // platform width: starts at 3, shrinks to 1 at full diff
-  const platW = () => Math.max(1, 3 - Math.floor(diff * 2) + (Math.random() < 0.3 ? 1 : 0))
+  const platW = () => Math.max(1, 3 - Math.floor(diff * 2) + (rand() < 0.3 ? 1 : 0))
   // gap: 2–5 tiles (never more than 5 so it's always jumpable)
-  const gap   = () => 2 + Math.floor(Math.random() * (2 + diff * 2))
+  const gap   = () => 2 + Math.floor(rand() * (2 + diff * 2))
   // height change per step: bigger swings at higher diff
-  const dH    = () => Math.round((Math.random() - 0.5) * (2 + diff * 4))
+  const dH    = () => Math.round((rand() - 0.5) * (2 + diff * 4))
 
   const path = []
   // start platform — always wide enough to spawn on
@@ -746,6 +784,26 @@ function g28Draw() {
   }
   c.globalAlpha = 1
 
+  // Opponent ghost — same seed means the same layout, so their tile
+  // position is meaningful on our screen. Only drawn while we are both on
+  // the same level; otherwise it would float over unrelated geometry.
+  if (G28_oppPos && G28_oppPos.level === G28.level) {
+    const gx = tx2sx(G28_oppPos.x), gy = ty2sy(G28_oppPos.y)
+    const gw = G28_PW * S, gh = G28_PH * S
+    c.save()
+    c.globalAlpha = 0.45
+    c.fillStyle = '#7dd3fc'
+    c.shadowColor = '#7dd3fc'; c.shadowBlur = S * 0.35
+    c.fillRect(gx, gy, gw, gh)
+    c.shadowBlur = 0
+    c.globalAlpha = 0.9
+    c.font = `bold ${Math.max(9, S * 0.32)}px sans-serif`
+    c.textAlign = 'center'; c.fillStyle = '#7dd3fc'
+    c.fillText('OPP', gx + gw / 2, gy - S * 0.15)
+    c.restore()
+    c.globalAlpha = 1
+  }
+
   // player
   const p = G28.p
   if (p && (!G28.dead || G28.frameCount % 8 < 5)) {
@@ -873,6 +931,19 @@ function g28Loop() {
     cancelAnimationFrame(g28Raf); g28Raf = null; return
   }
   g28Update(); g28Draw()
+
+  // Broadcast our tile position ~20/s so the other player can see our ghost.
+  // The host also repeats the seed until the joiner has it.
+  if (G28_roomCode && G28.p) {
+    const now = Date.now()
+    if (now - G28_lastSync >= 50) {
+      G28_lastSync = now
+      mpGetSocket().emit('state-sync', { code: G28_roomCode, state: {
+        x: G28.p.tx, y: G28.p.ty, level: G28.level,
+        ...(G28_isHost ? { seed: G28_seed } : {}),
+      } })
+    }
+  }
 }
 
 function g28Over() {

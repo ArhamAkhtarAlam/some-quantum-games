@@ -16,6 +16,21 @@ const G11_WORDS = [
 let G11_roomCode = null
 let G11_oppWpm   = null
 let G11_oppDone  = false
+let G11_seed     = 0       // agreed room seed; 0 = solo, pick words freely
+
+// In a match both players race through the same words. Each round's word is
+// derived from (seed, round) rather than drawn independently, so the two
+// sides stay on the same prompt even though they finish rounds at different
+// moments — previously each player typed a different word and the WPM
+// comparison was between two unrelated races.
+function _g11WordFor(round) {
+  if (!G11_seed) return G11_WORDS[qRandInt(G11_WORDS.length)]
+  let s = Math.imul(G11_seed ^ (round + 1), 0x9E3779B1) | 0
+  s = (s + 0x6D2B79F5) | 0
+  let x = Math.imul(s ^ (s >>> 15), 1 | s)
+  x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x
+  return G11_WORDS[((x ^ (x >>> 14)) >>> 0) % G11_WORDS.length]
+}
 
 function _g11UpdateOppDisplay() {
   const hud  = document.getElementById('g11-opp-hud')
@@ -31,11 +46,28 @@ window.g11FindMatch = function() {
   mpFindMatch('typing', {
     statusEl: document.getElementById('g11-queue-status'),
     btnEl:    document.getElementById('g11-queue-btn'),
-    onMatched: ({ code }) => {
+    onMatched: ({ code, isHost }) => {
       G11_roomCode = code
       G11_oppWpm   = 0
+      // Host picks the word list for both sides
+      G11_seed     = isHost ? ((Date.now() ^ (qRandInt(1e9) << 4)) | 0) || 1 : 0
       const sock = mpGetSocket()
       sock.off('opponent-score'); sock.off('opponent-done'); sock.off('opponent-left')
+      sock.off('opponent-state')
+      sock.on('opponent-state', (st) => {
+        if (st && typeof st.seed === 'number' && !G11_seed) {
+          G11_seed = st.seed
+          // Adopt the host's word for the round we are on right now
+          if (G11.active) {
+            G11.currentWord = _g11WordFor(G11.round)
+            G11.typed = ''
+            const inp = _g11GetInput(); if (inp) inp.value = ''
+            const disp = document.getElementById('g11-word-display')
+            if (disp) disp.textContent = G11.currentWord
+          }
+        }
+      })
+      if (isHost) mpGetSocket().emit('state-sync', { code, state: { seed: G11_seed } })
       sock.on('opponent-score', score => { G11_oppWpm = score; _g11UpdateOppDisplay() })
       sock.on('opponent-done',  score => { G11_oppWpm = score; G11_oppDone = true; _g11UpdateOppDisplay() })
       sock.on('opponent-left',  ()    => {
@@ -87,6 +119,7 @@ async function initGame11() {
   G11_roomCode = null
   G11_oppWpm   = null
   G11_oppDone  = false
+  G11_seed     = 0     // solo picks its own words again
   document.getElementById('g11-over').classList.remove('show')
   document.getElementById('g11-score').textContent = '—'
   document.getElementById('g11-word-display').textContent = ''
@@ -126,7 +159,7 @@ window.startTyping = function() {
 function g11NextRound() {
   G11.round++
   G11.typed = ''
-  G11.currentWord = G11_WORDS[qRandInt(G11_WORDS.length)]
+  G11.currentWord = _g11WordFor(G11.round)
   G11.roundStart = 0
 
   const inp = _g11GetInput()
@@ -146,7 +179,7 @@ function g11KeyDown(e) {
     e.preventDefault()
     G11.typed = ''
     G11.roundStart = 0
-    G11.currentWord = G11_WORDS[qRandInt(G11_WORDS.length)]
+    G11.currentWord = _g11WordFor(G11.round)
     e.target.value = ''
     document.getElementById('g11-word-display').textContent = G11.currentWord
     document.getElementById('g11-feedback').textContent = 'type it!'
@@ -183,7 +216,12 @@ function g11KeyDown(e) {
       G11.roundWpms.push(wpm)
       document.getElementById('g11-feedback').textContent = `✓ ${wpm} WPM`
       document.getElementById('g11-score').textContent = wpm
-      if (G11_roomCode) mpGetSocket().emit('score-update', { code: G11_roomCode, score: wpm })
+      if (G11_roomCode) {
+        mpGetSocket().emit('score-update', { code: G11_roomCode, score: wpm })
+        // Repeat the seed until the joiner has it — a single emit at match
+        // time can land before the other side has registered its listener
+        if (G11_seed) mpGetSocket().emit('state-sync', { code: G11_roomCode, state: { seed: G11_seed } })
+      }
 
       if (G11.round >= G11.totalRounds) {
         setTimeout(endGame11, 700)
