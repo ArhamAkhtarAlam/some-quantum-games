@@ -292,8 +292,9 @@ window.startUFOGame = function() {
 }
 
 // Editor test play: one specific level, walls optional
-window.g40TestLevel = function(tmpl, noclip) {
+window.g40TestLevel = function(tmpl, noclip, bot) {
   G40.multi = false
+  G40.botMode = !!bot
   G40.testLevel = tmpl || null
   G40.noclip = noclip !== false
   _g40Begin(true)
@@ -588,6 +589,8 @@ function _g40Draw(ctx, w, h) {
   }
 
   const ufoX  = w * 0.20
+  // Only the gauntlet has an end; the endless run never reaches one
+  if (G40.gauntlet && G40.clearAt) _g40DrawFinish(ctx, ufoX + (G40.clearAt - G40.scrollX), h)
   const alpha = G40.phase === 'dead' ? Math.max(0.15, 1 - G40.deadT * 1.4) : 1
   const scale = G40.gauntlet ? h / 560 : 1
   if (G40.multi) {
@@ -729,3 +732,24 @@ const game40_evilbot = (typeof makeEvilbot === 'function')
       try { _g40BuildPracticeUI() } catch {}
     })
   : null
+
+// A chequered band marking the finish, drawn at the clear column. Scrolls
+// with the level like everything else, so it is genuinely the end line
+// rather than an overlay that appears when you get there.
+function _g40DrawFinish(ctx, x, h, cell) {
+  if (x < -40 || x > 100000) return
+  const c = cell || 13
+  const cols = 2
+  ctx.save()
+  for (let r = 0; r * c < h + c; r++) {
+    for (let q = 0; q < cols; q++) {
+      ctx.fillStyle = ((r + q) % 2 === 0) ? 'rgba(255,255,255,0.92)' : 'rgba(10,10,14,0.92)'
+      ctx.fillRect(x + q * c, r * c, c, c)
+    }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath(); ctx.moveTo(x - 1, 0); ctx.lineTo(x - 1, h); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(x + cols * c + 1, 0); ctx.lineTo(x + cols * c + 1, h); ctx.stroke()
+  ctx.restore()
+}

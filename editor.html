@@ -45,6 +45,7 @@
       border: 2px solid transparent;
     }
     .ed-swatch.active { border-color: #fff; }
+    #ed-evil-btn.on { border-color: #f87171; color: #f87171; background: rgba(248,113,113,.14); }
   </style>
 </head>
 <body>
@@ -106,7 +107,8 @@
       <div class="ed-actions">
         <button class="btn-primary" onclick="edTestPlay()">▶ Test Play</button>
         <button class="btn-primary ghost" id="ed-noclip-btn" onclick="edToggleTestNoclip()">🛡 noclip</button>
-        <button class="btn-primary ghost" onclick="edBotPlay()" title="Watch the fewest-input line the solver can find">🤖 Bot run</button>
+        <button class="btn-primary ghost" onclick="edBotPlay()" title="Watch the line the solver finds">🤖 Bot run</button>
+        <button class="btn-primary ghost" id="ed-evil-btn" onclick="edToggleEvil()" title="Bot runs take the most presses that still clear, instead of the fewest">😈 Evilbot OFF</button>
         <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;" onclick="edSubmit()">📤 Submit</button>
         <button class="btn-primary" onclick="edValidate()">✓ Check</button>
         <button class="btn-primary ghost" onclick="edDuplicate()">Duplicate</button>
@@ -165,10 +167,10 @@
 <script src="js/deco.js"></script>
 <script src="js/cheats.js"></script>
 <script src="js/levelcheck.js?v=7"></script>
-<script src="js/game43.js?v=29"></script>
-<script src="js/game40.js?v=6"></script>
+<script src="js/game43.js?v=30"></script>
+<script src="js/game40.js?v=7"></script>
 <script src="js/game44.js"></script>
-<script src="js/editor.js?v=2"></script>
+<script src="js/editor.js?v=3"></script>
 
 </body>
 </html>

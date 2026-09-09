@@ -1498,6 +1498,9 @@ function _g43Draw(ctx, w, h) {
     }
   }
 
+  // Finish line
+  if (G43.clearAt) _g43DrawFinish(ctx, waveX + (G43.clearAt - G43.scrollX), h)
+
   // ── Announce overlay ─────────────────────────────────
   if (G43.phase === 'announce' && ch) {
     const a = Math.min(1, G43.announceT * 7)
@@ -1596,3 +1599,24 @@ const game43_evilbot = (typeof makeEvilbot === 'function')
       try { _g43BuildPracticeUI() } catch {}
     })
   : null
+
+// A chequered band marking the finish, drawn at the clear column. Scrolls
+// with the level like everything else, so it is genuinely the end line
+// rather than an overlay that appears when you get there.
+function _g43DrawFinish(ctx, x, h, cell) {
+  if (x < -40 || x > 100000) return
+  const c = cell || 13
+  const cols = 2
+  ctx.save()
+  for (let r = 0; r * c < h + c; r++) {
+    for (let q = 0; q < cols; q++) {
+      ctx.fillStyle = ((r + q) % 2 === 0) ? 'rgba(255,255,255,0.92)' : 'rgba(10,10,14,0.92)'
+      ctx.fillRect(x + q * c, r * c, c, c)
+    }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath(); ctx.moveTo(x - 1, 0); ctx.lineTo(x - 1, h); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(x + cols * c + 1, 0); ctx.lineTo(x + cols * c + 1, h); ctx.stroke()
+  ctx.restore()
+}

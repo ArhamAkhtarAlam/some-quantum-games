@@ -61,6 +61,7 @@ const ED = {
   levels:[],            // drafts, from localStorage
   sel:-1,               // index into ED.levels
   drag:null,            // {type, i}
+  evilBot:false,        // bot runs take the most presses instead of the fewest
   scroll:0,             // horizontal scroll in columns
   zoom:1,               // px per column
   msg:'',
@@ -684,13 +685,38 @@ window.edToggleTestNoclip = function() {
 // Watch the solver's ideal line instead of playing it yourself
 window.edBotPlay = function() {
   const lv = _edCur(); if (!lv) return
-  if (lv.game !== 'wavegauntlet') { _edSetMsg('Bot mode is Wave Gauntlet only for now.'); return }
-  if (typeof lcReport === 'function') {
+  // All three games have a solver now, so the bot is no longer wave-only
+  if (lv.game === 'wavegauntlet' && typeof lcReport === 'function') {
     const r = lcReport(lv)
     if (!r.clearable) { _edSetMsg("\u26a0 Nothing to show \u2014 this level can't be cleared."); return }
   }
   ED.testNoclip = false          // the ideal line shouldn't need noclip
   edTestPlay(true)
+}
+
+// evilbot is a hidden code in the games, but in here it is a plain option:
+// you are tuning a level and want to see the sloppiest clear it allows.
+function _edRestoreEvil() {
+  try { ED.evilBot = localStorage.getItem('qg_ed_evil') === '1' } catch {}
+  const b = document.getElementById('ed-evil-btn')
+  if (b) {
+    b.textContent = ED.evilBot ? '\ud83d\ude08 Evilbot ON' : '\ud83d\ude08 Evilbot OFF'
+    b.classList.toggle('on', !!ED.evilBot)
+  }
+}
+if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', _edRestoreEvil)
+
+window.edToggleEvil = function() {
+  ED.evilBot = !ED.evilBot
+  try { localStorage.setItem('qg_ed_evil', ED.evilBot ? '1' : '0') } catch {}
+  const b = document.getElementById('ed-evil-btn')
+  if (b) {
+    b.textContent = ED.evilBot ? '\ud83d\ude08 Evilbot ON' : '\ud83d\ude08 Evilbot OFF'
+    b.classList.toggle('on', !!ED.evilBot)
+  }
+  _edSetMsg(ED.evilBot
+    ? 'Bot run will take the most presses that still clear.'
+    : 'Bot run will take the fewest presses.')
 }
 
 window.edTestPlay = async function(bot) {
@@ -708,11 +734,17 @@ window.edTestPlay = async function(bot) {
   document.getElementById('spd-score-hud').style.display = (!wave && !ufo) ? '' : 'none'
   const uh = document.getElementById('g40-score-hud'); if (uh) uh.style.display = ufo ? '' : 'none'
 
+  // Bot flavour: normal picks the fewest presses, evilbot the most
+  const evil = !!ED.evilBot
+  try { if (typeof G43 !== 'undefined') G43.evil = evil } catch {}
+  try { if (typeof G40 !== 'undefined') G40.evil = evil } catch {}
+  try { if (typeof _SPD !== 'undefined') _SPD.evil = evil } catch {}
+
   try {
     const clip = ED.testNoclip !== false
     if (wave)      { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
-    else if (ufo)  { await initGame40(); window.g40TestLevel(built, clip) }
-    else           { await initSpider(); window.spdTestLevel(built, clip) }
+    else if (ufo)  { await initGame40(); window.g40TestLevel(built, clip, !!bot) }
+    else           { await initSpider(); window.spdTestLevel(built, clip, !!bot) }
   } catch (e) {
     console.error('[editor] test play failed', e)
     _edSetMsg('⚠ Test play failed: ' + e.message)
