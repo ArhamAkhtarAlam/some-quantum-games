@@ -65,16 +65,25 @@ function _g40Run(x0, step, cys, gapf) {
   return cys.map((cyf, i) => P(x0 + i * step, cyf, gapf))
 }
 
+// Mark pillars you are allowed to land on. A green pillar does not kill —
+// you settle onto it and can sit there as long as you like, which gives a
+// breather partway through the harder levels.
+function _g40Rest(pipes, idxs, side) {
+  for (const i of idxs) if (pipes[i]) pipes[i].safe = side || 'bottom'
+  return pipes
+}
+
 const G40_POOL = {
   easy: [
     { name:'FIRST STEPS', diff:'easy', speed:150, gapf:0.34, clearAt:3000,
       pipes:_g40Run(520, 330, [0.50,0.44,0.56,0.48,0.54,0.46,0.52]) },
     { name:'EASY ORBIT', diff:'easy', speed:162, gapf:0.31, clearAt:3250,
-      pipes:_g40Run(520, 320, [0.44,0.56,0.40,0.58,0.46,0.54,0.48]) },
+      // one green pillar early on, so the mechanic is met somewhere safe
+      pipes:_g40Rest(_g40Run(520, 320, [0.44,0.56,0.40,0.58,0.46,0.54,0.48]), [3]) },
   ],
   medium: [
     { name:'STAIRCASE', diff:'medium', speed:178, gapf:0.27, clearAt:3400,
-      pipes:_g40Run(520, 300, [0.66,0.58,0.50,0.42,0.34,0.42,0.50,0.58]) },
+      pipes:_g40Rest(_g40Run(520, 300, [0.66,0.58,0.50,0.42,0.34,0.42,0.50,0.58]), [4]) },
     { name:'ZIGZAG', diff:'medium', speed:184, gapf:0.26, clearAt:3400,
       pipes:_g40Run(520, 295, [0.36,0.62,0.36,0.62,0.36,0.62,0.40,0.58]) },
     { name:'NARROWING', diff:'medium', speed:176, gapf:0.28, clearAt:3350,
@@ -85,15 +94,16 @@ const G40_POOL = {
     { name:'TIGHT SQUEEZE', diff:'hard', speed:198, gapf:0.205, clearAt:3300,
       pipes:_g40Run(520, 275, [0.50,0.45,0.55,0.44,0.56,0.46,0.54,0.50]) },
     { name:'THE LADDER', diff:'hard', speed:204, gapf:0.22, clearAt:3400,
-      pipes:_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]) },
+      // a rest at the top of the climb, where it hurts most
+      pipes:_g40Rest(_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]), [5]) },
     { name:'WHIPLASH', diff:'hard', speed:208, gapf:0.235, clearAt:3350,
       pipes:_g40Run(520, 272, [0.32,0.68,0.30,0.70,0.34,0.66,0.36,0.64]) },
   ],
   extreme: [
     { name:'NEEDLE', diff:'extreme', speed:222, gapf:0.175, clearAt:3300,
-      pipes:_g40Run(520, 262, [0.50,0.46,0.54,0.47,0.53,0.48,0.52,0.50]) },
+      pipes:_g40Rest(_g40Run(520, 262, [0.50,0.46,0.54,0.47,0.53,0.48,0.52,0.50]), [3]) },
     { name:'THE GRINDER', diff:'extreme', speed:232, gapf:0.19, clearAt:3450,
-      pipes:_g40Run(520, 274, [0.42,0.58,0.38,0.62,0.44,0.56,0.40,0.60,0.50]) },
+      pipes:_g40Rest(_g40Run(520, 274, [0.42,0.58,0.38,0.62,0.44,0.56,0.40,0.60,0.50]), [2,6]) },
   ],
 }
 
@@ -120,7 +130,8 @@ function _g40LoadLevel(w, h) {
   G40.clearAt   = tmpl.clearAt
   G40.scrollX   = 0
   G40.pipes     = tmpl.pipes.map(p => ({
-    x: p.at + w, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h, passed: false,
+    x: p.at + w, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h,
+    safe: p.safe || null, passed: false,
   }))
   G40.y   = h / 2; G40.vy   = 0
   G40.p2y = h / 2; G40.p2vy = 0
@@ -301,18 +312,36 @@ function _g40Loop(ts) {
       if (!last || last.x < w - G40_PIPE_SEP) _g40Spawn(w + G40_PIPE_W, h)
     }
 
-    // Collision, checked per player so a 2P round can name a winner
-    const hits = (y) => {
-      if (y - RY <= 0 || y + RY >= h) return true
+    // Collision, checked per player so a 2P round can name a winner.
+    // A pillar marked safe does not kill: you land on it and can sit there,
+    // which is the point — it is somewhere to rest mid-level.
+    const resolve = (y, vy) => {
+      if (y - RY <= 0 || y + RY >= h) return { dead: true, y, vy }
       for (const p of G40.pipes) {
         const half = (p.gap != null ? p.gap : G40.gap) / 2
         const inX  = ufoX + RX > p.x && ufoX - RX < p.x + G40_PIPE_W
-        if (inX && (y - RY < p.cy - half || y + RY > p.cy + half)) return true
+        if (!inX) continue
+        if (y + RY > p.cy + half) {           // came down onto the lower pillar
+          if (p.safe !== 'bottom') return { dead: true, y, vy }
+          return { dead: false, y: p.cy + half - RY, vy: 0, rest: true }
+        }
+        if (y - RY < p.cy - half) {           // went up into the upper pillar
+          if (p.safe !== 'top') return { dead: true, y, vy }
+          return { dead: false, y: p.cy - half + RY, vy: 0, rest: true }
+        }
       }
-      return false
+      return { dead: false, y, vy }
     }
-    if (!G40.p1dead && hits(G40.y))   { G40.p1dead = true; if (!G40.multi) _g40Die() }
-    if (G40.multi && !G40.p2dead && hits(G40.p2y)) G40.p2dead = true
+    if (!G40.p1dead) {
+      const r = resolve(G40.y, G40.vy)
+      if (r.dead) { G40.p1dead = true; if (!G40.multi) _g40Die() }
+      else { G40.y = r.y; G40.vy = r.vy }
+    }
+    if (G40.multi && !G40.p2dead) {
+      const r = resolve(G40.p2y, G40.p2vy)
+      if (r.dead) G40.p2dead = true
+      else { G40.p2y = r.y; G40.p2vy = r.vy }
+    }
     // 2P is a race: the first to clip a pillar loses the round outright
     if (G40.multi && (G40.p1dead || G40.p2dead)) {
       G40.winner = G40.p1dead && G40.p2dead ? 0 : (G40.p1dead ? 2 : 1)
@@ -339,6 +368,11 @@ function _g40Loop(ts) {
       else if (G40.gauntlet) label = `${s} level${s !== 1 ? 's' : ''}`
       else label = `${s} pipe${s !== 1 ? 's' : ''}`
       document.getElementById('g40-final-score').textContent = label
+      // The leaderboard counts pillars passed in the endless game. Gauntlet
+      // mode scores cleared levels, which is a different scale entirely, so
+      // it does not submit rather than mixing the two in one table.
+      const sub = document.getElementById('g40-submit-btn')
+      if (sub) sub.style.display = G40.gauntlet ? 'none' : ''
       document.getElementById('g40-over').style.display = 'flex'
     }
   }
@@ -387,8 +421,8 @@ function _g40Draw(ctx, w, h) {
 
   for (const p of G40.pipes) {
     const halfGap = (p.gap != null ? p.gap : G40.gap) / 2
-    _g40DrawPipe(ctx, p.x, 0,              G40_PIPE_W, p.cy - halfGap,            true)
-    _g40DrawPipe(ctx, p.x, p.cy + halfGap, G40_PIPE_W, h - (p.cy + halfGap), false)
+    _g40DrawPipe(ctx, p.x, 0,              G40_PIPE_W, p.cy - halfGap,            true,  p.safe === 'top')
+    _g40DrawPipe(ctx, p.x, p.cy + halfGap, G40_PIPE_W, h - (p.cy + halfGap), false, p.safe === 'bottom')
   }
 
   const ufoX  = w * 0.20
@@ -445,25 +479,36 @@ function _g40Draw(ctx, w, h) {
   ctx.restore()
 }
 
-function _g40DrawPipe(ctx, x, y, pw, ph, isTop) {
+// `safe` draws the pillar green: landing on it is allowed, so it has to be
+// obvious at a glance which side you can rest on and which will kill you.
+function _g40DrawPipe(ctx, x, y, pw, ph, isTop, safe) {
   if (ph <= 0) return
   const capH = 18, capX = x - 5, capW = pw + 10
   const capY = isTop ? y + ph - capH : y
+  const edge = safe ? '#22c55e' : '#a855f7'
 
-  ctx.fillStyle = '#06091a'
+  ctx.fillStyle = safe ? '#04140b' : '#06091a'
   ctx.fillRect(x, y, pw, ph)
-  ctx.fillStyle = '#0d1533'
+  ctx.fillStyle = safe ? '#0a2a17' : '#0d1533'
   ctx.fillRect(capX, capY, capW, capH)
 
-  ctx.strokeStyle = '#a855f7'
+  ctx.strokeStyle = edge
   ctx.lineWidth   = 1.8
-  ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 12
+  ctx.shadowColor = edge; ctx.shadowBlur = safe ? 16 : 12
   ctx.strokeRect(x + 0.9, y, pw - 1.8, ph)
   ctx.strokeRect(capX + 0.9, capY, capW - 1.8, capH)
   ctx.shadowBlur  = 0
 
-  ctx.fillStyle = 'rgba(168,85,247,0.10)'
+  ctx.fillStyle = safe ? 'rgba(34,197,94,0.16)' : 'rgba(168,85,247,0.10)'
   ctx.fillRect(x + 4, y, 7, ph)
+
+  // A bright lip on the face you can actually stand on
+  if (safe) {
+    ctx.fillStyle = '#4ade80'
+    ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 14
+    ctx.fillRect(capX, isTop ? capY + capH - 3 : capY, capW, 3)
+    ctx.shadowBlur = 0
+  }
 }
 
 // `scale` keeps the saucer in proportion with the gauntlet's scaled physics;

@@ -291,6 +291,7 @@
         <button class="lb-tab" style="border-color:#06b6d4;color:#06b6d4;" id="lb-tab-35" onclick="switchLbTab('wavedash')">Wave Dash</button>
         <button class="lb-tab" style="border-color:#6366f1;color:#6366f1;" id="lb-tab-36" onclick="switchLbTab('cps')">CPS</button>
         <button class="lb-tab" style="border-color:#f472b6;color:#f472b6;" id="lb-tab-37" onclick="switchLbTab('rhythm')">Rhythm</button>
+        <button class="lb-tab" style="border-color:#a855f7;color:#a855f7;" id="lb-tab-40" onclick="switchLbTab('ufo')">UFO Flap</button>
         <button class="lb-tab" style="border-color:#22c55e;color:#22c55e;" id="lb-tab-43" onclick="switchLbTab('wavegauntlet')">Wave Gauntlet</button>
         <button class="lb-tab" style="border-color:#a855f7;color:#a855f7;" id="lb-tab-44" onclick="switchLbTab('spider')">Spider</button>
         <button class="lb-tab" style="border-color:#22d3ee;color:#22d3ee;" id="lb-tab-45" onclick="switchLbTab('freighter')">Freighter</button>
@@ -1377,7 +1378,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/sfx.js"></script>
-<script src="js/core.js?v=16"></script>
+<script src="js/core.js?v=17"></script>
 <script src="js/auth.js"></script>
 <script src="js/game1.js?v=2"></script>
 <script src="js/game2.js?v=2"></script>
@@ -1638,14 +1639,14 @@
       <h2>Zapped! 🛸</h2>
       <div class="final-score" id="g40-final-score" style="color:#a855f7">0 pipes</div>
       <div id="g40-medal-display"></div>
-      <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;" onclick="openSubmit('ufo')">Submit Score</button><br><br>
+      <button id="g40-submit-btn" class="btn-primary" style="background:#a855f7;border-color:#a855f7;" onclick="openSubmit('ufo')">Submit Score</button><br><br>
       <button class="btn-primary" style="background:var(--card);color:var(--muted);border:1px solid var(--border);box-shadow:none;" onclick="initGame40()">Play Again</button>
       <button class="btn-back" style="margin-left:.5rem" onclick="goHome()">← Home</button>
     </div>
   </div>
 </section>
 
-<script src="js/game40.js?v=3"></script>
+<script src="js/game40.js?v=4"></script>
 
 <section id="game41" class="screen game-screen">
   <div class="top-bar">

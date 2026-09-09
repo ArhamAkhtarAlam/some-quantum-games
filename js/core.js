@@ -690,6 +690,7 @@ const MEDALS = {
   cps:        { bronze: 5,  silver: 8,   gold: 11  },
   // Starting guesses — tune once there are real scores to look at
   rhythm:       { bronze: 5,  silver: 12, gold: 21 },
+  ufo:          { bronze: 10, silver: 25, gold: 45 },
   wavegauntlet: { bronze: 5,  silver: 12, gold: 20 },
   spider:       { bronze: 4,  silver: 10, gold: 18 },
   freighter:    { bronze: 15, silver: 40, gold: 80 },
@@ -905,6 +906,7 @@ const LB_TABS = [
   { id: 'lb-tab-36', game: 'cps',         label: 'CPS',          color: '#6366f1'  },
   { id: 'lb-tab-37', game: 'rhythm',     label: 'Rhythm',     color: '#f472b6' },
   { id: 'lb-tab-42', game: 'typerracer', label: 'Typer',      color: '#06b6d4' },
+  { id: 'lb-tab-40', game: 'ufo',        label: 'UFO Flap', color: '#a855f7' },
   { id: 'lb-tab-43', game: 'wavegauntlet', label: 'Wave Gauntlet', color: '#22c55e' },
   { id: 'lb-tab-44', game: 'spider',       label: 'Spider',        color: '#a855f7' },
   { id: 'lb-tab-45', game: 'freighter',    label: 'Freighter',     color: '#22d3ee' },
