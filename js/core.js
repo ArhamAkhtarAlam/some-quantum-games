@@ -203,7 +203,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=3'
+    link.href = QG_ROOT + 'css/stall.css?v=4'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
@@ -234,7 +234,7 @@ function qgApplyStall() {
   if (!document.getElementById('stall-js')) {
     const s = document.createElement('script')
     s.id = 'stall-js'
-    s.src = QG_ROOT + 'js/stall.js?v=2'
+    s.src = QG_ROOT + 'js/stall.js?v=3'
     document.body.appendChild(s)
   }
 

@@ -572,7 +572,7 @@ function _spdDraw(ctx, w, h) {
 
   // Background — read the theme directly; canvases get no CSS variables
   const _lt = typeof qgLight === 'function' && qgLight()
-  ctx.fillStyle = _lt ? '#f3eef8' : '#05010a'
+  ctx.fillStyle = _lt ? '#efe9f6' : '#05010a'
   ctx.fillRect(-12, -12, w+24, h+24)
 
   // Grid
@@ -584,7 +584,7 @@ function _spdDraw(ctx, w, h) {
 
   // Surfaces (color matches current diff)
   const surfH = 6
-  ctx.fillStyle = '#150020'
+  ctx.fillStyle = _lt ? '#3a1f4a' : '#150020'
   ctx.fillRect(0, 0, w, surfH)
   ctx.fillRect(0, h - surfH, w, surfH)
   ctx.strokeStyle = mainCol; ctx.lineWidth = 1.5

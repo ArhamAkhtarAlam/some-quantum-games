@@ -1365,7 +1365,7 @@ function _g43Draw(ctx, w, h) {
   // Background. No CSS variable reaches a canvas, so the theme is read
   // directly — otherwise a light page opened into a black arena.
   const _lt = typeof qgLight === 'function' && qgLight()
-  ctx.fillStyle = _lt ? (ch?.isDC ? '#fff1f1' : '#eef6f8')
+  ctx.fillStyle = _lt ? (ch?.isDC ? '#fdeeee' : '#e9f3ef')
                       : (ch?.isDC ? '#0a0101' : '#01080a')
   ctx.fillRect(-12, -12, w+24, h+24)
 
@@ -1382,7 +1382,11 @@ function _g43Draw(ctx, w, h) {
   // ── Corridor walls ───────────────────────────────────
   // Path sampled every G43_DRAW_STEP px.
   // Linear keyframe interpolation creates angular slopes automatically.
-  ctx.fillStyle = ch?.isDC ? '#0e0000' : '#001408'
+  // Near-black walls against a near-white corridor read as an inkblot, so
+  // light mode uses a deep tone rather than true black — still obviously
+  // solid, but it lets the glowing corridor edge stay the loudest thing.
+  ctx.fillStyle = _lt ? (ch?.isDC ? '#3d1f22' : '#1b4438')
+                      : (ch?.isDC ? '#0e0000' : '#001408')
 
   // Cache wall lookups (ci = actual count after loop)
   const wallCache = []
