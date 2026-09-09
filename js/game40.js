@@ -42,6 +42,8 @@ const G40 = {
   p1dead:   false,
   p2dead:   false,
   winner:   0,
+  testLevel: null,   // editor test play
+  noclip:    false,  // editor: walls flash instead of killing
 }
 
 
@@ -122,7 +124,7 @@ function _g40GetPool(score) {
 // scroll in, exactly as the endless spawner does, so movement, drawing
 // and collision are shared between both modes.
 function _g40LoadLevel(w, h) {
-  const pool = _g40GetPool(G40.score)
+  const pool = G40.testLevel ? [G40.testLevel] : _g40GetPool(G40.score)
   const tmpl = pool[qRandInt(pool.length)] || G40_POOL.easy[0]
   G40.challenge = tmpl
   G40.speed     = tmpl.speed
@@ -162,12 +164,21 @@ async function initGame40() {
 }
 window.initGame40 = initGame40
 
-window.startUFOGame = function() { G40.multi = false; _g40Begin() }
+window.startUFOGame = function() { G40.multi = false; G40.testLevel = null; G40.noclip = false; _g40Begin() }
+
+// Editor test play: one specific level, walls optional
+window.g40TestLevel = function(tmpl, noclip) {
+  G40.multi = false
+  G40.testLevel = tmpl || null
+  G40.noclip = noclip !== false
+  _g40Begin(true)
+}
 // Same-device versus: two UFOs, one level, first to clip a pillar loses
 window.startUFO2P   = function() { G40.multi = true;  _g40Begin() }
 
-function _g40Begin() {
-  G40.gauntlet = _g40Gauntlet()
+function _g40Begin(forceGauntlet) {
+  // A test level is always a gauntlet level, whatever site you are on
+  G40.gauntlet = forceGauntlet || !!G40.testLevel || _g40Gauntlet()
   SFX.resume(); SFX.click()
   const c = _g40C()
   c.width  = c.parentElement.clientWidth
@@ -334,7 +345,10 @@ function _g40Loop(ts) {
     }
     if (!G40.p1dead) {
       const r = resolve(G40.y, G40.vy)
-      if (r.dead) { G40.p1dead = true; if (!G40.multi) _g40Die() }
+      if (r.dead && G40.noclip) {
+        // Editor test play: show the hit, keep flying
+        G40.y = Math.max(RY + 2, Math.min(h - RY - 2, G40.y)); G40.vy = 0
+      } else if (r.dead) { G40.p1dead = true; if (!G40.multi) _g40Die() }
       else { G40.y = r.y; G40.vy = r.vy }
     }
     if (G40.multi && !G40.p2dead) {

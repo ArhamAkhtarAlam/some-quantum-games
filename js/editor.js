@@ -31,6 +31,7 @@ const ED_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const ED_DIFFS = {
   wavegauntlet: ['easy','medium','hard','extreme','fp','dc'],
   spider:       ['easy','medium','hard','extreme'],
+  ufo:          ['easy','medium','hard','extreme'],
 }
 const ED_DIFF_COL = {
   easy:'#4ade80', medium:'#fbbf24', hard:'#f87171',
@@ -40,13 +41,15 @@ const ED_DIFF_COL = {
 // The built-in pools live in game43.js / game44.js as top-level consts
 function _edBuiltins() {
   if (ED.game === 'wavegauntlet') return (typeof G43_POOL !== 'undefined') ? G43_POOL : {}
+  if (ED.game === 'ufo')          return (typeof G40_POOL !== 'undefined') ? G40_POOL : {}
   return (typeof SPD_POOL !== 'undefined') ? SPD_POOL : {}
 }
 
 // Height to bake gen() against. Built-in gens mix fractions with pixel
 // clamps, so using the real canvas height reproduces what actually plays.
 function _edRefHeight() {
-  const id = ED.game === 'wavegauntlet' ? 'g43-canvas' : 'spd-canvas'
+  const id = ED.game === 'wavegauntlet' ? 'g43-canvas'
+           : ED.game === 'ufo'          ? 'g40-canvas' : 'spd-canvas'
   const c  = document.getElementById(id)
   return (c && c.height > 50) ? c.height
        : (c && c.parentElement && c.parentElement.clientHeight > 50) ? c.parentElement.clientHeight
@@ -167,7 +170,7 @@ window.edRevert = function() {
 
   _edPush()
   const H = _edRefHeight()
-  const d = found.gen(H)
+  const d = found.gen ? found.gen(H) : found
   lv.diff    = found.diff || foundKey
   lv.speed   = found.speed
   lv.clearAt = Math.round(d.clearAt)
@@ -175,6 +178,14 @@ window.edRevert = function() {
     lv.keyframes = (d.keyframes || []).map(k => ({
       at: Math.round(k.at), cf: +k.cf.toFixed(4), gapHf: +(k.gapH / H).toFixed(4),
     }))
+  } else if (ED.game === 'ufo') {
+    lv.gapf = d.gapf ?? 0.3
+    lv.pipes = (d.pipes || []).map(p => {
+      const q = { at: Math.round(p.at), cyf: +(+p.cyf).toFixed(4) }
+      if (p.gapf) q.gapf = +(+p.gapf).toFixed(4)
+      if (p.safe) q.safe = p.safe
+      return q
+    })
   } else {
     lv.obstacles = (d.obstacles || []).map(o => ({ col: Math.round(o.col), floor: !!o.floor }))
   }
@@ -303,6 +314,18 @@ function _edNewLevel(game) {
       ],
     }
   }
+  if (game === 'ufo') {
+    return {
+      game, name:'NEW LEVEL', diff:'easy', speed:160, clearAt:3000, gapf:0.32,
+      ...ED_TUNING, deco:[],
+      pipes:[
+        { at:520,  cyf:0.50 },
+        { at:900,  cyf:0.42 },
+        { at:1280, cyf:0.58 },
+        { at:1660, cyf:0.46 },
+      ],
+    }
+  }
   return {
     game, name:'NEW LEVEL', diff:'easy', speed:170, clearAt:900, ...ED_TUNING, deco:[],
     obstacles:[
@@ -328,7 +351,7 @@ window.edLoadBuiltin = function(diffKey, idx) {
   if (!tmpl) return
   const H = _edRefHeight()
   let d
-  try { d = tmpl.gen(H) }
+  try { d = tmpl.gen ? tmpl.gen(H) : tmpl }
   catch (e) { _edSetMsg('⚠ Could not read that level: ' + e.message); return }
 
   const diff = tmpl.diff || diffKey
@@ -349,6 +372,14 @@ window.edLoadBuiltin = function(diffKey, idx) {
     lv.keyframes = (d.keyframes || []).map(k => ({
       at: Math.round(k.at), cf: +k.cf.toFixed(4), gapHf: +(k.gapH / H).toFixed(4),
     }))
+  } else if (ED.game === 'ufo') {
+    lv.gapf = d.gapf ?? 0.3
+    lv.pipes = (d.pipes || []).map(p => {
+      const q = { at: Math.round(p.at), cyf: +(+p.cyf).toFixed(4) }
+      if (p.gapf) q.gapf = +(+p.gapf).toFixed(4)
+      if (p.safe) q.safe = p.safe
+      return q
+    })
   } else {
     lv.obstacles = (d.obstacles || []).map(o => ({ col: Math.round(o.col), floor: !!o.floor }))
   }
@@ -666,19 +697,22 @@ window.edTestPlay = async function(bot) {
   const lv = _edCur(); if (!lv) return
   const built = _edBuildRuntime(lv)
   const wave  = ED.game === 'wavegauntlet'
+  const ufo   = ED.game === 'ufo'
 
   _edUnbindCanvas()
   document.getElementById('ed-testhost').classList.add('on')
   document.getElementById('ed-test-title').textContent = `${lv.name} — ${lv.diff.toUpperCase()}`
-  document.getElementById('g43-canvas').style.display = wave ? 'block' : 'none'
-  document.getElementById('spd-canvas').style.display = wave ? 'none'  : 'block'
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'block' : 'none' }
+  show('g43-canvas', wave); show('spd-canvas', !wave && !ufo); show('g40-canvas', ufo)
   document.getElementById('g43-score-hud').style.display = wave ? '' : 'none'
-  document.getElementById('spd-score-hud').style.display = wave ? 'none' : ''
+  document.getElementById('spd-score-hud').style.display = (!wave && !ufo) ? '' : 'none'
+  const uh = document.getElementById('g40-score-hud'); if (uh) uh.style.display = ufo ? '' : 'none'
 
   try {
     const clip = ED.testNoclip !== false
-    if (wave) { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
-    else      { await initSpider(); window.spdTestLevel(built, clip) }
+    if (wave)      { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
+    else if (ufo)  { await initGame40(); window.g40TestLevel(built, clip) }
+    else           { await initSpider(); window.spdTestLevel(built, clip) }
   } catch (e) {
     console.error('[editor] test play failed', e)
     _edSetMsg('⚠ Test play failed: ' + e.message)
@@ -689,6 +723,7 @@ window.edTestPlay = async function(bot) {
 window.edStopTest = function() {
   try { if (typeof stopGame43 === 'function') stopGame43() } catch {}
   try { if (typeof stopSpider === 'function') stopSpider() } catch {}
+  try { if (typeof stopGame40 === 'function') stopGame40() } catch {}
   document.getElementById('ed-testhost').classList.remove('on')
   _edBindCanvas()
   _edDraw()
@@ -705,6 +740,11 @@ function _edBuildRuntime(lv) {
         deco: (lv.deco || []).map(d => ({ ...d })),
       }
     }}
+  }
+  if (lv.game === 'ufo') {
+    // UFO templates are plain data — the game reads pipes/gapf straight off
+    return { ...base, gapf: lv.gapf ?? 0.3, clearAt: lv.clearAt,
+             pipes: (lv.pipes || []).map(p => ({ ...p })) }
   }
   return { ...base, gen() {
     return {
@@ -1218,8 +1258,9 @@ function _edDraw() {
     drawDeco(ctx, lv.deco, w, h, 0, 0, { glow:false, time: t })
   }
 
-  if (lv.game === 'wavegauntlet') _edDrawWave(ctx, lv, w, h, ppc, col)
-  else                           _edDrawSpider(ctx, lv, w, h, ppc, col)
+  if      (lv.game === 'wavegauntlet') _edDrawWave(ctx, lv, w, h, ppc, col)
+  else if (lv.game === 'ufo')         _edDrawUFO(ctx, lv, w, h, ppc, col)
+  else                                _edDrawSpider(ctx, lv, w, h, ppc, col)
 
   // Selection ring on the active deco item
   if (ED.mode === 'deco' && lv.deco) {
@@ -1308,6 +1349,43 @@ function _edDrawSpider(ctx, lv, w, h, ppc, col) {
   ctx.fillText('click empty space = add block · click a block = remove · drag = move', w/2, h/2)
 }
 
+// A pillar pair is drawn from its gap: the centre dot moves it, the two
+// edge dots resize the gap, and green means you are allowed to land on it.
+function _edDrawUFO(ctx, lv, w, h, ppc, col) {
+  const PW = Math.max(4, 62 * ppc)
+  for (let i = 0; i < lv.pipes.length; i++) {
+    const p = lv.pipes[i]
+    const x = p.at * ppc
+    const gap = (p.gapf || lv.gapf || 0.3) * h
+    const cy  = p.cyf * h
+    const top = cy - gap / 2, bot = cy + gap / 2
+    const safeTop = p.safe === 'top', safeBot = p.safe === 'bottom'
+
+    ctx.fillStyle = safeTop ? 'rgba(34,197,94,0.18)' : 'rgba(168,85,247,0.14)'
+    ctx.fillRect(x - PW/2, 0, PW, Math.max(0, top))
+    ctx.fillStyle = safeBot ? 'rgba(34,197,94,0.18)' : 'rgba(168,85,247,0.14)'
+    ctx.fillRect(x - PW/2, bot, PW, Math.max(0, h - bot))
+
+    ctx.strokeStyle = safeTop ? '#22c55e' : col; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(x - PW/2, top); ctx.lineTo(x + PW/2, top); ctx.stroke()
+    ctx.strokeStyle = safeBot ? '#22c55e' : col
+    ctx.beginPath(); ctx.moveTo(x - PW/2, bot); ctx.lineTo(x + PW/2, bot); ctx.stroke()
+
+    // handles: centre moves the pair, edges resize the gap
+    const dot = (dy, c) => { ctx.beginPath(); ctx.arc(x, dy, 4, 0, Math.PI*2)
+                             ctx.fillStyle = c; ctx.fill() }
+    dot(cy, '#fff')
+    dot(top, safeTop ? '#22c55e' : '#c084fc')
+    dot(bot, safeBot ? '#22c55e' : '#c084fc')
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '9px monospace'; ctx.textAlign = 'center'
+    ctx.fillText(String(i + 1), x, 10)
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '10px monospace'; ctx.textAlign = 'center'
+  ctx.fillText('click empty space = add pillar · drag white dot = move · drag edge dot = resize gap',
+               w/2, h - 18)
+  ctx.fillText('shift-click a pillar = mark the side you can land on · right-click = delete', w/2, h - 6)
+}
+
 // ── Mouse interaction ─────────────────────────────────
 
 function _edPos(e) {
@@ -1383,6 +1461,39 @@ function _edDown(e) {
     return
   }
 
+  if (lv.game === 'ufo') {
+    if (!lv.pipes) lv.pipes = []
+    const PW = Math.max(10, 62 * ppc)
+    for (let i = 0; i < lv.pipes.length; i++) {
+      const p = lv.pipes[i]
+      const px = p.at * ppc
+      if (Math.abs(x - px) > PW/2 + 4) continue
+      const gap = (p.gapf || lv.gapf || 0.3) * h
+      const cy = p.cyf * h
+      // shift-click cycles which side you can land on
+      if (e.shiftKey) {
+        p.safe = p.safe === 'bottom' ? 'top' : p.safe === 'top' ? null : 'bottom'
+        if (!p.safe) delete p.safe
+        ED.drag = null
+        _edTouch(); _edDraw()
+        _edSetMsg(p.safe ? `Pillar ${i+1}: you can land on the ${p.safe}.`
+                         : `Pillar ${i+1}: both sides kill again.`)
+        return
+      }
+      if (Math.abs(y - (cy - gap/2)) < 9) { ED.drag = { type:'ugap', i, edge:-1 }; return }
+      if (Math.abs(y - (cy + gap/2)) < 9) { ED.drag = { type:'ugap', i, edge: 1 }; return }
+      ED.drag = { type:'upipe', i }
+      return
+    }
+    // Empty space → drop a pillar pair centred where you clicked
+    lv.pipes.push({ at: Math.max(0, Math.round(x / ppc)),
+                    cyf: +Math.max(0.08, Math.min(0.92, y / h)).toFixed(4) })
+    lv.pipes.sort((a, b) => a.at - b.at)
+    ED.drag = null
+    _edTouch(); _edDraw()
+    return
+  }
+
   // Spider
   const bw = Math.max(8, 26 * ppc)
   for (let i = 0; i < lv.obstacles.length; i++) {
@@ -1411,6 +1522,22 @@ function _edMove(e) {
     d.moved = true
     item.col = Math.max(0, Math.round(x / ppc))
     item.cf  = +Math.max(0.02, Math.min(0.98, y / h)).toFixed(4)
+    _edTouch(); _edDraw()
+    return
+  }
+
+  if (d.type === 'upipe' || d.type === 'ugap') {
+    const p = (lv.pipes || [])[d.i]; if (!p) return
+    if (d.type === 'upipe') {
+      p.at  = Math.max(0, Math.round(x / ppc))
+      p.cyf = +Math.max(0.08, Math.min(0.92, y / h)).toFixed(4)
+      lv.pipes.sort((a, b) => a.at - b.at)
+      // the array just moved under us — follow the pillar we are holding
+      d.i = lv.pipes.indexOf(p)
+    } else {
+      const half = Math.abs(y / h - p.cyf)
+      p.gapf = +Math.max(0.04, Math.min(0.9, half * 2)).toFixed(4)
+    }
     _edTouch(); _edDraw()
     return
   }
@@ -1488,6 +1615,10 @@ function _edContext(e) {
       if (d < bestD) { bestD = d; best = i }
     })
     if (best >= 0) { lv.keyframes.splice(best, 1); _edTouch(); _edDraw() }
+  } else if (lv.game === 'ufo') {
+    const PW = Math.max(10, 62 * ppc)
+    const i = (lv.pipes || []).findIndex(p => Math.abs(x - p.at * ppc) < PW/2 + 4)
+    if (i >= 0) { lv.pipes.splice(i, 1); _edTouch(); _edDraw(); _edSetMsg('Pillar removed.') }
   } else {
     const bw = Math.max(8, 26 * ppc)
     const i = lv.obstacles.findIndex(o => Math.abs(x - o.col * ppc) < bw/2 + 3)
