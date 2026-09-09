@@ -160,11 +160,40 @@ function lcSolveLine(lv, h, margin, dt) {
 // `dt` should be the frame time the game is actually running at. Planning
 // in 1/60s steps and replaying at 120Hz puts the plan and the game on
 // different grids, which is fatal on a level with no margin to absorb it.
-function lcSolveLineSafe(lv, h, dt) {
-  for (const pad of [6, 3, 1.5, 0]) {
-    const r = lcSolveLine(lv, h, pad, dt)
-    if (r.ok) return r
+// Fly the plan the way the bot actually flies it and see whether it lives.
+// The solver returns a path with a known clearance, but the bot does not
+// follow that path exactly — it chases it with a hold/release controller,
+// and the tracking error is not bounded by the clearance. On THE SAW that
+// gap was fatal: a valid plan with 3px of margin died at column 189.
+function _lcReplayOk(lv, h, plan) {
+  const kfs   = lv.keyframes || []
+  const speed = lv.speed || 200
+  const clear = lv.clearAt || 800
+  const DT    = plan.dt
+  const step  = speed * DT
+  const ys    = plan.ys
+  if (!ys || !ys.length || step <= 0) return false
+  let wy = h / 2, scroll = 0, guard = 0
+  while (scroll < clear && guard++ < 400000) {
+    const i = Math.min(ys.length - 1, Math.max(0, Math.round(scroll / step)))
+    wy += (wy > ys[i] ? -LC_WAVE : LC_WAVE) * DT
+    wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))   // same clamp as the game
+    scroll += step
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll), h)
+    if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) return false
   }
+  return true
+}
+
+function lcSolveLineSafe(lv, h, dt) {
+  // A finer ladder than before, because the first plan that solves is not
+  // necessarily one the controller can hold — more rungs means more chances
+  // to find one that both solves and survives.
+  for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
+    const r = lcSolveLine(lv, h, pad, dt)
+    if (r.ok && _lcReplayOk(lv, h, r)) return r
+  }
+  // Better no bot than a bot that flies into a wall
   return { ok: false }
 }
 

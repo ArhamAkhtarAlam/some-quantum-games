@@ -1480,7 +1480,8 @@ function _g43Draw(ctx, w, h) {
                  (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : '') +
                  (G43.attempts ? '   att ' + G43.attempts : '') +
                  (G43.taps ? '   taps ' + G43.taps : '') +
-                 (G43.bot ? '   \ud83e\udd16 BOT ' + G43.bot.taps + ' taps' : ''), w/2, 18)
+                 (G43.bot ? '   \ud83e\udd16 BOT ' + G43.bot.taps + ' taps'
+                          : (G43.botMode ? '   \ud83e\udd16 NO BOT LINE HERE' : '')), w/2, 18)
     if (G43_cheat.on) {
       ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 11px monospace'
       ctx.fillText(G43_cheat.label(), w/2, 32)
