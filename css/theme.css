@@ -1,0 +1,115 @@
+/* ═══════════════════════════════════════════════════════
+   LIGHT / DARK THEME — /beta and /stall only
+   Injected by qgApplyTheme(). The main site is unaffected and
+   stays dark, so nothing here loads there.
+
+   The site's chrome is almost entirely driven by the :root
+   variables, so a light theme is mostly a matter of redefining
+   them. Game arenas keep their own dark backgrounds on purpose —
+   a game canvas reads as its own screen, and the ~40 games each
+   paint hardcoded colours that no variable reaches.
+   ═══════════════════════════════════════════════════════ */
+
+:root[data-theme="light"] {
+  --bg:      #f4f6fb;
+  --surface: #ffffff;
+  --card:    #ffffff;
+  --border:  #d6dbe9;
+  --accent:  #6d28d9;   /* darkened for contrast on white */
+  --accent2: #0e7490;
+  --accent3: #b45309;
+  --danger:  #dc2626;
+  --success: #15803d;
+  --text:    #14152b;
+  --muted:   #5a6079;
+  --glow:  0 0 18px rgba(109,40,217,0.18);
+  --glow2: 0 0 18px rgba(14,116,144,0.18);
+}
+
+/* The drifting purple starfield is far too heavy on a light ground */
+:root[data-theme="light"] #bg-canvas { opacity: 0.14 }
+
+/* Cards need a real edge on white — the dark theme leant on glow for this */
+:root[data-theme="light"] .game-card {
+  box-shadow: 0 1px 2px rgba(20,21,43,.06), 0 6px 18px rgba(20,21,43,.06);
+}
+:root[data-theme="light"] .game-card:hover {
+  box-shadow: 0 4px 10px rgba(20,21,43,.10), 0 14px 30px rgba(20,21,43,.12);
+}
+
+/* ── Toggle ─────────────────────────────────────────── */
+#qg-theme-btn {
+  position: fixed; right: 14px; bottom: 14px; z-index: 80;
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem; line-height: 1; cursor: pointer;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  transition: transform .15s, box-shadow .15s;
+  font-family: inherit;
+}
+#qg-theme-btn:hover { transform: translateY(-2px) scale(1.06) }
+
+/* ── Carnival in daylight ───────────────────────────── */
+/* The stall theme paints its own night-fair ground, so it needs a
+   matching daytime palette or light mode does nothing there. */
+:root[data-theme="light"] body.stall-mode {
+  background:
+    radial-gradient(ellipse 120% 70% at 50% 0%, #ffe6c7 0%, transparent 62%),
+    radial-gradient(ellipse 90% 50% at 50% 100%, #ffd9e2 0%, transparent 70%),
+    var(--bg);
+}
+:root[data-theme="light"] .stall-mode .home-header h1 {
+  background: linear-gradient(180deg, #f0820f 0%, #d81e3f 70%, #a3122c 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,.7));
+}
+:root[data-theme="light"] .stall-kicker {
+  color: #c2410c; text-shadow: none;
+}
+:root[data-theme="light"] .stall-mode .home-header p { color: #6b4a2f; opacity: 1 }
+:root[data-theme="light"] .stall-mode .quantum-badge {
+  background: rgba(216,30,63,.10); border-color: rgba(216,30,63,.35); color: #a3122c;
+}
+:root[data-theme="light"] .stall-mode .game-card {
+  background: linear-gradient(180deg, #fffaf2 0%, #ffffff 45%);
+  box-shadow: 0 6px 18px rgba(120,60,20,.14), inset 0 0 0 1px rgba(216,30,63,.10);
+}
+:root[data-theme="light"] .stall-mode .game-card:hover {
+  box-shadow: 0 14px 30px rgba(120,60,20,.20), inset 0 0 0 1px rgba(216,30,63,.28);
+}
+:root[data-theme="light"] .stall-mode .card-title { color: #2b1608 }
+:root[data-theme="light"] .stall-mode .card-desc  { color: #6b4a2f }
+/* Bulbs read as glowing dots at night; in daylight they need an edge */
+:root[data-theme="light"] .stall-lights i { box-shadow: 0 0 6px 1px rgba(180,90,0,.45) }
+:root[data-theme="light"] .stall-bunting::before {
+  background: linear-gradient(90deg, transparent, rgba(160,90,20,.55) 12%,
+              rgba(160,90,20,.55) 88%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #qg-theme-btn { transition: none }
+}
+
+/* ── Contrast fixes for light ───────────────────────── */
+/* Both of these were tuned as pale-on-dark and go washed out on white */
+:root[data-theme="light"] #beta-banner {
+  background: rgba(234,88,12,.10);
+  border-bottom-color: rgba(234,88,12,.32);
+  color: #9a3412;
+}
+:root[data-theme="light"] #beta-banner button {
+  border-color: rgba(234,88,12,.45); color: #9a3412;
+}
+:root[data-theme="light"] .auth-small-btn {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+/* Author / co-author chips are pale-on-dark and vanish on a light card */
+:root[data-theme="light"] .medal-author,
+:root[data-theme="light"] .medal-author-badge {
+  background: rgba(109,40,217,.14); color: #5b21b6; border-color: rgba(109,40,217,.45);
+}
+:root[data-theme="light"] .medal-coauthor {
+  background: rgba(180,83,9,.14); color: #92400e; border-color: rgba(180,83,9,.45);
+}

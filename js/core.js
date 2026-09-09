@@ -257,6 +257,56 @@ if (QG_BETA && typeof history !== 'undefined' && /[?&]game=beta(&|$)/.test(locat
   try { history.replaceState({}, '', QG_ROOT + 'beta') } catch {}
 }
 
+// ═══════════════════════════════════════════════════════
+//  LIGHT / DARK THEME — /beta and /stall
+//  The main site stays dark, so neither the stylesheet nor the
+//  toggle is loaded there. The choice is per-browser and sticks.
+// ═══════════════════════════════════════════════════════
+
+function qgSetTheme(mode) {
+  const light = mode === 'light'
+  document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark')
+  try { localStorage.setItem('qg_theme', light ? 'light' : 'dark') } catch {}
+  const b = document.getElementById('qg-theme-btn')
+  if (b) {
+    b.textContent = light ? '\u{1F319}' : '\u2600\uFE0F'
+    b.title = light ? 'Switch to dark' : 'Switch to light'
+    b.setAttribute('aria-label', b.title)
+  }
+}
+function qgToggleTheme() {
+  const now = document.documentElement.getAttribute('data-theme')
+  qgSetTheme(now === 'light' ? 'dark' : 'light')
+}
+window.qgToggleTheme = qgToggleTheme
+
+function qgApplyTheme() {
+  if (!QG_BETA && !QG_STALL) return
+  if (!document.getElementById('qg-theme-css')) {
+    const link = document.createElement('link')
+    link.id = 'qg-theme-css'
+    link.rel = 'stylesheet'
+    link.href = QG_ROOT + 'css/theme.css?v=1'
+    document.head.appendChild(link)
+  }
+  if (!document.getElementById('qg-theme-btn')) {
+    const b = document.createElement('button')
+    b.id = 'qg-theme-btn'
+    b.type = 'button'
+    b.addEventListener('click', () => qgToggleTheme())
+    document.body.appendChild(b)
+  }
+  // Saved choice wins; otherwise follow the device, defaulting to dark
+  let saved = null
+  try { saved = localStorage.getItem('qg_theme') } catch {}
+  if (saved !== 'light' && saved !== 'dark') {
+    const prefersLight = typeof matchMedia === 'function' &&
+                         matchMedia('(prefers-color-scheme: light)').matches
+    saved = prefersLight ? 'light' : 'dark'
+  }
+  qgSetTheme(saved)
+}
+
 // Strip beta games out of the main site, and label them on the beta one.
 function qgApplyBeta() {
   document.querySelectorAll('.game-card').forEach(card => {
@@ -283,6 +333,7 @@ function qgApplyBeta() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', qgApplyBeta)
   document.addEventListener('DOMContentLoaded', qgApplyStall)
+  document.addEventListener('DOMContentLoaded', qgApplyTheme)
 }
 
 async function initCurby() {
