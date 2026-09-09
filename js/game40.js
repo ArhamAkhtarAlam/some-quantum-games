@@ -90,34 +90,34 @@ function _g40Rest(pipes, idxs, side) {
 
 const G40_POOL = {
   easy: [
-    { name:'FIRST STEPS', diff:'easy', speed:150, gapf:0.34, clearAt:3000,
+    { name:'FIRST STEPS', diff:'easy', speed:150, gapf:0.34, clearAt:2920,
       pipes:_g40Run(520, 330, [0.50,0.44,0.56,0.48,0.54,0.46,0.52]) },
-    { name:'EASY ORBIT', diff:'easy', speed:162, gapf:0.31, clearAt:3250,
+    { name:'EASY ORBIT', diff:'easy', speed:162, gapf:0.31, clearAt:2860,
       // one green pillar early on, so the mechanic is met somewhere safe
       pipes:_g40Rest(_g40Run(520, 320, [0.44,0.56,0.40,0.58,0.46,0.54,0.48]), [3]) },
   ],
   medium: [
-    { name:'STAIRCASE', diff:'medium', speed:178, gapf:0.27, clearAt:3400,
+    { name:'STAIRCASE', diff:'medium', speed:178, gapf:0.27, clearAt:3040,
       pipes:_g40Rest(_g40Run(520, 300, [0.66,0.58,0.50,0.42,0.34,0.42,0.50,0.58]), [4]) },
-    { name:'ZIGZAG', diff:'medium', speed:184, gapf:0.26, clearAt:3400,
+    { name:'ZIGZAG', diff:'medium', speed:184, gapf:0.26, clearAt:3005,
       pipes:_g40Run(520, 295, [0.36,0.62,0.36,0.62,0.36,0.62,0.40,0.58]) },
-    { name:'NARROWING', diff:'medium', speed:176, gapf:0.28, clearAt:3350,
+    { name:'NARROWING', diff:'medium', speed:176, gapf:0.28, clearAt:2980,
       pipes:[P(520,0.50,0.32),P(810,0.44,0.29),P(1100,0.56,0.27),P(1390,0.46,0.25),
              P(1680,0.54,0.24),P(1970,0.48,0.23),P(2260,0.52,0.22),P(2560,0.50,0.22)] },
   ],
   hard: [
-    { name:'TIGHT SQUEEZE', diff:'hard', speed:198, gapf:0.205, clearAt:3300,
+    { name:'TIGHT SQUEEZE', diff:'hard', speed:198, gapf:0.205, clearAt:2865,
       pipes:_g40Run(520, 275, [0.50,0.45,0.55,0.44,0.56,0.46,0.54,0.50]) },
-    { name:'THE LADDER', diff:'hard', speed:204, gapf:0.22, clearAt:3400,
+    { name:'THE LADDER', diff:'hard', speed:204, gapf:0.22, clearAt:3084,
       // a rest at the top of the climb, where it hurts most
       pipes:_g40Rest(_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]), [5]) },
-    { name:'WHIPLASH', diff:'hard', speed:208, gapf:0.235, clearAt:3350,
+    { name:'WHIPLASH', diff:'hard', speed:208, gapf:0.235, clearAt:2844,
       pipes:_g40Run(520, 272, [0.32,0.68,0.30,0.70,0.34,0.66,0.36,0.64]) },
   ],
   extreme: [
-    { name:'NEEDLE', diff:'extreme', speed:222, gapf:0.175, clearAt:3300,
+    { name:'NEEDLE', diff:'extreme', speed:222, gapf:0.175, clearAt:2774,
       pipes:_g40Rest(_g40Run(520, 262, [0.50,0.46,0.54,0.47,0.53,0.48,0.52,0.50]), [3]) },
-    { name:'THE GRINDER', diff:'extreme', speed:232, gapf:0.19, clearAt:3450,
+    { name:'THE GRINDER', diff:'extreme', speed:232, gapf:0.19, clearAt:3132,
       pipes:_g40Rest(_g40Run(520, 274, [0.42,0.58,0.38,0.62,0.44,0.56,0.40,0.60,0.50]), [2,6]) },
   ],
 }
@@ -153,8 +153,14 @@ function _g40LoadLevel(w, h) {
   G40.gap       = tmpl.gapf * h
   G40.clearAt   = tmpl.clearAt
   G40.scrollX   = 0
+  // `at` is the scroll position where this pillar meets the ship, so a
+  // pillar starts at `at` plus the ship's x. Laying them out relative to the
+  // right edge instead made the level's real length depend on the window
+  // width, and the finish fired before the last pillar had arrived —
+  // FIRST STEPS ended 220 columns early on a 900px canvas.
+  const ufoX0 = w * 0.20
   G40.pipes     = tmpl.pipes.map(p => ({
-    x: p.at + w, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h,
+    x: p.at + ufoX0, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h,
     safe: p.safe || null, passed: false,
   }))
   G40.y   = h / 2; G40.vy   = 0

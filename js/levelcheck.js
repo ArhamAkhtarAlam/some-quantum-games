@@ -354,7 +354,7 @@ function _lcUfoHit(lv, h, w, y, scroll, RY, RX, pad) {
   if (y - RY <= 0 || y + RY >= h) return true
   const ufoX = w * 0.20
   for (const p of lv.pipes || []) {
-    const px = p.at + w - scroll
+    const px = p.at + ufoX - scroll
     if (px >= ufoX + RX || px + LC_U_PW <= ufoX - RX) continue
     const gap = (p.gapf || lv.gapf || 0.3) * h
     const cy  = p.cyf * h
@@ -387,7 +387,7 @@ function _lcUfoReplay(lv, h, w, flaps, dt) {
       let rested = false
       const ufoX = w * 0.20
       for (const p of lv.pipes || []) {
-        const px = p.at + w - scroll
+        const px = p.at + ufoX - scroll
         if (px >= ufoX + RX || px + LC_U_PW <= ufoX - RX) continue
         const gap = (p.gapf || lv.gapf || 0.3) * h, cy = p.cyf * h
         if (p.safe === 'bottom' && y + RY > cy + gap / 2) { y = cy + gap/2 - RY; vy = 0; rested = true }
