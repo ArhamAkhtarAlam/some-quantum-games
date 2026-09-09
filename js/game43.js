@@ -1055,7 +1055,7 @@ function _g43Loop(ts) {
   // timestep instead of the display's variable frame time.
   const _g43PlayStep = (sdt) => {
     _botAim()
-    waveStep(false, sdt)
+    waveStep(true, sdt)
     G43.scrollX += G43.challenge.speed * sdt
 
     // Store the world column, not the canvas x — every point used to share
@@ -1074,13 +1074,15 @@ function _g43Loop(ts) {
     }
 
     const wall    = _g43WallAt(Math.floor(G43.scrollX), h)
-    // Bound the corridor by the screen. A level can be authored with walls
-    // outside the canvas, and the wave isn't clamped while playing — so
-    // without this you fly off the top of the view and die against a wall
-    // you were never shown. No built-in level is affected: none of them
-    // put corridor outside the canvas.
-    const topWall = Math.max(wall.cy - wall.gapH / 2, 0)
-    const botWall = Math.min(wall.cy + wall.gapH / 2, h)
+    // A level can be authored with corridor outside the canvas. Clamping the
+    // *walls* to the screen (what this used to do) made the screen edge
+    // itself lethal: fly above y=0 where the corridor is wide open and you
+    // died on nothing. Clamp the *wave* instead — it simply cannot leave the
+    // view — and test it against the real corridor. Now going too high or
+    // too low pins you at the edge, and you only ever die on a wall you can
+    // actually see.
+    const topWall = wall.cy - wall.gapH / 2
+    const botWall = wall.cy + wall.gapH / 2
     const hit     = G43.wy - WR < topWall || G43.wy + WR > botWall
     // In online mode, P2 collision is checked on their own device
     const hit2    = G43.multi && !G43_roomCode && (G43.p2wy - WR < topWall || G43.p2wy + WR > botWall)

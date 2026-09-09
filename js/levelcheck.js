@@ -60,11 +60,15 @@ function lcSolveWave(lv, h, dt) {
   while (scroll < clear) {
     const next = new Set()
     const { cy, gapH } = lcWallAt(kfs, scroll, h)
-    const top = Math.max(cy - gapH/2, 0), bot = Math.min(cy + gapH/2, h)
+    // Match the game: the wave is clamped to the screen and tested against
+    // the real corridor. Clamping the walls instead made the screen edge
+    // lethal, which killed players on open corridor above y=0.
+    const top = cy - gapH/2, bot = cy + gapH/2
     for (const q of states) {
       const y = q / LC_QUANT
       for (const up of [true, false]) {
-        const ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
+        let ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
+        ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
         next.add(Math.round(ny * LC_QUANT))
       }
@@ -112,15 +116,16 @@ function lcSolveLine(lv, h, margin, dt) {
     // the solved line one frame out of step and it died on its own plan.
     const at = scroll + speed * DT
     const { cy, gapH } = lcWallAt(kfs, Math.floor(at), h)
-    // Same screen bound the game applies
-    const top = Math.max(cy - gapH / 2, 0) + pad
-    const bot = Math.min(cy + gapH / 2, h) - pad
+    // Same as the game: real corridor, wave clamped to the screen
+    const top = cy - gapH / 2 + pad
+    const bot = cy + gapH / 2 - pad
     const next = new Map()
     for (const [key, node] of cur) {
       const [q, last] = key.split(':')
       const y = +q / LC_QUANT
       for (const hold of [true, false]) {
-        const ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
+        let ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
+        ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
         const nk = Math.round(ny * LC_QUANT) + ':' + (hold ? '1' : '0')
         const taps = node.taps + ((hold && last === '0') ? 1 : 0)
