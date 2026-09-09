@@ -53,7 +53,13 @@ function lcSolveWave(lv, h, dt) {
   const kfs = lv.keyframes || []
   const speed = lv.speed || 200
   const clear = lv.clearAt || 800
-  let states = new Set([Math.round(h/2 * LC_QUANT)])
+  // Quantise onto a grid that divides the wave's step exactly. With the old
+  // fixed 1/8px grid a step was 8.5 units, and Math.round sends .5 toward
+  // +infinity — which is downward — so every up/down pair sank 0.125px and a
+  // spamming line drifted to the floor. On this grid a move is exactly ±4
+  // units and there is no rounding to accumulate.
+  const GQ = (LC_WAVE * DT) / 4
+  let states = new Set([Math.round(h/2 / GQ)])
   let scroll = 0, frame = 0
   let worst = Infinity, worstCol = 0
 
@@ -65,18 +71,18 @@ function lcSolveWave(lv, h, dt) {
     // lethal, which killed players on open corridor above y=0.
     const top = cy - gapH/2, bot = cy + gapH/2
     for (const q of states) {
-      const y = q / LC_QUANT
+      const y = q * GQ
       for (const up of [true, false]) {
         let ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
-        next.add(Math.round(ny * LC_QUANT))
+        next.add(Math.round(ny / GQ))
       }
     }
     if (next.size === 0) return { ok:false, diedAt:Math.round(scroll), frame }
     // Skip the opening frames: the spread there is just branching, not difficulty
     if (frame > 8) {
-      const ys = [...next].map(q => q / LC_QUANT)
+      const ys = [...next].map(q => q * GQ)
       const span = Math.max(...ys) - Math.min(...ys)
       if (span < worst) { worst = span; worstCol = Math.round(scroll) }
     }
@@ -103,7 +109,9 @@ function lcSolveLine(lv, h, margin, dt, worst) {
   const kfs = lv.keyframes || []
   const speed = lv.speed || 200
   const clear = lv.clearAt || 800
-  const start = Math.round(h / 2 * LC_QUANT)
+  // Same exact-divisor grid as lcSolveWave — see the note there
+  const GQ = (LC_WAVE * DT) / 4
+  const start = Math.round(h / 2 / GQ)
 
   // layers[f] : Map(stateKey -> { prev, hold, taps })
   const layers = []
@@ -122,12 +130,12 @@ function lcSolveLine(lv, h, margin, dt, worst) {
     const next = new Map()
     for (const [key, node] of cur) {
       const [q, last] = key.split(':')
-      const y = +q / LC_QUANT
+      const y = +q * GQ
       for (const hold of [true, false]) {
         let ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
-        const nk = Math.round(ny * LC_QUANT) + ':' + (hold ? '1' : '0')
+        const nk = Math.round(ny / GQ) + ':' + (hold ? '1' : '0')
         const taps = node.taps + ((hold && last === '0') ? 1 : 0)
         const seen = next.get(nk)
         // `worst` is evilbot: same line, but wring every extra press out of it
@@ -153,7 +161,7 @@ function lcSolveLine(lv, h, margin, dt, worst) {
   for (let f = layers.length - 1; f >= 0; f--) {
     const node = layers[f].get(key)
     holds[f] = node.hold
-    ys[f]    = +key.split(':')[0] / LC_QUANT
+    ys[f]    = +key.split(':')[0] * GQ
     key = node.prev
   }
   return { ok: true, holds, ys, frames: holds.length, taps: bestTaps, margin: pad, dt: DT }
