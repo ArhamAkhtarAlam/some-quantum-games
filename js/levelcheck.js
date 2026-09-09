@@ -97,7 +97,7 @@ function lcSolveWave(lv, h, dt) {
 // positions are quantised to 1/8px, and with variable frame times an
 // input switch can land up to a frame late (4.25px). Without margin a
 // long level accumulates that and eventually clips a wall.
-function lcSolveLine(lv, h, margin, dt) {
+function lcSolveLine(lv, h, margin, dt, worst) {
   const pad = margin || 0
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
@@ -130,7 +130,9 @@ function lcSolveLine(lv, h, margin, dt) {
         const nk = Math.round(ny * LC_QUANT) + ':' + (hold ? '1' : '0')
         const taps = node.taps + ((hold && last === '0') ? 1 : 0)
         const seen = next.get(nk)
-        if (!seen || seen.taps > taps) next.set(nk, { prev: key, hold, taps })
+        // `worst` is evilbot: same line, but wring every extra press out of it
+        const better = !seen || (worst ? seen.taps < taps : seen.taps > taps)
+        if (better) next.set(nk, { prev: key, hold, taps })
       }
     }
     if (next.size === 0) return { ok: false, diedAt: Math.round(scroll), frame }
@@ -141,8 +143,10 @@ function lcSolveLine(lv, h, margin, dt) {
   }
 
   // Walk back from the cheapest surviving end state
-  let bestKey = null, bestTaps = Infinity
-  for (const [k, n] of cur) if (n.taps < bestTaps) { bestTaps = n.taps; bestKey = k }
+  let bestKey = null, bestTaps = worst ? -Infinity : Infinity
+  for (const [k, n] of cur) {
+    if (worst ? n.taps > bestTaps : n.taps < bestTaps) { bestTaps = n.taps; bestKey = k }
+  }
   const holds = new Array(layers.length)
   const ys    = new Array(layers.length)   // the height the line sits at
   let key = bestKey
@@ -185,12 +189,12 @@ function _lcReplayOk(lv, h, plan) {
   return true
 }
 
-function lcSolveLineSafe(lv, h, dt) {
+function lcSolveLineSafe(lv, h, dt, worst) {
   // A finer ladder than before, because the first plan that solves is not
   // necessarily one the controller can hold — more rungs means more chances
   // to find one that both solves and survives.
   for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
-    const r = lcSolveLine(lv, h, pad, dt)
+    const r = lcSolveLine(lv, h, pad, dt, worst)
     if (r.ok && _lcReplayOk(lv, h, r)) return r
   }
   // Better no bot than a bot that flies into a wall
@@ -334,10 +338,188 @@ function lcReport(lv) {
   return r
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+//  UFO FLAP — bot line
+//  Physics is gravity plus an impulse, so the state is (y, vy) rather
+//  than a single height. The plan is the flap sequence itself: with the
+//  game on a fixed timestep, replaying it reproduces the solve exactly.
+//  Everything scales with height, matching what the game does.
+// ═══════════════════════════════════════════════════════
+
+const LC_U_GRAV = 880, LC_U_THRUST = -400, LC_U_RY = 11, LC_U_RX = 22, LC_U_PW = 62
+
+function _lcUfoHit(lv, h, w, y, scroll, RY, RX, pad) {
+  if (y - RY <= 0 || y + RY >= h) return true
+  const ufoX = w * 0.20
+  for (const p of lv.pipes || []) {
+    const px = p.at + w - scroll
+    if (px >= ufoX + RX || px + LC_U_PW <= ufoX - RX) continue
+    const gap = (p.gapf || lv.gapf || 0.3) * h
+    const cy  = p.cyf * h
+    // A landable pillar is not a wall on the side you may rest on
+    if (y + RY > cy + gap / 2 && p.safe !== 'bottom') return true
+    if (y - RY < cy - gap / 2 && p.safe !== 'top')    return true
+    if (pad) {
+      if (y + RY > cy + gap / 2 - pad && p.safe !== 'bottom') return true
+      if (y - RY < cy - gap / 2 + pad && p.safe !== 'top')    return true
+    }
+  }
+  return false
+}
+
+// Replay a flap list against continuous physics — the solver quantises,
+// the game does not, so a plan is only trusted once it has been flown.
+function _lcUfoReplay(lv, h, w, flaps, dt) {
+  const k = h / 560
+  const GRAV = LC_U_GRAV * k, THRUST = LC_U_THRUST * k
+  const RY = LC_U_RY * k, RX = LC_U_RX * k
+  const spd = (lv.speed || 160) * k
+  let y = h / 2, vy = 0, scroll = 0
+  for (let i = 0; i < flaps.length; i++) {
+    if (flaps[i]) vy = THRUST
+    vy += GRAV * dt
+    y  += vy * dt
+    scroll += spd * dt
+    if (_lcUfoHit(lv, h, w, y, scroll, RY, RX, 0)) {
+      // landing on a green pillar is a rest, not a death
+      let rested = false
+      const ufoX = w * 0.20
+      for (const p of lv.pipes || []) {
+        const px = p.at + w - scroll
+        if (px >= ufoX + RX || px + LC_U_PW <= ufoX - RX) continue
+        const gap = (p.gapf || lv.gapf || 0.3) * h, cy = p.cyf * h
+        if (p.safe === 'bottom' && y + RY > cy + gap / 2) { y = cy + gap/2 - RY; vy = 0; rested = true }
+        if (p.safe === 'top'    && y - RY < cy - gap / 2) { y = cy - gap/2 + RY; vy = 0; rested = true }
+      }
+      if (!rested) return { ok: false, at: Math.round(scroll) }
+    }
+  }
+  return { ok: true }
+}
+
+function lcSolveUFO(lv, h, w, dt, worst) {
+  const DT = dt || 1 / 240
+  const k = h / 560
+  const GRAV = LC_U_GRAV * k, THRUST = LC_U_THRUST * k
+  const RY = LC_U_RY * k, RX = LC_U_RX * k
+  const spd = (lv.speed || 160) * k
+  const clear = lv.clearAt || 3000
+  const QY = 2.5, QV = 18
+  const key = (y, v) => Math.round(y / QY) + ':' + Math.round(v / QV)
+
+  for (const pad of [10, 6, 3, 1, 0]) {
+    const layers = []
+    let cur = new Map([[key(h/2, 0), { y: h/2, vy: 0, prev: null, flap: false, taps: 0 }]])
+    let scroll = 0, guard = 0, dead = false
+    while (scroll < clear && guard++ < 60000) {
+      const next = new Map()
+      for (const [kk, st] of cur) {
+        for (const flap of [true, false]) {
+          let vy = flap ? THRUST : st.vy
+          vy += GRAV * DT
+          let y = st.y + vy * DT
+          const sc = scroll + spd * DT
+          if (_lcUfoHit(lv, h, w, y, sc, RY, RX, pad)) continue
+          const nk = key(y, vy)
+          const taps = st.taps + (flap ? 1 : 0)
+          // Always solve for the fewest taps, even for evilbot — see the
+          // note on _lcUfoMoreTaps for why maximising in here goes wrong.
+          const seen = next.get(nk)
+          if (!seen || seen.taps > taps) next.set(nk, { y, vy, prev: kk, flap, taps })
+        }
+      }
+      if (next.size === 0) { dead = true; break }
+      layers.push(next)
+      cur = next
+      scroll += spd * DT
+    }
+    if (dead || !layers.length) continue
+
+    let bestKey = null, bestTaps = Infinity
+    for (const [kk, n] of cur) if (n.taps < bestTaps) { bestTaps = n.taps; bestKey = kk }
+    const flaps = new Array(layers.length)
+    let kk = bestKey
+    for (let i = layers.length - 1; i >= 0; i--) {
+      const n = layers[i].get(kk)
+      flaps[i] = n.flap
+      kk = n.prev
+    }
+    const check = _lcUfoReplay(lv, h, w, flaps, DT)
+    if (!check.ok) continue
+    if (worst) {
+      const padded = _lcUfoMoreTaps(lv, h, w, flaps, DT)
+      return { ok: true, flaps: padded, taps: padded.filter(Boolean).length, margin: pad, dt: DT }
+    }
+    return { ok: true, flaps, taps: bestTaps, margin: pad, dt: DT }
+  }
+  return { ok: false }
+}
+
+// evilbot. Maximising taps inside the search does not work: the state key
+// quantises (y, vy), and preferring the flappiest way of reaching a key
+// stores the representative that sits nearest a wall, so the search runs out
+// of states — on FIRST STEPS it died at column 320 every time.
+// Padding a plan that already flies is both robust and obviously valid:
+// try adding a flap at each step, keep it only if the line still survives.
+function _lcUfoMoreTaps(lv, h, w, flaps, DT) {
+  const best = flaps.slice()
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 1; i < best.length - 1; i++) {
+      if (best[i]) continue
+      best[i] = true
+      if (!_lcUfoReplay(lv, h, w, best, DT).ok) best[i] = false
+    }
+  }
+  return best
+}
+
+// ═══════════════════════════════════════════════════════
+//  SPIDER — bot line
+//  The spider is on the floor or the ceiling and nothing else, and a
+//  block only kills you when you are on its surface. So the required
+//  surface at every block is forced, and the only question is where to
+//  flip between them. No search needed — just the flip columns.
+// ═══════════════════════════════════════════════════════
+
+function lcSolveSpider(lv, worst) {
+  const obs = [...(lv.obstacles || [])].sort((a, b) => a.col - b.col)
+  const flips = []
+  let onFloor = true                     // the spider always spawns on the floor
+  let prevCol = 0
+  for (const o of obs) {
+    const needFloor = !o.floor           // stand on the opposite surface
+    if (needFloor !== onFloor) {
+      // Flip in the clear space before this block. Latest possible is the
+      // edge of its hit window; evilbot dawdles, the normal bot goes early.
+      const latest = o.col - 26 / 2 - 9 - 2
+      const earliest = prevCol + 26 / 2 + 9 + 2
+      flips.push(Math.max(0, worst ? latest : Math.max(earliest, (earliest + latest) / 2)))
+      onFloor = needFloor
+    }
+    prevCol = o.col
+  }
+  // evilbot pads out the run with harmless extra flips in the gaps
+  if (worst) {
+    const extra = []
+    for (let i = 0; i < obs.length - 1; i++) {
+      const a = obs[i].col + 22, b = obs[i+1].col - 22
+      if (b - a < 90) continue
+      extra.push(a + (b - a) * 0.34, a + (b - a) * 0.66)   // flip and flip back
+    }
+    flips.push(...extra)
+    flips.sort((x, y) => x - y)
+  }
+  return { ok: true, flips, taps: flips.length }
+}
+
 if (typeof window !== 'undefined') {
   window.lcReport = lcReport
   window.lcSolveWave = lcSolveWave
   window.lcSolveLine = lcSolveLine
+  window.lcSolveUFO = lcSolveUFO
+  window.lcSolveSpider = lcSolveSpider
   window.lcSolveLineSafe = lcSolveLineSafe
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
@@ -345,4 +527,4 @@ if (typeof window !== 'undefined') {
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcWallAt, lcLabel }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveSpider, lcWallAt, lcLabel }

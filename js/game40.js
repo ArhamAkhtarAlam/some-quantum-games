@@ -13,6 +13,10 @@ const G40_PIPE_GAP0 = 195
 const G40_PIPE_SPD0 = 155
 const G40_PIPE_SEP  = 290
 const G40_ACCEL     = 3.5
+// Bot playback steps on this clock, never the display's, so a stutter or a
+// 144Hz screen cannot shift the plan out of step with the game.
+const G40_SIM_DT    = 1 / 240
+const G40_MAX_STEPS = 16
 
 const G40 = {
   active:   false,
@@ -44,6 +48,15 @@ const G40 = {
   winner:   0,
   testLevel: null,   // editor test play
   noclip:    false,  // editor: walls flash instead of killing
+  // Autopilot. The plan is a flap per simulation step, so the simulation
+  // has to run on a fixed clock or the plan and the game drift apart.
+  botMode:  false,
+  bot:      null,
+  evil:     false,
+  simAcc:   0,
+  practice: false,
+  practiceDiff: null,
+  practiceLevel: null,
 }
 
 
@@ -124,7 +137,16 @@ function _g40GetPool(score) {
 // scroll in, exactly as the endless spawner does, so movement, drawing
 // and collision are shared between both modes.
 function _g40LoadLevel(w, h) {
-  const pool = G40.testLevel ? [G40.testLevel] : _g40GetPool(G40.score)
+  let pool
+  if (G40.testLevel) pool = [G40.testLevel]
+  else if (G40.practice && G40.practiceDiff) {
+    // Practice ignores score gates so every level in the tier is reachable
+    pool = [...(G40_POOL[G40.practiceDiff] || G40_POOL.easy)]
+    if (G40.practiceLevel) {
+      const one = pool.filter(x => x.name === G40.practiceLevel)
+      if (one.length) pool = one
+    }
+  } else pool = _g40GetPool(G40.score)
   const tmpl = pool[qRandInt(pool.length)] || G40_POOL.easy[0]
   G40.challenge = tmpl
   G40.speed     = tmpl.speed
@@ -139,6 +161,17 @@ function _g40LoadLevel(w, h) {
   G40.p2y = h / 2; G40.p2vy = 0
   G40.p1dead = false; G40.p2dead = false
   G40.phase = 'announce'; G40.announceT = 0
+
+  G40.bot = null
+  G40.simAcc = 0
+  if (G40.botMode && !G40.multi && typeof lcSolveUFO === 'function') {
+    try {
+      const r = lcSolveUFO({ speed: tmpl.speed, clearAt: tmpl.clearAt,
+                             gapf: tmpl.gapf, pipes: tmpl.pipes },
+                           h, w, G40_SIM_DT, !!G40.evil)
+      if (r.ok) G40.bot = { flaps: r.flaps, i: 0, taps: r.taps }
+    } catch (e) { console.warn('ufo bot:', e) }
+  }
 }
 
 let _g40Canvas = null
@@ -156,6 +189,7 @@ async function initGame40() {
   // the main site keeps the original endless game and no 2P button.
   const twoP = document.getElementById('g40-2p-btn')
   if (twoP) twoP.style.display = _g40Gauntlet() ? '' : 'none'
+  try { _g40BuildPracticeUI() } catch (e) { console.error('ufo practice picker:', e) }
   const hint = document.getElementById('g40-hint')
   if (hint) hint.textContent = _g40Gauntlet()
     ? 'Clear a series of named levels — each one has a finish line.'
@@ -164,7 +198,92 @@ async function initGame40() {
 }
 window.initGame40 = initGame40
 
-window.startUFOGame = function() { G40.multi = false; G40.testLevel = null; G40.noclip = false; _g40Begin() }
+
+// ── Practice picker ───────────────────────────────────
+// Same shape as Wave Gauntlet's: pick a tier or a single level, with
+// noclip and the bot as toggles above it. Practice never scores.
+const G40_DIFF_COL = { easy:'#4ade80', medium:'#fbbf24', hard:'#f87171', extreme:'#fb923c' }
+
+function _g40BuildPracticeUI() {
+  const el = document.getElementById('g40-practice')
+  if (!el) return
+  el.innerHTML = ''
+  if (!_g40Gauntlet()) return          // levels only exist on beta and stall
+
+  try {
+    const saved = localStorage.getItem('qg_practice_noclip_g40')
+    if (saved !== null) window.g40UseNoclip = saved === '1'
+  } catch {}
+
+  const clip = window.g40UseNoclip
+  const tog = document.createElement('button')
+  tog.className = 'pp-toggle' + (clip ? ' on' : '')
+  tog.textContent = clip ? '\ud83d\udee1 Noclip ON — pillars won\u2019t kill'
+                         : '\ud83d\udc80 Noclip OFF — pillars kill'
+  tog.addEventListener('click', () => g40ToggleNoclip())
+  el.appendChild(tog)
+
+  try { G40.botMode = localStorage.getItem('qg_bot_g40') === '1' } catch {}
+  const bot = document.createElement('button')
+  bot.className = 'pp-toggle' + (G40.botMode ? ' bot' : '')
+  bot.textContent = G40.botMode
+    ? (G40.evil ? '\ud83d\ude08 EVILBOT ON — the clumsiest possible clear'
+                : '\ud83e\udd16 Bot ON — watch the ideal line')
+    : '\ud83e\udd16 Bot OFF — you fly'
+  bot.addEventListener('click', () => g40ToggleBot())
+  el.appendChild(bot)
+
+  for (const key of ['easy','medium','hard','extreme']) {
+    const arr = G40_POOL[key] || []
+    if (!arr.length) continue
+    const c = G40_DIFF_COL[key] || '#888'
+    const row = document.createElement('div')
+    row.className = 'pp-row'
+    const tag = document.createElement('span')
+    tag.className = 'pp-tag'; tag.style.color = c; tag.textContent = key.toUpperCase()
+    row.appendChild(tag)
+    // Real listeners, not inline onclick — a quoted name breaks the attribute
+    const mk = (text, name, any) => {
+      const b = document.createElement('button')
+      b.className = 'pp-btn' + (any ? ' pp-any' : '')
+      b.style.color = c
+      b.style.borderColor = any ? c : c + '55'
+      b.style.background = c + (any ? '28' : '18')
+      b.textContent = text
+      b.addEventListener('click', () => startUFOPractice(key, name))
+      return b
+    }
+    row.appendChild(mk('Any', null, true))
+    for (const lv of arr) row.appendChild(mk(lv.name, lv.name, false))
+    el.appendChild(row)
+  }
+}
+
+window.g40ToggleNoclip = function() {
+  window.g40UseNoclip = !window.g40UseNoclip
+  try { localStorage.setItem('qg_practice_noclip_g40', window.g40UseNoclip ? '1' : '0') } catch {}
+  _g40BuildPracticeUI()
+}
+window.g40ToggleBot = function() {
+  G40.botMode = !G40.botMode
+  try { localStorage.setItem('qg_bot_g40', G40.botMode ? '1' : '0') } catch {}
+  _g40BuildPracticeUI()
+}
+window.startUFOPractice = function(diff, name) {
+  G40.multi = false
+  G40.testLevel = null
+  G40.practice = true
+  G40.practiceDiff = diff || null
+  G40.practiceLevel = name || null
+  G40.noclip = window.g40UseNoclip !== false
+  _g40Begin(true)
+}
+
+window.startUFOGame = function() {
+  G40.multi = false; G40.testLevel = null; G40.noclip = false
+  G40.practice = false; G40.practiceDiff = null; G40.practiceLevel = null
+  _g40Begin()
+}
 
 // Editor test play: one specific level, walls optional
 window.g40TestLevel = function(tmpl, noclip) {
@@ -299,72 +418,95 @@ function _g40Loop(ts) {
     }
 
   } else if (G40.phase === 'playing') {
-    if (!G40.p1dead) { G40.vy += GRAV * dt; G40.y += G40.vy * dt }
-    if (G40.multi && !G40.p2dead) { G40.p2vy += GRAV * dt; G40.p2y += G40.p2vy * dt }
+    // One simulation step, split out so bot mode can run it on a fixed
+    // clock rather than the display's, which is what keeps a replayed plan
+    // in step with the game.
+    const playStep = (sdt) => {
+      // Autopilot presses on the steps the plan says to
+      if (G40.bot && G40.bot.i < G40.bot.flaps.length) {
+        if (G40.bot.flaps[G40.bot.i]) G40.vy = G40_THRUST * (G40.gauntlet ? h / 560 : 1)
+        G40.bot.i++
+      }
+      if (!G40.p1dead) { G40.vy += GRAV * sdt; G40.y += G40.vy * sdt }
+      if (G40.multi && !G40.p2dead) { G40.p2vy += GRAV * sdt; G40.p2y += G40.p2vy * sdt }
 
-    for (const p of G40.pipes) p.x -= spd * dt
+      for (const p of G40.pipes) p.x -= spd * sdt
 
-    if (G40.gauntlet) {
-      G40.scrollX += spd * dt
+      if (G40.gauntlet) {
+        G40.scrollX += spd * sdt
+      } else {
+        // Endless: a passed pillar is a point, and the run tightens as you go
+        for (const p of G40.pipes) {
+          if (!p.passed && p.x + G40_PIPE_W < ufoX - RX) {
+            p.passed = true
+            G40.score++
+            window._g40Score = G40.score
+            document.getElementById('g40-score-hud').textContent = G40.score
+            G40.speed = G40_PIPE_SPD0 + G40.score * G40_ACCEL
+            G40.gap   = Math.max(95, G40_PIPE_GAP0 - G40.score * 2.2)
+          }
+        }
+        G40.pipes = G40.pipes.filter(p => p.x > -G40_PIPE_W - 20)
+        const last = G40.pipes[G40.pipes.length - 1]
+        if (!last || last.x < w - G40_PIPE_SEP) _g40Spawn(w + G40_PIPE_W, h)
+      }
+
+      // Collision, checked per player so a 2P round can name a winner.
+      // A pillar marked safe does not kill: you land on it and can sit there,
+      // which is the point — it is somewhere to rest mid-level.
+      const resolve = (y, vy) => {
+        if (y - RY <= 0 || y + RY >= h) return { dead: true, y, vy }
+        for (const p of G40.pipes) {
+          const half = (p.gap != null ? p.gap : G40.gap) / 2
+          const inX  = ufoX + RX > p.x && ufoX - RX < p.x + G40_PIPE_W
+          if (!inX) continue
+          if (y + RY > p.cy + half) {           // came down onto the lower pillar
+            if (p.safe !== 'bottom') return { dead: true, y, vy }
+            return { dead: false, y: p.cy + half - RY, vy: 0, rest: true }
+          }
+          if (y - RY < p.cy - half) {           // went up into the upper pillar
+            if (p.safe !== 'top') return { dead: true, y, vy }
+            return { dead: false, y: p.cy - half + RY, vy: 0, rest: true }
+          }
+        }
+        return { dead: false, y, vy }
+      }
+      if (!G40.p1dead) {
+        const r = resolve(G40.y, G40.vy)
+        if (r.dead && G40.noclip) {
+          // Editor test play: show the hit, keep flying
+          G40.y = Math.max(RY + 2, Math.min(h - RY - 2, G40.y)); G40.vy = 0
+        } else if (r.dead) { G40.p1dead = true; if (!G40.multi) _g40Die() }
+        else { G40.y = r.y; G40.vy = r.vy }
+      }
+      if (G40.multi && !G40.p2dead) {
+        const r = resolve(G40.p2y, G40.p2vy)
+        if (r.dead) G40.p2dead = true
+        else { G40.p2y = r.y; G40.p2vy = r.vy }
+      }
+      // 2P is a race: the first to clip a pillar loses the round outright
+      if (G40.multi && (G40.p1dead || G40.p2dead)) {
+        G40.winner = G40.p1dead && G40.p2dead ? 0 : (G40.p1dead ? 2 : 1)
+        _g40Die()
+      }
+
+      if (G40.gauntlet && !G40.p1dead && G40.scrollX >= G40.clearAt) {
+        G40.phase = 'cleared'; G40.clearedT = 0
+        SFX.win()
+      }
+    }
+
+    if (G40.bot) {
+      G40.simAcc = (G40.simAcc || 0) + dt
+      let steps = 0
+      while (G40.simAcc >= G40_SIM_DT && steps < G40_MAX_STEPS && G40.phase === 'playing') {
+        G40.simAcc -= G40_SIM_DT
+        steps++
+        playStep(G40_SIM_DT)
+      }
+      if (steps >= G40_MAX_STEPS) G40.simAcc = 0
     } else {
-      // Endless: a passed pillar is a point, and the run tightens as you go
-      for (const p of G40.pipes) {
-        if (!p.passed && p.x + G40_PIPE_W < ufoX - RX) {
-          p.passed = true
-          G40.score++
-          window._g40Score = G40.score
-          document.getElementById('g40-score-hud').textContent = G40.score
-          G40.speed = G40_PIPE_SPD0 + G40.score * G40_ACCEL
-          G40.gap   = Math.max(95, G40_PIPE_GAP0 - G40.score * 2.2)
-        }
-      }
-      G40.pipes = G40.pipes.filter(p => p.x > -G40_PIPE_W - 20)
-      const last = G40.pipes[G40.pipes.length - 1]
-      if (!last || last.x < w - G40_PIPE_SEP) _g40Spawn(w + G40_PIPE_W, h)
-    }
-
-    // Collision, checked per player so a 2P round can name a winner.
-    // A pillar marked safe does not kill: you land on it and can sit there,
-    // which is the point — it is somewhere to rest mid-level.
-    const resolve = (y, vy) => {
-      if (y - RY <= 0 || y + RY >= h) return { dead: true, y, vy }
-      for (const p of G40.pipes) {
-        const half = (p.gap != null ? p.gap : G40.gap) / 2
-        const inX  = ufoX + RX > p.x && ufoX - RX < p.x + G40_PIPE_W
-        if (!inX) continue
-        if (y + RY > p.cy + half) {           // came down onto the lower pillar
-          if (p.safe !== 'bottom') return { dead: true, y, vy }
-          return { dead: false, y: p.cy + half - RY, vy: 0, rest: true }
-        }
-        if (y - RY < p.cy - half) {           // went up into the upper pillar
-          if (p.safe !== 'top') return { dead: true, y, vy }
-          return { dead: false, y: p.cy - half + RY, vy: 0, rest: true }
-        }
-      }
-      return { dead: false, y, vy }
-    }
-    if (!G40.p1dead) {
-      const r = resolve(G40.y, G40.vy)
-      if (r.dead && G40.noclip) {
-        // Editor test play: show the hit, keep flying
-        G40.y = Math.max(RY + 2, Math.min(h - RY - 2, G40.y)); G40.vy = 0
-      } else if (r.dead) { G40.p1dead = true; if (!G40.multi) _g40Die() }
-      else { G40.y = r.y; G40.vy = r.vy }
-    }
-    if (G40.multi && !G40.p2dead) {
-      const r = resolve(G40.p2y, G40.p2vy)
-      if (r.dead) G40.p2dead = true
-      else { G40.p2y = r.y; G40.p2vy = r.vy }
-    }
-    // 2P is a race: the first to clip a pillar loses the round outright
-    if (G40.multi && (G40.p1dead || G40.p2dead)) {
-      G40.winner = G40.p1dead && G40.p2dead ? 0 : (G40.p1dead ? 2 : 1)
-      _g40Die()
-    }
-
-    if (G40.gauntlet && !G40.p1dead && G40.scrollX >= G40.clearAt) {
-      G40.phase = 'cleared'; G40.clearedT = 0
-      SFX.win()
+      playStep(dt)
     }
 
   } else if (G40.phase === 'dead') {
@@ -573,3 +715,11 @@ function _g40DrawUFO(ctx, x, y, scale, tint) {
     ctx.fill(); ctx.shadowBlur = 0
   }
 }
+
+// evilbot: same line, most presses instead of fewest (practice only)
+const game40_evilbot = (typeof makeEvilbot === 'function')
+  ? makeEvilbot(() => cheatScreenActive('game40'), (on) => {
+      G40.evil = on
+      try { _g40BuildPracticeUI() } catch {}
+    })
+  : null

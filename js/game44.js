@@ -239,6 +239,7 @@ const SPD_cheat = (typeof makeCheat === 'function')
 const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
+  botMode:false, bot:null, evil:false,
   scrollX:0, speed:0,
   score:0,
   challenge:null, clearAt:0,
@@ -280,6 +281,16 @@ function _spdBuildPracticeUI() {
   tog.title = 'Either way, practice never counts towards the leaderboard'
   tog.addEventListener('click', () => spdToggleNoclip())
   el.appendChild(tog)
+
+  try { _SPD.botMode = localStorage.getItem('qg_bot_spd') === '1' } catch {}
+  const bot = document.createElement('button')
+  bot.className = 'pp-toggle' + (_SPD.botMode ? ' bot' : '')
+  bot.textContent = _SPD.botMode
+    ? (_SPD.evil ? '\ud83d\ude08 EVILBOT ON — the worst possible clear' : '\ud83e\udd16 Bot ON — watch the ideal line')
+    : '\ud83e\udd16 Bot OFF — you play'
+  bot.title = 'Flips at the columns the solver works out'
+  bot.addEventListener('click', () => spdToggleBot())
+  el.appendChild(bot)
 
   for (const key of ['easy','medium','hard','extreme']) {
     const arr = SPD_POOL[key] || []
@@ -363,6 +374,12 @@ function _spdStart(practice, practiceDiff, noclip) {
 window.startSpider = function() { _SPD.testLevel = null; _SPD.practiceLevel = null; _spdStart(false, null) }
 
 window.spdUseNoclip = true
+window.spdToggleBot = function() {
+  _SPD.botMode = !_SPD.botMode
+  try { localStorage.setItem('qg_bot_spd', _SPD.botMode ? '1' : '0') } catch {}
+  _spdBuildPracticeUI()
+}
+
 window.spdToggleNoclip = function() {
   window.spdUseNoclip = !window.spdUseNoclip
   // Save BEFORE rebuilding: the builder re-reads this key, so rebuilding
@@ -426,7 +443,19 @@ function _spdLoadChallenge() {
     attempts:   0,
     retrying:   false,
     retryT:     0,
+    bot:        null,
   })
+
+  // Bot line. The spider is only ever on the floor or the ceiling and a
+  // block kills only on its own surface, so the required surface at each
+  // block is forced — the plan is just the columns to flip at. Flips are
+  // keyed to scroll position, so frame timing cannot shift them.
+  if (_SPD.botMode && typeof lcSolveSpider === 'function') {
+    try {
+      const r = lcSolveSpider(data, !!_SPD.evil)
+      if (r.ok) _SPD.bot = { flips: r.flips, next: 0, taps: r.taps }
+    } catch (e) { console.warn('spider bot:', e) }
+  }
 }
 
 function _spdKeyDn(e) {
@@ -481,6 +510,15 @@ function _spdLoop(ts) {
 
   } else if (_SPD.phase === 'playing') {
     _SPD.scrollX += _SPD.speed * dt
+    // Autopilot: flip as the agreed columns go past. Position-based, so it
+    // plays the same at any refresh rate and through any stutter.
+    if (_SPD.bot) {
+      const b = _SPD.bot
+      while (b.next < b.flips.length && _SPD.scrollX >= b.flips[b.next]) {
+        b.next++
+        _spdDoFlip()
+      }
+    }
     const spY = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
 
     _SPD.trail.push({ worldX: _SPD.scrollX, y: spY })
@@ -738,3 +776,11 @@ function _spdDrawSpider(ctx, x, y, onFloor, col) {
 
   ctx.restore()
 }
+
+// evilbot: same line, most presses instead of fewest (practice only)
+const game44_evilbot = (typeof makeEvilbot === 'function')
+  ? makeEvilbot(() => cheatScreenActive('game44'), (on) => {
+      _SPD.evil = on
+      try { _spdBuildPracticeUI() } catch {}
+    })
+  : null

@@ -70,6 +70,33 @@ if (typeof document !== 'undefined') {
   })
 }
 
+// ── evilbot ───────────────────────────────────────────
+// Type it on a game's screen and the bot flips from "fewest presses" to
+// "most presses that still clear". Same solved line, wrung out: it is a
+// joke, not an advantage, and like every cheat it is practice-only.
+function makeEvilbot(isArmed, onToggle) {
+  const c = { buf:'', on:false, isArmed: isArmed || (() => false) }
+  const e = {
+    feed(ev, allowed) {
+      if (!allowed) return false
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return false
+      const k = (ev.key || '').length === 1 ? ev.key.toLowerCase() : ''
+      if (!k) return false
+      c.buf = (c.buf + k).slice(-7)
+      if (c.buf !== 'evilbot') return false
+      c.buf = ''
+      c.on = !c.on
+      if (onToggle) onToggle(c.on)
+      return 'unlock'
+    },
+    isArmed: c.isArmed,
+    get on() { return c.on },
+    reset() { c.buf = ''; c.on = false },
+  }
+  _CHEATS.push(e)
+  return e
+}
+
 // True when the given game <section> is on screen, or when a Test Play
 // host is up. editor.html and review.html run the real game inside their
 // own container rather than index.html's <section>, so without this the

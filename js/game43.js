@@ -523,7 +523,7 @@ const G43 = {
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
-  botMode:false, bot:null, botPending:false, simAcc:0,  // autopilot playing the solved ideal line
+  botMode:false, bot:null, botPending:false, simAcc:0, evil:false,  // autopilot playing the solved ideal line
   retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0,  // input count, measured as rising edges
   testLevel:null,
@@ -1020,7 +1020,7 @@ function _g43Loop(ts) {
     const solved = lcSolveLineSafe({
       speed: G43.challenge.speed, clearAt: G43.clearAt,
       keyframes: G43.keyframes.map(k => ({ at:k.at, cf:k.cf, gapHf:k.gapH / h })),
-    }, h, G43_SIM_DT)
+    }, h, G43_SIM_DT, !!G43.evil)
     if (solved.ok) {
       G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
     }
@@ -1588,3 +1588,11 @@ function _g43DrawWave(ctx, x, y, R, col, wvy) {
   ctx.shadowBlur = 0
   ctx.restore()
 }
+
+// evilbot: same line, most presses instead of fewest (practice only)
+const game43_evilbot = (typeof makeEvilbot === 'function')
+  ? makeEvilbot(() => cheatScreenActive('game43'), (on) => {
+      G43.evil = on
+      try { _g43BuildPracticeUI() } catch {}
+    })
+  : null
