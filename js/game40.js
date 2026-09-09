@@ -17,6 +17,7 @@ const G40_ACCEL     = 3.5
 // 144Hz screen cannot shift the plan out of step with the game.
 const G40_SIM_DT    = 1 / 240
 const G40_MAX_STEPS = 16
+const G40_RETRY_WAIT = 0.5   // beat to see the crash before it resets
 
 const G40 = {
   active:   false,
@@ -57,6 +58,9 @@ const G40 = {
   practice: false,
   practiceDiff: null,
   practiceLevel: null,
+  retrying: false,
+  retryT:   0,
+  attempts: 0,
 }
 
 
@@ -336,6 +340,9 @@ function _g40Begin(forceGauntlet) {
   G40.p2dead   = false
   G40.winner   = 0
   G40.scrollX  = 0
+  G40.retrying = false
+  G40.retryT   = 0
+  G40.attempts = 0
   document.getElementById('g40-score-hud').textContent = '0'
 
   if (G40.gauntlet) _g40LoadLevel(c.width, c.height)
@@ -409,6 +416,18 @@ function _g40Loop(ts) {
   for (const s of G40.stars) {
     s.x -= s.spd * dt
     if (s.x < 0) { s.x = w + 2; s.y = Math.random() * h }
+  }
+
+  if (G40.retrying) {
+    G40.retryT += dt
+    if (G40.retryT >= G40_RETRY_WAIT) {
+      G40.retrying = false
+      G40.retryT   = 0
+      _g40LoadLevel(w, h)
+    }
+    _g40Draw(c.getContext('2d'), w, h)
+    G40.raf = requestAnimationFrame(_g40Loop)
+    return
   }
 
   if (G40.phase === 'announce') {
@@ -548,6 +567,20 @@ function _g40Loop(ts) {
 
 function _g40Die() {
   if (G40.phase === 'dead') return
+  if (G40.retrying) return              // already mid-retry
+
+  // Practice and editor test play restart the same level straight away.
+  // Without this a crash in the editor just stopped, with nothing to click:
+  // the game-over card only exists on the main page, not in the test host.
+  if (G40.practice || G40.testLevel) {
+    G40.attempts = (G40.attempts || 0) + 1
+    G40.retrying = true
+    G40.retryT   = 0
+    G40.p1dead   = false
+    SFX.die()
+    return
+  }
+
   G40.phase = 'dead'
   G40.deadT = 0
   G40.vy    = G40_THRUST * 0.45
@@ -612,6 +645,17 @@ function _g40Draw(ctx, w, h) {
   ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 18
   ctx.fillText(G40.score, w / 2, 46)
   ctx.shadowBlur  = 0
+
+  // Practice HUD — attempts, and what the bot is doing
+  if (G40.practice || G40.testLevel) {
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 11px monospace'
+    ctx.fillStyle = _lt ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)'
+    ctx.fillText((G40.noclip ? 'PRACTICE \u00b7 NOCLIP' : 'PRACTICE') +
+                 (G40.attempts ? '   att ' + G40.attempts : '') +
+                 (G40.bot ? (G40.evil ? '   \ud83d\ude08 EVILBOT ' : '   \ud83e\udd16 BOT ') + G40.bot.taps + ' taps'
+                          : (G40.botMode ? '   \ud83e\udd16 NO BOT LINE HERE' : '')), w/2, 18)
+  }
 
   // Level announce
   if (G40.phase === 'announce' && G40.challenge) {
