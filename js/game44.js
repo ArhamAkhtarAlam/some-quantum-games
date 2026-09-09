@@ -570,12 +570,13 @@ function _spdDraw(ctx, w, h) {
     ctx.translate((Math.random()-0.5)*s, (Math.random()-0.5)*s)
   }
 
-  // Background
-  ctx.fillStyle = '#05010a'
+  // Background — read the theme directly; canvases get no CSS variables
+  const _lt = typeof qgLight === 'function' && qgLight()
+  ctx.fillStyle = _lt ? '#f3eef8' : '#05010a'
   ctx.fillRect(-12, -12, w+24, h+24)
 
   // Grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.018)'
+  ctx.strokeStyle = _lt ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.018)'
   ctx.lineWidth = 1
   for (let y = 0; y < h; y += 28) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()

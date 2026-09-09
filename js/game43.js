@@ -1362,12 +1362,15 @@ function _g43Draw(ctx, w, h) {
   const waveX   = Math.round(w * 0.22)
   const scrollI = Math.floor(G43.scrollX)
 
-  // Background
-  ctx.fillStyle = ch?.isDC ? '#0a0101' : '#01080a'
+  // Background. No CSS variable reaches a canvas, so the theme is read
+  // directly — otherwise a light page opened into a black arena.
+  const _lt = typeof qgLight === 'function' && qgLight()
+  ctx.fillStyle = _lt ? (ch?.isDC ? '#fff1f1' : '#eef6f8')
+                      : (ch?.isDC ? '#0a0101' : '#01080a')
   ctx.fillRect(-12, -12, w+24, h+24)
 
   // Faint grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.018)'
+  ctx.strokeStyle = _lt ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.018)'
   ctx.lineWidth   = 1
   for (let y = 0; y < h; y += 28) {
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke()
@@ -1467,7 +1470,8 @@ function _g43Draw(ctx, w, h) {
   // Score / mode indicator
   ctx.textAlign = 'center'
   if (G43.practice) {
-    ctx.font = 'bold 11px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.font = 'bold 11px monospace'
+    ctx.fillStyle = _lt ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)'
     ctx.fillText((G43.noclip ? 'PRACTICE · NOCLIP' : 'PRACTICE') +
                  (G43.practiceDiff ? ' — ' + G43.practiceDiff.toUpperCase() : '') +
                  (G43.attempts ? '   att ' + G43.attempts : '') +
@@ -1478,7 +1482,8 @@ function _g43Draw(ctx, w, h) {
       ctx.fillText(G43_cheat.label(), w/2, 32)
     }
   } else {
-    ctx.font = 'bold 26px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.font = 'bold 26px monospace'
+    ctx.fillStyle = _lt ? 'rgba(0,0,0,0.86)' : 'rgba(255,255,255,0.92)'
     ctx.shadowColor = mainCol; ctx.shadowBlur = 16
     ctx.fillText(G43.score, w/2, 42); ctx.shadowBlur = 0
     if (G43.multi) {
@@ -1492,7 +1497,7 @@ function _g43Draw(ctx, w, h) {
   if (G43.phase === 'announce' && ch) {
     const a = Math.min(1, G43.announceT * 7)
     ctx.globalAlpha = a
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
+    ctx.fillStyle = _lt ? 'rgba(255,255,255,0.62)' : 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
     ctx.textAlign = 'center'
     ctx.font = 'bold 12px monospace'
     ctx.fillStyle = mainCol; ctx.shadowColor = mainCol; ctx.shadowBlur = 12
@@ -1551,7 +1556,7 @@ function _g43Draw(ctx, w, h) {
 
   // ── Waiting overlay (online joiner before first challenge arrives) ──
   if (G43.phase === 'waiting') {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
+    ctx.fillStyle = _lt ? 'rgba(255,255,255,0.62)' : 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,w,h)
     ctx.textAlign = 'center'; ctx.font = 'bold 14px monospace'
     ctx.fillStyle = 'rgba(255,255,255,0.6)'
     ctx.fillText('Waiting for host…', w/2, h/2)

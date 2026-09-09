@@ -95,41 +95,53 @@
     }
   }
 
+  // The drag is tracked on the window, not on the flag. A flag's hit area is
+  // only about 30px wide, so listening on the element meant the drag died the
+  // moment the pointer left the triangle — and setPointerCapture fails
+  // silently on some inputs, so it could not be relied on to hold the stream.
+  let heldIdx = -1
+
+  function onMove(e) {
+    if (heldIdx < 0) return
+    const s = st[heldIdx], f = flags[heldIdx]
+    const prev = s.a, now = performance.now()
+    const gap = Math.max(8, now - (s.t || now))   // ms since the last move
+    s.a = Math.max(-MAX, Math.min(MAX, s.base + (e.clientX - s.grabX) * 0.55))
+    // real angular speed, so a flick throws harder than a slow drag
+    s.v = Math.max(-VMAX, Math.min(VMAX, (s.a - prev) / (gap / 1000)))
+    s.t = now
+    f.style.transform = `rotate(${s.a.toFixed(2)}deg)`
+  }
+  function onUp() {
+    if (heldIdx < 0) return
+    const i = heldIdx, s = st[i]
+    heldIdx = -1
+    s.held = false
+    flags[i].classList.remove('grabbed')
+    // A tap with no drag still gets a flick, so clicking does something
+    if (Math.abs(s.a) < 1 && Math.abs(s.v) < 1) s.v = 210
+    nudge(i, s.v)
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onUp)
+    kick()
+  }
+
   flags.forEach((f, i) => {
     f.addEventListener('pointerdown', e => {
       e.preventDefault()
+      onUp()                       // drop any flag still held
       const s = st[i]
-      s.held = true
+      heldIdx = i
+      s.held  = true
       s.grabX = e.clientX
       s.base  = s.a
       s.t     = performance.now()
       f.classList.add('grabbed', 'swinging')
-      try { f.setPointerCapture(e.pointerId) } catch {}
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointercancel', onUp)
       kick()
     })
-    f.addEventListener('pointermove', e => {
-      const s = st[i]
-      if (!s.held) return
-      const prev = s.a, now = performance.now()
-      const gap = Math.max(8, now - (s.t || now))   // ms since the last move
-      s.a = Math.max(-MAX, Math.min(MAX, s.base + (e.clientX - s.grabX) * 0.55))
-      // real angular speed, so a flick throws harder than a slow drag
-      s.v = Math.max(-VMAX, Math.min(VMAX, (s.a - prev) / (gap / 1000)))
-      s.t = now
-      f.style.transform = `rotate(${s.a.toFixed(2)}deg)`
-    })
-    const release = e => {
-      const s = st[i]
-      if (!s.held) return
-      s.held = false
-      f.classList.remove('grabbed')
-      // A click with no drag still gets a flick, so tapping does something
-      if (Math.abs(s.a) < 1 && Math.abs(s.v) < 1) s.v = 210
-      nudge(i, s.v)
-      try { f.releasePointerCapture(e.pointerId) } catch {}
-      kick()
-    }
-    f.addEventListener('pointerup', release)
-    f.addEventListener('pointercancel', release)
   })
 })()

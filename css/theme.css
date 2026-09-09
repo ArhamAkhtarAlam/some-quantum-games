@@ -113,3 +113,30 @@
 :root[data-theme="light"] .medal-coauthor {
   background: rgba(180,83,9,.14); color: #92400e; border-color: rgba(180,83,9,.45);
 }
+
+/* ── Game screens ───────────────────────────────────── */
+/* The dark panel around a game is CSS, not canvas: the arena paints a
+   hardcoded near-black gradient and the start screen lays a 70% black
+   scrim over it. Both ignore the palette, so a light page still opened
+   into a black box with barely-readable text. */
+:root[data-theme="light"] .canvas-arena,
+:root[data-theme="light"] #game2 .arena,
+:root[data-theme="light"] #game4 .arena,
+:root[data-theme="light"] #game3 .arena.state-wait,
+:root[data-theme="light"] #game3 .arena.state-result {
+  background: radial-gradient(ellipse at center, #ffffff 0%, #eef1f8 100%);
+}
+:root[data-theme="light"] .canvas-overlay {
+  background: rgba(255,255,255,.86);
+}
+:root[data-theme="light"] .game-over-overlay {
+  background: rgba(240,242,248,.86);
+}
+/* Reaction test keeps its signal colours — only the neutral states change */
+:root[data-theme="light"] #game3 .arena.state-early {
+  background: radial-gradient(ellipse at center, #fecaca, #fee2e2);
+}
+
+/* Chrome around the arena */
+:root[data-theme="light"] .game-title { color: var(--text) }
+:root[data-theme="light"] .canvas-overlay h3 { color: var(--text) }

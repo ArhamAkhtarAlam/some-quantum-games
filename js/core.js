@@ -203,7 +203,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=2'
+    link.href = QG_ROOT + 'css/stall.css?v=3'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
@@ -234,7 +234,7 @@ function qgApplyStall() {
   if (!document.getElementById('stall-js')) {
     const s = document.createElement('script')
     s.id = 'stall-js'
-    s.src = QG_ROOT + 'js/stall.js?v=1'
+    s.src = QG_ROOT + 'js/stall.js?v=2'
     document.body.appendChild(s)
   }
 
@@ -284,6 +284,14 @@ function qgSetTheme(mode) {
     b.setAttribute('aria-label', b.title)
   }
 }
+// Games draw to canvas, where no CSS variable reaches, so their draw code
+// asks this directly. Safe to call from pages that never load a theme.
+function qgLight() {
+  return typeof document !== 'undefined' &&
+         document.documentElement.getAttribute('data-theme') === 'light'
+}
+window.qgLight = qgLight
+
 function qgToggleTheme() {
   const now = document.documentElement.getAttribute('data-theme')
   qgSetTheme(now === 'light' ? 'dark' : 'light')
@@ -296,7 +304,7 @@ function qgApplyTheme() {
     const link = document.createElement('link')
     link.id = 'qg-theme-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/theme.css?v=1'
+    link.href = QG_ROOT + 'css/theme.css?v=2'
     document.head.appendChild(link)
   }
   if (!document.getElementById('qg-theme-btn')) {

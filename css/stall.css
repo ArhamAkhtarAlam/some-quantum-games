@@ -170,6 +170,22 @@ body.stall-mode {
 }
 
 /* ── Interactive decorations ────────────────────────── */
+/* A 9px bulb and a 30px flag are far too small to hit reliably, especially
+   on a touchscreen. These invisible pads enlarge the hit area to a sane
+   target without changing how anything looks. */
+.stall-lights i { position: relative }
+.stall-lights i::after {
+  content: ''; position: absolute; inset: -11px; border-radius: 50%;
+}
+.stall-bunting i { position: relative }
+/* The flag is a CSS triangle: width/height are 0 and the shape is all
+   border, so the pad's containing block sits at the inside corner of those
+   borders (15px across, 26px down). These offsets put the pad back over
+   the triangle rather than below it. */
+.stall-bunting i::after {
+  content: ''; position: absolute;
+  left: -18px; right: -18px; top: -32px; bottom: -6px;
+}
 /* While JS is driving a flag it owns the transform, so the idle CSS sway
    has to stand down; it resumes once the flag settles. */
 .stall-bunting i.swinging { animation: none !important }

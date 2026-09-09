@@ -365,8 +365,9 @@ function _g40Draw(ctx, w, h) {
   ctx.save()
   ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'
 
-  // Background
-  ctx.fillStyle = '#030710'
+  // Background — read the theme directly; canvases get no CSS variables
+  const _lt = typeof qgLight === 'function' && qgLight()
+  ctx.fillStyle = _lt ? '#eef2fb' : '#030710'
   ctx.fillRect(0, 0, w, h)
 
   // Nebula glow
@@ -380,7 +381,7 @@ function _g40Draw(ctx, w, h) {
   for (const s of G40.stars) {
     ctx.globalAlpha = s.a
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
-    ctx.fillStyle = '#ffffff'; ctx.fill()
+    ctx.fillStyle = _lt ? '#8a93b5' : '#ffffff'; ctx.fill()
   }
   ctx.globalAlpha = 1
 
