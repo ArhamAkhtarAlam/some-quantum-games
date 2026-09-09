@@ -240,6 +240,7 @@ const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
   botMode:false, bot:null, evil:false,
+  paused:false, taps:0,
   scrollX:0, speed:0,
   score:0,
   challenge:null, clearAt:0,
@@ -436,6 +437,8 @@ function _spdLoadChallenge() {
     deco:       data.deco || [],
     scrollX:    0,
     trail:      [],
+    fullTrail:  [],
+    taps:       0,
     threads:    [],
     onFloor:    true,
     phase:      'announce',
@@ -466,6 +469,7 @@ function _spdInput(e) { e.preventDefault(); _spdDoFlip() }
 
 function _spdDoFlip() {
   if (!_SPD.active || _SPD.phase !== 'playing') return
+  _SPD.taps = (_SPD.taps || 0) + 1
   const h     = _spdC().height
   const fromY = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
   _SPD.onFloor = !_SPD.onFloor
@@ -479,6 +483,13 @@ function _spdDoFlip() {
 
 function _spdLoop(ts) {
   if (!_SPD.active) return
+  // A clear card is up: hold the level where it is rather than running the
+  // next one behind the picture
+  if (_SPD.paused) {
+    _SPD.lastTime = ts
+    _SPD.raf = requestAnimationFrame(_spdLoop)
+    return
+  }
   let dt = Math.min((ts - _SPD.lastTime) / 1000, 0.05)
   _SPD.lastTime = ts
   // Time dilation, so scroll and flip speed scale together
@@ -524,6 +535,11 @@ function _spdLoop(ts) {
 
     _SPD.trail.push({ worldX: _SPD.scrollX, y: spY })
     if (_SPD.trail.length > 40) _SPD.trail.shift()
+    // Practice keeps the whole path so a clear can be drawn as one picture
+    if (_SPD.practice) {
+      const ft = _SPD.fullTrail
+      if (!ft.length || _SPD.scrollX - ft[ft.length-1].sx >= 2) ft.push({ sx:_SPD.scrollX, y:spY })
+    }
 
     for (const t of _SPD.threads) t.age += dt
     _SPD.threads = _SPD.threads.filter(t => t.age < 2)
@@ -544,6 +560,7 @@ function _spdLoop(ts) {
 
     if (_SPD.scrollX >= _SPD.clearAt) {
       _SPD.phase = 'cleared'; _SPD.clearedT = 0
+      if (_SPD.practice) _spdTrailCard()
       if (!_SPD.practice) {
         _SPD.score++
         window._spdScore = _SPD.score
@@ -806,4 +823,88 @@ function _spdDrawFinish(ctx, x, h, cell) {
   ctx.beginPath(); ctx.moveTo(x - 1, 0); ctx.lineTo(x - 1, h); ctx.stroke()
   ctx.beginPath(); ctx.moveTo(x + cols * c + 1, 0); ctx.lineTo(x + cols * c + 1, h); ctx.stroke()
   ctx.restore()
+}
+
+
+// ── Clear card ────────────────────────────────────────
+// The picture of a cleared run, same idea as Wave Gauntlet's: the whole
+// level laid out flat with the line you actually took drawn over it.
+function _spdTrailCard() {
+  const src = _spdC()
+  if (!src || _SPD.fullTrail.length < 2) return
+  const H = src.height
+  const cols = Math.max(1, _SPD.clearAt)
+  const W = Math.round(Math.min(2400, Math.max(900, cols)))
+  const sx = W / cols
+  const top = 46
+  const cv = document.createElement('canvas')
+  cv.width = W; cv.height = H + top
+  const g = cv.getContext('2d')
+  const col = SPD_DIFF_COL[_SPD.challenge.diff] || '#a855f7'
+  const oh = Math.round(H * 0.44)
+
+  g.fillStyle = '#05010a'; g.fillRect(0, 0, W, H + top)
+  g.fillStyle = '#150020'
+  g.fillRect(0, top, W, 4); g.fillRect(0, top + H - 4, W, 4)
+
+  for (const o of _SPD.obstacles) {
+    const x = o.col * sx
+    const bw = Math.max(3, SPD_OBW * sx)
+    const y = top + (o.floor ? H - oh : 0)
+    g.fillStyle = '#1e0030'; g.fillRect(x - bw/2, y, bw, oh)
+    g.strokeStyle = col; g.lineWidth = 1.4
+    const edgeY = top + (o.floor ? H - oh : oh)
+    g.beginPath(); g.moveTo(x - bw/2, edgeY); g.lineTo(x + bw/2, edgeY); g.stroke()
+  }
+
+  const pts = _SPD.fullTrail.map(p => ({ x: p.sx * sx, y: top + p.y }))
+  const stroke = () => {
+    g.beginPath(); g.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+    g.stroke()
+  }
+  g.lineJoin = 'round'; g.lineCap = 'round'
+  g.shadowColor = '#4ade80'; g.shadowBlur = 12
+  g.strokeStyle = 'rgba(74,222,128,0.30)'; g.lineWidth = 6; stroke()
+  g.shadowBlur = 7
+  g.strokeStyle = '#4ade80'; g.lineWidth = 2; stroke()
+  g.shadowBlur = 0
+
+  g.textAlign = 'left'
+  g.font = 'bold 20px monospace'; g.fillStyle = '#fff'
+  g.fillText(_SPD.challenge.name, 16, 30)
+  g.font = '12px monospace'; g.fillStyle = col
+  g.fillText((_SPD.challenge.diff || '').toUpperCase(),
+             18 + g.measureText(_SPD.challenge.name).width + 90, 30)
+  g.textAlign = 'right'
+  g.fillStyle = 'rgba(255,255,255,0.45)'; g.font = '12px monospace'
+  const att = _SPD.attempts ? `${_SPD.attempts + 1} attempts` : 'first try'
+  const secs = _SPD.clearAt / _SPD.speed
+  g.fillText(`${_SPD.taps || 0} flips  ·  ${att}  ·  ${secs.toFixed(1)}s  ·  Spider`, W - 16, 30)
+
+  const wrap = document.getElementById('spd-card')
+  const img  = document.getElementById('spd-card-img')
+  if (!wrap || !img) return
+  try { img.src = cv.toDataURL('image/png') } catch { return }
+  wrap.dataset.name = (_SPD.challenge.name || 'run').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  wrap.style.display = 'flex'
+  _SPD.paused = true
+}
+
+window.spdCloseCard = function() {
+  const wrap = document.getElementById('spd-card')
+  if (wrap) wrap.style.display = 'none'
+  if (!_SPD.active || !_SPD.paused) return
+  _SPD.paused = false
+  _SPD.lastTime = performance.now()
+  _spdLoadChallenge()
+}
+window.spdSaveCard = function() {
+  const img  = document.getElementById('spd-card-img')
+  const wrap = document.getElementById('spd-card')
+  if (!img || !img.src) return
+  const a = document.createElement('a')
+  a.href = img.src
+  a.download = (wrap.dataset.name || 'run') + '-clear.png'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
 }

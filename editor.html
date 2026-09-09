@@ -139,6 +139,35 @@
     <span class="game-title" id="ed-test-title"></span>
     <span class="score-badge">Clears <span id="g43-score-hud">0</span><span id="spd-score-hud" style="display:none"></span><span id="g40-score-hud" style="display:none"></span></span>
   </div>
+  <!-- Clear cards: the games draw into these, so a level cleared in test
+       play produces the same picture it would on the main site. -->
+  <div id="g43-card" class="trail-card">
+    <div class="trail-card-inner">
+      <img id="g43-card-img" alt="Your run through the level">
+      <div class="trail-card-row">
+        <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;" onclick="g43SaveCard()">⬇ Save picture</button>
+        <button class="btn-primary ghost" onclick="g43CloseCard()">▶ Go again</button>
+      </div>
+    </div>
+  </div>
+  <div id="spd-card" class="trail-card">
+    <div class="trail-card-inner">
+      <img id="spd-card-img" alt="Your run through the level">
+      <div class="trail-card-row">
+        <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;color:#12021f;" onclick="spdSaveCard()">⬇ Save picture</button>
+        <button class="btn-primary ghost" onclick="spdCloseCard()">▶ Go again</button>
+      </div>
+    </div>
+  </div>
+  <div id="g40-card" class="trail-card">
+    <div class="trail-card-inner">
+      <img id="g40-card-img" alt="Your run through the level">
+      <div class="trail-card-row">
+        <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;color:#12021f;" onclick="g40SaveCard()">⬇ Save picture</button>
+        <button class="btn-primary ghost" onclick="g40CloseCard()">▶ Go again</button>
+      </div>
+    </div>
+  </div>
   <div class="canvas-arena" id="ed-test-arena">
     <canvas id="g43-canvas"></canvas>
     <canvas id="spd-canvas" style="display:none"></canvas>
@@ -168,7 +197,7 @@
 <script src="js/cheats.js"></script>
 <script src="js/levelcheck.js?v=8"></script>
 <script src="js/game43.js?v=30"></script>
-<script src="js/game40.js?v=8"></script>
+<script src="js/game40.js?v=9"></script>
 <script src="js/game44.js"></script>
 <script src="js/editor.js?v=3"></script>
 

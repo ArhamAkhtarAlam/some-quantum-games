@@ -61,6 +61,9 @@ const G40 = {
   retrying: false,
   retryT:   0,
   attempts: 0,
+  paused:   false,
+  fullTrail: [],
+  taps:     0,
 }
 
 
@@ -174,6 +177,8 @@ function _g40LoadLevel(w, h) {
 
   G40.bot = null
   G40.simAcc = 0
+  G40.fullTrail = []
+  G40.taps = 0
   if (G40.botMode && !G40.multi && typeof lcSolveUFO === 'function') {
     try {
       const r = lcSolveUFO({ speed: tmpl.speed, clearAt: tmpl.clearAt,
@@ -383,6 +388,7 @@ function _g40DoThrust2() {
 function _g40Thrust(e) { e.preventDefault(); _g40DoThrust() }
 function _g40DoThrust() {
   if (G40.phase !== 'playing' || G40.p1dead) return
+  G40.taps = (G40.taps || 0) + 1
   G40.vy = G40_THRUST * (G40.gauntlet ? _g40C().height / 560 : 1)
   SFX.click()
 }
@@ -396,6 +402,12 @@ function _g40Spawn(x, h) {
 
 function _g40Loop(ts) {
   if (!G40.active) return
+  // Hold the level still behind a clear card rather than running the next one
+  if (G40.paused) {
+    G40.lastTime = ts
+    G40.raf = requestAnimationFrame(_g40Loop)
+    return
+  }
   const dt = Math.min((ts - G40.lastTime) / 1000, 0.05)
   G40.lastTime = ts
 
@@ -450,7 +462,10 @@ function _g40Loop(ts) {
     const playStep = (sdt) => {
       // Autopilot presses on the steps the plan says to
       if (G40.bot && G40.bot.i < G40.bot.flaps.length) {
-        if (G40.bot.flaps[G40.bot.i]) G40.vy = G40_THRUST * (G40.gauntlet ? h / 560 : 1)
+        if (G40.bot.flaps[G40.bot.i]) {
+          G40.vy = G40_THRUST * (G40.gauntlet ? h / 560 : 1)
+          G40.taps = (G40.taps || 0) + 1
+        }
         G40.bot.i++
       }
       if (!G40.p1dead) { G40.vy += GRAV * sdt; G40.y += G40.vy * sdt }
@@ -460,6 +475,11 @@ function _g40Loop(ts) {
 
       if (G40.gauntlet) {
         G40.scrollX += spd * sdt
+        // Practice keeps the whole path so a clear can be drawn as one picture
+        if (G40.practice || G40.testLevel) {
+          const ft = G40.fullTrail
+          if (!ft.length || G40.scrollX - ft[ft.length-1].sx >= 2) ft.push({ sx:G40.scrollX, y:G40.y })
+        }
       } else {
         // Endless: a passed pillar is a point, and the run tightens as you go
         for (const p of G40.pipes) {
@@ -518,6 +538,7 @@ function _g40Loop(ts) {
 
       if (G40.gauntlet && !G40.p1dead && G40.scrollX >= G40.clearAt) {
         G40.phase = 'cleared'; G40.clearedT = 0
+        if (G40.practice || G40.testLevel) _g40TrailCard()
         SFX.win()
       }
     }
@@ -796,4 +817,94 @@ function _g40DrawFinish(ctx, x, h, cell) {
   ctx.beginPath(); ctx.moveTo(x - 1, 0); ctx.lineTo(x - 1, h); ctx.stroke()
   ctx.beginPath(); ctx.moveTo(x + cols * c + 1, 0); ctx.lineTo(x + cols * c + 1, h); ctx.stroke()
   ctx.restore()
+}
+
+
+// ── Clear card ────────────────────────────────────────
+// The level laid out flat with the line you flew drawn over it, same idea
+// as Wave Gauntlet's. Landable pillars are drawn green here too, so the
+// picture shows which ones you were allowed to sit on.
+function _g40TrailCard() {
+  const src = _g40C()
+  if (!src || G40.fullTrail.length < 2) return
+  const H = src.height
+  const cols = Math.max(1, G40.clearAt)
+  const W = Math.round(Math.min(2400, Math.max(900, cols)))
+  const sx = W / cols
+  const top = 46
+  const cv = document.createElement('canvas')
+  cv.width = W; cv.height = H + top
+  const g = cv.getContext('2d')
+  const ch = G40.challenge || { name:'LEVEL', diff:'easy' }
+  const col = (typeof G40_DIFF_COL !== 'undefined' && G40_DIFF_COL[ch.diff]) || '#a855f7'
+
+  g.fillStyle = '#030710'; g.fillRect(0, 0, W, H + top)
+
+  const PW = Math.max(3, G40_PIPE_W * sx)
+  for (const p of G40.pipes) {
+    // p.x has already scrolled, so recover the authored column
+    const at = p.x + G40.scrollX - src.width * 0.20
+    const x = at * sx
+    const half = (p.gap != null ? p.gap : G40.gap) / 2
+    const safeTop = p.safe === 'top', safeBot = p.safe === 'bottom'
+    g.fillStyle = safeTop ? 'rgba(34,197,94,0.30)' : 'rgba(168,85,247,0.22)'
+    g.fillRect(x - PW/2, top, PW, Math.max(0, p.cy - half))
+    g.fillStyle = safeBot ? 'rgba(34,197,94,0.30)' : 'rgba(168,85,247,0.22)'
+    g.fillRect(x - PW/2, top + p.cy + half, PW, Math.max(0, H - (p.cy + half)))
+    g.strokeStyle = safeTop ? '#22c55e' : col; g.lineWidth = 1.4
+    g.beginPath(); g.moveTo(x - PW/2, top + p.cy - half); g.lineTo(x + PW/2, top + p.cy - half); g.stroke()
+    g.strokeStyle = safeBot ? '#22c55e' : col
+    g.beginPath(); g.moveTo(x - PW/2, top + p.cy + half); g.lineTo(x + PW/2, top + p.cy + half); g.stroke()
+  }
+
+  const pts = G40.fullTrail.map(p => ({ x: p.sx * sx, y: top + p.y }))
+  const stroke = () => {
+    g.beginPath(); g.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y)
+    g.stroke()
+  }
+  g.lineJoin = 'round'; g.lineCap = 'round'
+  g.shadowColor = '#22d3ee'; g.shadowBlur = 12
+  g.strokeStyle = 'rgba(34,211,238,0.30)'; g.lineWidth = 6; stroke()
+  g.shadowBlur = 7
+  g.strokeStyle = '#22d3ee'; g.lineWidth = 2; stroke()
+  g.shadowBlur = 0
+
+  g.textAlign = 'left'
+  g.font = 'bold 20px monospace'; g.fillStyle = '#fff'
+  g.fillText(ch.name, 16, 30)
+  g.font = '12px monospace'; g.fillStyle = col
+  g.fillText((ch.diff || '').toUpperCase(), 18 + g.measureText(ch.name).width + 90, 30)
+  g.textAlign = 'right'
+  g.fillStyle = 'rgba(255,255,255,0.45)'; g.font = '12px monospace'
+  const att = G40.attempts ? (G40.attempts + 1) + ' attempts' : 'first try'
+  const secs = G40.clearAt / (G40.speed || 160)
+  g.fillText((G40.taps || 0) + ' taps  \u00b7  ' + att + '  \u00b7  ' + secs.toFixed(1) + 's  \u00b7  UFO Flap', W - 16, 30)
+
+  const wrap = document.getElementById('g40-card')
+  const img  = document.getElementById('g40-card-img')
+  if (!wrap || !img) return
+  try { img.src = cv.toDataURL('image/png') } catch { return }
+  wrap.dataset.name = (ch.name || 'run').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  wrap.style.display = 'flex'
+  G40.paused = true
+}
+
+window.g40CloseCard = function() {
+  const wrap = document.getElementById('g40-card')
+  if (wrap) wrap.style.display = 'none'
+  if (!G40.active || !G40.paused) return
+  G40.paused = false
+  G40.lastTime = performance.now()
+  const c = _g40C()
+  _g40LoadLevel(c.width, c.height)
+}
+window.g40SaveCard = function() {
+  const img  = document.getElementById('g40-card-img')
+  const wrap = document.getElementById('g40-card')
+  if (!img || !img.src) return
+  const a = document.createElement('a')
+  a.href = img.src
+  a.download = (wrap.dataset.name || 'run') + '-clear.png'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
 }
