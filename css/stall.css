@@ -46,6 +46,9 @@ body.stall-mode {
   padding: 0 10px;
 }
 .stall-lights i {
+  /* Only the bulbs take clicks — the strip spans the whole width and would
+     otherwise swallow anything underneath it. */
+  pointer-events: auto; cursor: pointer;
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--fair-gold);
   box-shadow: 0 0 10px 2px rgba(255,194,60,.85);
@@ -53,6 +56,13 @@ body.stall-mode {
 }
 .stall-lights i:nth-child(3n+1) { background:#ff6b8a; box-shadow:0 0 10px 2px rgba(255,107,138,.8); animation-delay:.35s }
 .stall-lights i:nth-child(3n+2) { background:#6ee7f0; box-shadow:0 0 10px 2px rgba(110,231,240,.8); animation-delay:.75s }
+/* Clicking a bulb pops it and rolls it to the next colour */
+@keyframes stall-pop {
+  0%   { transform: scale(1) }
+  35%  { transform: scale(2.1) }
+  70%  { transform: scale(.78) }
+  100% { transform: scale(1) }
+}
 @keyframes stall-twinkle {
   0%, 100% { opacity: 1;   transform: scale(1) }
   50%      { opacity: .45; transform: scale(.82) }
@@ -72,6 +82,8 @@ body.stall-mode {
   border-radius: 2px;
 }
 .stall-bunting i {
+  pointer-events: auto; cursor: grab;
+  touch-action: none;          /* so a drag on a phone swings, not scrolls */
   width: 0; height: 0;
   border-left: 15px solid transparent;
   border-right: 15px solid transparent;
@@ -137,6 +149,10 @@ body.stall-mode {
 .stall-mode .card-title { color: #fff6df; letter-spacing: .3px }
 .stall-mode .card-desc  { color: #d9bfa4 }
 
+/* The auth button outranks the canopy on z-index, so without this it sits
+   on top of the stripes. Drop it below the scalloped hem. */
+.stall-mode .auth-header-wrap { top: 80px }
+
 /* ── Chrome that a walk-up player does not need ─────── */
 .stall-mode #beta-banner { display: none !important }
 
@@ -152,3 +168,9 @@ body.stall-mode {
   .stall-lights { top: 50px }
   .stall-bunting i { border-left-width: 11px; border-right-width: 11px; border-top-width: 19px }
 }
+
+/* ── Interactive decorations ────────────────────────── */
+/* While JS is driving a flag it owns the transform, so the idle CSS sway
+   has to stand down; it resumes once the flag settles. */
+.stall-bunting i.swinging { animation: none !important }
+.stall-bunting i.grabbed  { cursor: grabbing }

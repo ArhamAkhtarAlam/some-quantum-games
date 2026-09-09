@@ -203,7 +203,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=1'
+    link.href = QG_ROOT + 'css/stall.css?v=2'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
@@ -226,6 +226,16 @@ function qgApplyStall() {
     header.insertBefore(kicker, header.firstChild)
     const bunting = deco('stall-bunting', 15)
     if (bunting) header.parentNode.insertBefore(bunting, header.nextSibling)
+  }
+
+  // Make the decorations interactive: bulbs pop and recolour, bunting can be
+  // dragged and swings back. Loaded last so every element it binds to exists,
+  // and only here so nowhere else pays for it.
+  if (!document.getElementById('stall-js')) {
+    const s = document.createElement('script')
+    s.id = 'stall-js'
+    s.src = QG_ROOT + 'js/stall.js?v=1'
+    document.body.appendChild(s)
   }
 
   document.querySelectorAll('.game-card').forEach(card => {
