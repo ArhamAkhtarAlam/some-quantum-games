@@ -813,7 +813,7 @@ function _g43ApplyNetChallenge(data, h) {
 // the count at the refresh rate — 30/s on a 60Hz screen — and made the
 // same mashing score differently on different monitors.
 function _g43Hold() {
-  if (!G43.holding && G43.practice) G43.taps++
+  if (!G43.holding) { if (G43.practice) G43.taps++; SFX.tap() }
   G43.holding = true
 }
 
@@ -1037,7 +1037,9 @@ function _g43Loop(ts) {
                        Math.max(0, Math.round(G43.scrollX / step)))
     G43.bot.idx = i
     // hold sends the wave up, release sends it down
-    G43.holding = G43.wy > G43.bot.ys[i]
+    const want = G43.wy > G43.bot.ys[i]
+    if (want && !G43.holding) SFX.tap()   // the bot's presses are audible too
+    G43.holding = want
   }
 
   const waveStep = (doClamp, sdt = dt) => {

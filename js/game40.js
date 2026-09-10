@@ -383,14 +383,14 @@ function _g40Key(e) {
 function _g40DoThrust2() {
   if (G40.phase !== 'playing' || G40.p2dead) return
   G40.p2vy = G40_THRUST * (G40.gauntlet ? _g40C().height / 560 : 1)
-  SFX.click()
+  SFX.tap()
 }
 function _g40Thrust(e) { e.preventDefault(); _g40DoThrust() }
 function _g40DoThrust() {
   if (G40.phase !== 'playing' || G40.p1dead) return
   G40.taps = (G40.taps || 0) + 1
   G40.vy = G40_THRUST * (G40.gauntlet ? _g40C().height / 560 : 1)
-  SFX.click()
+  SFX.tap()
 }
 
 function _g40Spawn(x, h) {
@@ -465,6 +465,7 @@ function _g40Loop(ts) {
         if (G40.bot.flaps[G40.bot.i]) {
           G40.vy = G40_THRUST * (G40.gauntlet ? h / 560 : 1)
           G40.taps = (G40.taps || 0) + 1
+          SFX.tap()
         }
         G40.bot.i++
       }

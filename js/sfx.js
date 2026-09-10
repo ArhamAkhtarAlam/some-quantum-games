@@ -27,6 +27,8 @@ const SFX = (() => {
   }
 
   // ── primitive builders ──────────────────────────────
+  let _lastTap = -1e9
+
   function tone(freq, type, dur, vol, freqEnd, when) {
     try {
       const ac = ctx(); resume()
@@ -109,6 +111,17 @@ const SFX = (() => {
 
     // UI button click
     click() { tone(600, 'sine', 0.04, 0.12, 700) },
+
+    // A tap in a game — quieter and shorter than the UI click, because it
+    // fires on every press. Rate-limited: evilbot presses up to 120 times a
+    // second, and one oscillator per press is both a buzz and a lot of nodes.
+    // Named tap() rather than tick(), which is already the soft hover sound.
+    tap() {
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+      if (now - _lastTap < 45) return
+      _lastTap = now
+      tone(760, 'sine', 0.025, 0.055, 900)
+    },
 
     // electric / zap
     zap() {

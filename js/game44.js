@@ -476,7 +476,7 @@ function _spdDoFlip() {
   const toY   = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
   _SPD.threads.push({ worldX: _SPD.scrollX, y1: fromY, y2: toY, age: 0 })
   if (_SPD.threads.length > 10) _SPD.threads.shift()
-  SFX.click()
+  SFX.tap()
 }
 
 // ── Game loop ─────────────────────────────────────────
