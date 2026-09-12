@@ -675,11 +675,16 @@ window.edDelete = function() {
 
 // Test Play runs the REAL game against a hidden host that carries the
 // canvas ids game43/game44 expect. Same physics as the live site.
+function _edSyncNoclipBtn() {
+  const b = document.getElementById('ed-noclip-btn')
+  if (b) b.textContent = (ED.testNoclip !== false) ? '🛡 noclip' : '💀 walls kill'
+}
+if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', _edSyncNoclipBtn)
+
 window.edToggleTestNoclip = function() {
   ED.testNoclip = ED.testNoclip === false
   _edSetMsg(ED.testNoclip ? 'Test Play: noclip on.' : 'Test Play: walls kill.')
-  const b = document.getElementById('ed-noclip-btn')
-  if (b) b.textContent = ED.testNoclip ? '🛡 noclip' : '💀 walls kill'
+  _edSyncNoclipBtn()
 }
 
 // Watch the solver's ideal line instead of playing it yourself
@@ -690,8 +695,12 @@ window.edBotPlay = function() {
     const r = lcReport(lv)
     if (!r.clearable) { _edSetMsg("\u26a0 Nothing to show \u2014 this level can't be cleared."); return }
   }
-  ED.testNoclip = false          // the ideal line shouldn't need noclip
-  edTestPlay(true)
+  // The ideal line shouldn't need noclip, but this must not change the
+  // setting your own Test Play uses. It used to assign ED.testNoclip = false
+  // and leave it there, so after one Bot run every manual run had walls
+  // killing while the button still read "noclip" — flying high then looked
+  // like a crash. Pass it for this run only instead.
+  edTestPlay(true, false)
 }
 
 // evilbot is a hidden code in the games, but in here it is a plain option:
@@ -719,7 +728,7 @@ window.edToggleEvil = function() {
     : 'Bot run will take the fewest presses.')
 }
 
-window.edTestPlay = async function(bot) {
+window.edTestPlay = async function(bot, noclipOverride) {
   const lv = _edCur(); if (!lv) return
   const built = _edBuildRuntime(lv)
   const wave  = ED.game === 'wavegauntlet'
@@ -741,7 +750,7 @@ window.edTestPlay = async function(bot) {
   try { if (typeof _SPD !== 'undefined') _SPD.evil = evil } catch {}
 
   try {
-    const clip = ED.testNoclip !== false
+    const clip = noclipOverride === undefined ? ED.testNoclip !== false : !!noclipOverride
     if (wave)      { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
     else if (ufo)  { await initGame40(); window.g40TestLevel(built, clip, !!bot) }
     else           { await initSpider(); window.spdTestLevel(built, clip, !!bot) }
