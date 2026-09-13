@@ -1091,7 +1091,13 @@ function _g43Loop(ts) {
 
     if (hit || hit2) {
       if (G43.noclip) {
-        if (G43.hitFlash <= 0) { G43.hitFlash = 0.22; SFX.die() }
+        if (G43.hitFlash <= 0) {
+          G43.hitFlash = 0.22
+          // A bump, not a death. This used to play the death sound and
+          // flash red, which is indistinguishable from actually dying —
+          // so noclip looked broken even though it was working.
+          SFX.bounce()
+        }
         G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.wy))
         if (G43.multi && !G43_roomCode) G43.p2wy = Math.max(WR + 2, Math.min(h - WR - 2, G43.p2wy))
       } else {
@@ -1502,6 +1508,16 @@ function _g43Draw(ctx, w, h) {
 
   // Finish line
   if (G43.clearAt) _g43DrawFinish(ctx, waveX + (G43.clearAt - G43.scrollX), h)
+
+  // Noclip bump: name it, so it cannot read as a death
+  if (G43.noclip && G43.hitFlash > 0) {
+    ctx.globalAlpha = Math.min(1, G43.hitFlash * 4)
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 13px monospace'
+    ctx.fillStyle = '#fbbf24'
+    ctx.fillText('BLOCKED — noclip is on, you did not die', w / 2, h - 16)
+    ctx.globalAlpha = 1
+  }
 
   // ── Announce overlay ─────────────────────────────────
   if (G43.phase === 'announce' && ch) {

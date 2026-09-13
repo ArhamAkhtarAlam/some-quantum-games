@@ -550,7 +550,13 @@ function _spdLoop(ts) {
         const hit = obs.floor ? spY + SPD_R > h - oh : spY - SPD_R < oh
         if (hit) {
           if (_SPD.noclip) {
-            if (_SPD.hitFlash <= 0) { _SPD.hitFlash = 0.22; SFX.die() }
+            if (_SPD.hitFlash <= 0) {
+          _SPD.hitFlash = 0.22
+          // A bump, not a death. This used to play the death sound and
+          // flash red, which is indistinguishable from actually dying —
+          // so noclip looked broken even though it was working.
+          SFX.bounce()
+        }
           } else {
             _spdDie(); break
           }
