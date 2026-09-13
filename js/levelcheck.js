@@ -407,7 +407,16 @@ function _lcUfoReplay(lv, h, w, flaps, dt) {
   return { ok: true }
 }
 
+// A budget, because this blocks the page while it runs. A normal level takes
+// 0.5-2s; a level authored into a corner can take far longer, and there is no
+// good reason to freeze the tab for it. Out of time means no bot line, which
+// the HUD says out loud, rather than a hang.
+const LC_UFO_BUDGET_MS = 2500
+
 function lcSolveUFO(lv, h, w, dt, worst) {
+  const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const outOfTime = () =>
+    ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0) > LC_UFO_BUDGET_MS
   const DT = dt || 1 / 240
   const k = h / 560
   const GRAV = LC_U_GRAV * k, THRUST = LC_U_THRUST * k
@@ -418,6 +427,7 @@ function lcSolveUFO(lv, h, w, dt, worst) {
   const key = (y, v) => Math.round(y / QY) + ':' + Math.round(v / QV)
 
   for (const pad of [10, 6, 3, 1, 0]) {
+    if (outOfTime()) break
     const layers = []
     let cur = new Map([[key(h/2, 0), { y: h/2, vy: 0, prev: null, flap: false, taps: 0 }]])
     let scroll = 0, guard = 0, dead = false
@@ -442,6 +452,7 @@ function lcSolveUFO(lv, h, w, dt, worst) {
       layers.push(next)
       cur = next
       scroll += spd * DT
+      if ((layers.length & 255) === 0 && outOfTime()) { dead = true; break }
     }
     if (dead || !layers.length) continue
 
@@ -473,9 +484,13 @@ function lcSolveUFO(lv, h, w, dt, worst) {
 // try adding a flap at each step, keep it only if the line still survives.
 function _lcUfoMoreTaps(lv, h, w, flaps, DT) {
   const best = flaps.slice()
+  const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
   for (let pass = 0; pass < 2; pass++) {
     for (let i = 1; i < best.length - 1; i++) {
       if (best[i]) continue
+      // Stop padding rather than run long — whatever it has by now still flies
+      if ((i & 63) === 0 && now() - t0 > 900) return best
       best[i] = true
       if (!_lcUfoReplay(lv, h, w, best, DT).ok) best[i] = false
     }

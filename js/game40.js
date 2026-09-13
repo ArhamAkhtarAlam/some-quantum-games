@@ -180,12 +180,30 @@ function _g40LoadLevel(w, h) {
   G40.fullTrail = []
   G40.taps = 0
   if (G40.botMode && !G40.multi && typeof lcSolveUFO === 'function') {
-    try {
-      const r = lcSolveUFO({ speed: tmpl.speed, clearAt: tmpl.clearAt,
-                             gapf: tmpl.gapf, pipes: tmpl.pipes },
-                           h, w, G40_SIM_DT, !!G40.evil)
-      if (r.ok) G40.bot = { flaps: r.flaps, i: 0, taps: r.taps }
-    } catch (e) { console.warn('ufo bot:', e) }
+    // Solving takes 0.5-2s of blocked main thread on a busy level, and a
+    // retry reloads the same level — so without this, every crash in
+    // practice froze the tab for a second or two before restarting, which
+    // looks exactly like the page hanging. The plan only depends on the
+    // level, the canvas height and which bot you asked for, so cache on that.
+    const sig = [tmpl.name, tmpl.clearAt, tmpl.speed, tmpl.gapf,
+                 (tmpl.pipes || []).length, h, G40.evil ? 1 : 0].join('|')
+    const hit = G40._botCache
+    if (hit && hit.sig === sig) {
+      G40.bot = { flaps: hit.flaps, i: 0, taps: hit.taps }
+    } else {
+      try {
+        const r = lcSolveUFO({ speed: tmpl.speed, clearAt: tmpl.clearAt,
+                               gapf: tmpl.gapf, pipes: tmpl.pipes },
+                             h, w, G40_SIM_DT, !!G40.evil)
+        if (r.ok) {
+          G40.bot = { flaps: r.flaps, i: 0, taps: r.taps }
+          G40._botCache = { sig, flaps: r.flaps, taps: r.taps }
+        } else {
+          G40._botCache = { sig, flaps: null, taps: 0 }
+        }
+      } catch (e) { console.warn('ufo bot:', e) }
+    }
+    if (G40.bot && !G40.bot.flaps) G40.bot = null
   }
 }
 
