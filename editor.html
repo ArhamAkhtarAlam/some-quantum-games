@@ -76,6 +76,7 @@
         <button class="ed-modebtn active" data-mode="level" onclick="edSetMode('level')">Shape</button>
         <button class="ed-modebtn" data-mode="deco"  onclick="edSetMode('deco')">Deco</button>
         <button class="ed-modebtn" data-mode="stamp" onclick="edSetMode('stamp')">Stamp</button>
+        <button class="ed-modebtn" data-mode="portal" onclick="edSetMode('portal')">Portal</button>
       </div>
       <div id="ed-palette" class="ed-palette"></div>
 
@@ -124,6 +125,9 @@
         <br><b>Deco</b> mode places harmless scenery that renders behind the corridor — pick a shape and
         colour, click to place, drag to move, right-click to delete. <b>Stamp</b> mode drops whole
         pre-made sections (slam, sawtooth, needle…) and shifts the rest of the level right to fit.
+        <br><b>Portal</b> mode drops a teleport gate: click to place one where you clicked, and
+        the height you clicked is where it sends you. Drag to move it, right-click to delete.
+        It works in Wave Gauntlet and UFO, and the checker and the bot both understand it.
         <br><b>✓ Check</b> catches gaps the wave physically can't reach and flips there isn't time to make.
         <b>📤 Submit</b> checks your level, then copies it — send that to Arham and he can add it
         to the game. Nothing here uploads anywhere; everything saves in your own browser.
@@ -195,11 +199,11 @@
 <script src="js/sfx.js?v=2"></script>
 <script src="js/deco.js"></script>
 <script src="js/cheats.js"></script>
-<script src="js/levelcheck.js?v=9"></script>
-<script src="js/game43.js?v=33"></script>
-<script src="js/game40.js?v=12"></script>
+<script src="js/levelcheck.js?v=10"></script>
+<script src="js/game43.js?v=34"></script>
+<script src="js/game40.js?v=13"></script>
 <script src="js/game44.js"></script>
-<script src="js/editor.js?v=5"></script>
+<script src="js/editor.js?v=6"></script>
 
 </body>
 </html>

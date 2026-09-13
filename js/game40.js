@@ -62,6 +62,8 @@ const G40 = {
   retryT:   0,
   attempts: 0,
   paused:   false,
+  portals:  [],
+  portalFlash: 0,
   fullTrail: [],
   taps:     0,
 }
@@ -116,8 +118,10 @@ const G40_POOL = {
     { name:'TIGHT SQUEEZE', diff:'hard', speed:198, gapf:0.205, clearAt:2865,
       pipes:_g40Run(520, 275, [0.50,0.45,0.55,0.44,0.56,0.46,0.54,0.50]) },
     { name:'THE LADDER', diff:'hard', speed:204, gapf:0.22, clearAt:3084,
-      // a rest at the top of the climb, where it hurts most
-      pipes:_g40Rest(_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]), [5]) },
+      // a rest at the top of the climb, where it hurts most, then a portal
+      // that drops you back to the bottom instead of flying the descent
+      pipes:_g40Rest(_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]), [5]),
+      portals:[{ at:1500, toCf:0.38 }] },
     { name:'WHIPLASH', diff:'hard', speed:208, gapf:0.235, clearAt:2844,
       pipes:_g40Run(520, 272, [0.32,0.68,0.30,0.70,0.34,0.66,0.36,0.64]) },
   ],
@@ -166,6 +170,11 @@ function _g40LoadLevel(w, h) {
   // width, and the finish fired before the last pillar had arrived —
   // FIRST STEPS ended 220 columns early on a 900px canvas.
   const ufoX0 = w * 0.20
+  // Portals: { at, toCf }. Crossing `at` snaps the ship to that height and
+  // zeroes its fall, so a portal is a reliable reset point rather than a
+  // momentum-dependent one.
+  G40.portals   = (tmpl.portals || []).map(p => ({ at: p.at, toCf: p.toCf, used: false }))
+  G40.portalFlash = 0
   G40.pipes     = tmpl.pipes.map(p => ({
     x: p.at + ufoX0, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h,
     safe: p.safe || null, passed: false,
@@ -448,6 +457,8 @@ function _g40Loop(ts) {
     if (s.x < 0) { s.x = w + 2; s.y = Math.random() * h }
   }
 
+  if (G40.portalFlash > 0) G40.portalFlash = Math.max(0, G40.portalFlash - dt)
+
   if (G40.retrying) {
     G40.retryT += dt
     if (G40.retryT >= G40_RETRY_WAIT) {
@@ -514,6 +525,20 @@ function _g40Loop(ts) {
         G40.pipes = G40.pipes.filter(p => p.x > -G40_PIPE_W - 20)
         const last = G40.pipes[G40.pipes.length - 1]
         if (!last || last.x < w - G40_PIPE_SEP) _g40Spawn(w + G40_PIPE_W, h)
+      }
+
+      // Portals fire as their column reaches the ship, before collision, so
+      // the pillar at this column is tested against the new height.
+      if (G40.portals && G40.portals.length) {
+        for (const p of G40.portals) {
+          if (p.used || G40.scrollX < p.at) continue
+          p.used = true
+          G40.y = Math.max(RY + 2, Math.min(h - RY - 2, p.toCf * h))
+          G40.vy = 0
+          G40.portalFlash = 0.3
+          if (G40.multi) { G40.p2y = G40.y; G40.p2vy = 0 }
+          SFX.powerup()
+        }
       }
 
       // Collision, checked per player so a 2P round can name a winner.
@@ -662,6 +687,29 @@ function _g40Draw(ctx, w, h) {
   }
 
   const ufoX  = w * 0.20
+  for (const p of (G40.portals || [])) {
+    const px = ufoX + (p.at - G40.scrollX)
+    if (px < -30 || px > w + 30) continue
+    const ty = p.toCf * h
+    const live = !p.used
+    ctx.save()
+    ctx.globalAlpha = live ? 1 : 0.3
+    ctx.strokeStyle = '#38bdf8'
+    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = live ? 14 : 0
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
+    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(px - 16, ty); ctx.lineTo(px + 16, ty); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath(); ctx.arc(px, ty, 7, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(56,189,248,0.35)'; ctx.fill(); ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.restore()
+  }
+  if (G40.portalFlash > 0) {
+    ctx.fillStyle = `rgba(56,189,248,${Math.min(0.3, G40.portalFlash)})`
+    ctx.fillRect(0, 0, w, h)
+  }
   // Only the gauntlet has an end; the endless run never reaches one
   if (G40.gauntlet && G40.clearAt) _g40DrawFinish(ctx, ufoX + (G40.clearAt - G40.scrollX), h)
   const alpha = G40.phase === 'dead' ? Math.max(0.15, 1 - G40.deadT * 1.4) : 1

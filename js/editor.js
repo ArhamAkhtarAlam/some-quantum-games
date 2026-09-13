@@ -789,6 +789,7 @@ function _edBuildRuntime(lv) {
       return {
         clearAt: lv.clearAt,
         keyframes: lv.keyframes.map(k => ({ at:k.at, cf:k.cf, gapH:k.gapHf * h })),
+        portals: (lv.portals || []).map(p => ({ ...p })),
         deco: (lv.deco || []).map(d => ({ ...d })),
       }
     }}
@@ -796,7 +797,8 @@ function _edBuildRuntime(lv) {
   if (lv.game === 'ufo') {
     // UFO templates are plain data — the game reads pipes/gapf straight off
     return { ...base, gapf: lv.gapf ?? 0.3, clearAt: lv.clearAt,
-             pipes: (lv.pipes || []).map(p => ({ ...p })) }
+             pipes: (lv.pipes || []).map(p => ({ ...p })),
+             portals: (lv.portals || []).map(p => ({ ...p })) }
   }
   return { ...base, gen() {
     return {
@@ -1314,6 +1316,20 @@ function _edDraw() {
   else if (lv.game === 'ufo')         _edDrawUFO(ctx, lv, w, h, ppc, col)
   else                                _edDrawSpider(ctx, lv, w, h, ppc, col)
 
+  // Portals — a gate at the column, with the height it drops you at
+  for (const p of (lv.portals || [])) {
+    const px = p.at * ppc, ty = p.toCf * h
+    ctx.save()
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(px - 14, ty); ctx.lineTo(px + 14, ty); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath(); ctx.arc(px, ty, 5, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(56,189,248,0.4)'; ctx.fill(); ctx.stroke()
+    ctx.restore()
+  }
+
   // Selection ring on the active deco item
   if (ED.mode === 'deco' && lv.deco) {
     lv.deco.forEach((d, i) => {
@@ -1459,6 +1475,24 @@ function _edDown(e) {
   if (!isFinite(ppc0) || ppc0 <= 0) { _edSetMsg('⚠ Canvas has no size yet — try again.'); return }
 
   // Stamp mode: one click drops a preset, then falls back to level mode
+  // Portal mode: click to drop one, click an existing one to grab its target
+  if (ED.mode === 'portal') {
+    if (!lv.portals) lv.portals = []
+    _edPush()
+    const at = Math.max(0, Math.round(P.x / ppc0))
+    const near = lv.portals.findIndex(p => Math.abs(p.at - at) < 14)
+    if (near >= 0) {
+      lv.portals[near].toCf = +Math.max(0.05, Math.min(0.95, P.y / c0.height)).toFixed(4)
+      ED.drag = { type:'portal', i:near }
+    } else {
+      lv.portals.push({ at, toCf: +Math.max(0.05, Math.min(0.95, P.y / c0.height)).toFixed(4) })
+      lv.portals.sort((a, b) => a.at - b.at)
+      ED.drag = { type:'portal', i: lv.portals.findIndex(p => p.at === at) }
+    }
+    _edTouch(); _edDraw()
+    return
+  }
+
   if (ED.mode === 'stamp' && ED.stamp) {
     _edApplyStamp(ED.stamp, Math.round(P.x / ppc0), P.y / c0.height)
     return
@@ -1578,6 +1612,16 @@ function _edMove(e) {
     return
   }
 
+  if (d.type === 'portal') {
+    const p = (lv.portals || [])[d.i]; if (!p) return
+    p.at   = Math.max(0, Math.round(x / ppc))
+    p.toCf = +Math.max(0.05, Math.min(0.95, y / h)).toFixed(4)
+    lv.portals.sort((a, b) => a.at - b.at)
+    d.i = lv.portals.indexOf(p)
+    _edTouch(); _edDraw()
+    return
+  }
+
   if (d.type === 'upipe' || d.type === 'ugap') {
     const p = (lv.pipes || [])[d.i]; if (!p) return
     if (d.type === 'upipe') {
@@ -1658,6 +1702,12 @@ function _edContext(e) {
   const { x } = _edPos(e)
   const c = _edCvs()
   const ppc = c.width / Math.max(1, lv.clearAt)
+
+  if (ED.mode === 'portal') {
+    const i = (lv.portals || []).findIndex(p => Math.abs(p.at * ppc - x) < 14)
+    if (i >= 0) { lv.portals.splice(i, 1); _edTouch(); _edDraw(); _edSetMsg('Portal removed.') }
+    return
+  }
 
   if (lv.game === 'wavegauntlet') {
     if (lv.keyframes.length <= 2) { _edSetMsg('Need at least 2 keyframes.'); return }

@@ -48,6 +48,17 @@ function lcWallAt(kfs, col, h) {
 
 // Every position reachable by any hold/release sequence, frame by frame.
 // Returns the narrowest surviving band — the real margin for error.
+// Portals collapse every reachable position to one: whatever you were doing,
+// crossing the column puts you at the same height. The solvers have to know,
+// or a level with a portal reads as impossible and the bot flies a line that
+// was never going to happen.
+function _lcPortalAt(lv, fromScroll, toScroll) {
+  const ps = lv.portals
+  if (!ps || !ps.length) return null
+  for (const p of ps) if (p.at > fromScroll && p.at <= toScroll) return p
+  return null
+}
+
 function lcSolveWave(lv, h, dt) {
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
@@ -65,6 +76,11 @@ function lcSolveWave(lv, h, dt) {
 
   while (scroll < clear) {
     const next = new Set()
+    // A portal on this step lands you at its height before the wall here is
+    // tested — the same order the game uses. Applying it afterwards meant
+    // every state died on the wall one step early and the portal never fired.
+    const port = _lcPortalAt(lv, scroll - speed * DT, scroll)
+    const pY = port ? Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h)) : null
     const { cy, gapH } = lcWallAt(kfs, scroll, h)
     // Match the game: the wave is clamped to the screen and tested against
     // the real corridor. Clamping the walls instead made the screen edge
@@ -73,7 +89,7 @@ function lcSolveWave(lv, h, dt) {
     for (const q of states) {
       const y = q * GQ
       for (const up of [true, false]) {
-        let ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
+        let ny = pY !== null ? pY : y + (up ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
         next.add(Math.round(ny / GQ))
@@ -123,6 +139,9 @@ function lcSolveLine(lv, h, margin, dt, worst) {
     // the wall at the new column. Checking at the old column instead put
     // the solved line one frame out of step and it died on its own plan.
     const at = scroll + speed * DT
+    // Portal first, then the wall at the column it drops you into
+    const port = _lcPortalAt(lv, scroll, at)
+    const pY = port ? Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h)) : null
     const { cy, gapH } = lcWallAt(kfs, Math.floor(at), h)
     // Same as the game: real corridor, wave clamped to the screen
     const top = cy - gapH / 2 + pad
@@ -132,7 +151,7 @@ function lcSolveLine(lv, h, margin, dt, worst) {
       const [q, last] = key.split(':')
       const y = +q * GQ
       for (const hold of [true, false]) {
-        let ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
+        let ny = pY !== null ? pY : y + (hold ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
         const nk = Math.round(ny / GQ) + ':' + (hold ? '1' : '0')
@@ -190,7 +209,10 @@ function _lcReplayOk(lv, h, plan) {
     const i = Math.min(ys.length - 1, Math.max(0, Math.round(scroll / step)))
     wy += (wy > ys[i] ? -LC_WAVE : LC_WAVE) * DT
     wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))   // same clamp as the game
+    const prevScroll = scroll
     scroll += step
+    const port = _lcPortalAt(lv, prevScroll, scroll)
+    if (port) wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h))
     const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll), h)
     if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) return false
   }
@@ -389,7 +411,10 @@ function _lcUfoReplay(lv, h, w, flaps, dt) {
     if (flaps[i]) vy = THRUST
     vy += GRAV * dt
     y  += vy * dt
+    const prevScroll = scroll
     scroll += spd * dt
+    const port = _lcPortalAt(lv, prevScroll, scroll)
+    if (port) { y = Math.max(RY + 2, Math.min(h - RY - 2, port.toCf * h)); vy = 0 }
     if (_lcUfoHit(lv, h, w, y, scroll, RY, RX, 0)) {
       // landing on a green pillar is a rest, not a death
       let rested = false
@@ -433,11 +458,14 @@ function lcSolveUFO(lv, h, w, dt, worst) {
     let scroll = 0, guard = 0, dead = false
     while (scroll < clear && guard++ < 60000) {
       const next = new Map()
+      const port = _lcPortalAt(lv, scroll, scroll + spd * DT)
+      const pY = port ? Math.max(RY + 2, Math.min(h - RY - 2, port.toCf * h)) : null
       for (const [kk, st] of cur) {
         for (const flap of [true, false]) {
           let vy = flap ? THRUST : st.vy
           vy += GRAV * DT
           let y = st.y + vy * DT
+          if (pY !== null) { y = pY; vy = 0 }   // portal, before the hit test
           const sc = scroll + spd * DT
           if (_lcUfoHit(lv, h, w, y, sc, RY, RX, pad)) continue
           const nk = key(y, vy)

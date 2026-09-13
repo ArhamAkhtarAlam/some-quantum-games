@@ -108,7 +108,10 @@ const G43_POOL = {
           {at:650, cf:a,    gapH:h*.28},  // 120-col shift back
           {at:760, cf:a,    gapH:h*.28},
           {at:870, cf:0.50, gapH:h*.30},
-        ]}
+        ],
+        // The second shift is now a portal rather than a climb: it drops you
+        // straight onto the upper lane at the column the corridor gets there.
+        portals:[{ at:650, toCf:a }] }
       }
     },
     {
@@ -520,6 +523,7 @@ const G43 = {
   // They used to be one flag; separating them lets you practise a level
   // for real without it counting.
   practice:false, noclip:false,
+  portals:[], portalFlash:0,
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
@@ -934,6 +938,10 @@ function _g43LoadChallenge(w, h) {
   G43.keyframes     = kfData.keyframes
   G43.clearAt       = kfData.clearAt
   G43.deco          = kfData.deco || []
+  // Portals: { at, toCf }. Crossing `at` snaps the wave to toCf of the
+  // height, still at the same point in the level. `used` is reset here so a
+  // retry fires them again.
+  G43.portals       = (kfData.portals || []).map(p => ({ at: p.at, toCf: p.toCf, used: false }))
   G43.scrollX       = 0
   G43.trail         = []
   G43.phase         = 'announce'
@@ -997,6 +1005,7 @@ function _g43Loop(ts) {
     G43.retryT += dt
     if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
     if (G43.hitFlash > 0) G43.hitFlash = Math.max(0, G43.hitFlash - dt)
+  if (G43.portalFlash > 0) G43.portalFlash = Math.max(0, G43.portalFlash - dt)
     if (G43.retryT >= G43_RETRY_WAIT) _g43RetryNow()
     _g43Draw(c.getContext('2d'), w, h)
     G43.raf = requestAnimationFrame(_g43Loop)
@@ -1076,6 +1085,20 @@ function _g43Loop(ts) {
     if (G43.multi) {
       G43.p2trail.push({ sx: G43.scrollX, y: G43.p2wy })
       if (G43.p2trail.length > 140) G43.p2trail.shift()
+    }
+
+    // Portals fire as their column reaches the wave. Checked after the
+    // scroll advances and before collision, so you are already at the new
+    // height when the wall at this column is tested.
+    if (G43.portals && G43.portals.length) {
+      for (const p of G43.portals) {
+        if (p.used || G43.scrollX < p.at) continue
+        p.used = true
+        G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, p.toCf * h))
+        G43.portalFlash = 0.3
+        if (G43.multi) G43.p2wy = G43.wy
+        SFX.powerup()
+      }
     }
 
     const wall    = _g43WallAt(Math.floor(G43.scrollX), h)
@@ -1507,6 +1530,32 @@ function _g43Draw(ctx, w, h) {
       ctx.fillStyle = mainCol;   ctx.fillText('P1 ●', w/2 - 22, 58)
       ctx.fillStyle = '#38bdf8'; ctx.fillText('● P2', w/2 + 22, 58)
     }
+  }
+
+  // Portals — a gate at the column with a beam to the height it sends you to
+  for (const p of (G43.portals || [])) {
+    const px = waveX + (p.at - G43.scrollX)
+    if (px < -30 || px > w + 30) continue
+    const ty = p.toCf * h
+    const live = !p.used
+    ctx.save()
+    ctx.globalAlpha = live ? 1 : 0.3
+    ctx.strokeStyle = '#38bdf8'
+    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = live ? 14 : 0
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
+    // where it drops you
+    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(px - 16, ty); ctx.lineTo(px + 16, ty); ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath(); ctx.arc(px, ty, 7, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(56,189,248,0.35)'; ctx.fill(); ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.restore()
+  }
+  if (G43.portalFlash > 0) {
+    ctx.fillStyle = `rgba(56,189,248,${Math.min(0.3, G43.portalFlash)})`
+    ctx.fillRect(0, 0, w, h)
   }
 
   // Finish line
