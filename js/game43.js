@@ -822,14 +822,17 @@ function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = fals
 function _g43KeyDn(e) {
   // The cheat code is handled by the always-on listener in cheats.js,
   // so it works on the start overlay too, not only mid-run.
+  // Suppress the browser default first, and only then ignore auto-repeat.
+  // The other order meant a held key never called preventDefault, so a
+  // focused button stayed armed and Chrome clicked it on the keyup.
+  const ours = e.code === 'Space' || e.key === 'ArrowUp'
+  if (ours) e.preventDefault()
   if (e.repeat) return          // key auto-repeat is not a new press
-  if (e.code === 'Space') { e.preventDefault(); _g43Hold() }
-  else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    G43.multi ? (G43.p2holding = true) : _g43Hold()
-  }
+  if (e.code === 'Space') _g43Hold()
+  else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = true) : _g43Hold() }
 }
 function _g43KeyUp(e) {
+  if (e.code === 'Space' || e.key === 'ArrowUp') e.preventDefault()
   if (e.code === 'Space') G43.holding = false
   else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = false) : (G43.holding = false) }
 }

@@ -735,7 +735,18 @@ window.edTestPlay = async function(bot, noclipOverride) {
   const ufo   = ED.game === 'ufo'
 
   _edUnbindCanvas()
-  document.getElementById('ed-testhost').classList.add('on')
+  // Drop focus from whichever button launched this. It stays in the DOM
+  // behind the test host, and Chrome activates a focused button on the
+  // KEYUP of Space — so holding space flew the wave and releasing it
+  // re-clicked Test Play, restarting the level. Safari does not do this,
+  // which is why the bug looked browser-specific. Space's keydown handler
+  // cannot be relied on to suppress it either: it returns early on
+  // auto-repeat, before it ever calls preventDefault.
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur() } catch {}
+  const host = document.getElementById('ed-testhost')
+  host.classList.add('on')
+  // Give the host focus so keys land somewhere harmless
+  try { host.setAttribute('tabindex', '-1'); host.focus({ preventScroll: true }) } catch {}
   document.getElementById('ed-test-title').textContent = `${lv.name} — ${lv.diff.toUpperCase()}`
   const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'block' : 'none' }
   show('g43-canvas', wave); show('spd-canvas', !wave && !ufo); show('g40-canvas', ufo)
