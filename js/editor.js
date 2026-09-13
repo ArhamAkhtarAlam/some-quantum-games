@@ -62,6 +62,7 @@ const ED = {
   sel:-1,               // index into ED.levels
   drag:null,            // {type, i}
   evilBot:false,        // bot runs take the most presses instead of the fewest
+  portalPend:null,      // first half of a portal, waiting for its exit
   scroll:0,             // horizontal scroll in columns
   zoom:1,               // px per column
   msg:'',
@@ -1316,17 +1317,31 @@ function _edDraw() {
   else if (lv.game === 'ufo')         _edDrawUFO(ctx, lv, w, h, ppc, col)
   else                                _edDrawSpider(ctx, lv, w, h, ppc, col)
 
-  // Portals — a gate at the column, with the height it drops you at
+  // Portals — blue is where you go in, orange is where you come out
   for (const p of (lv.portals || [])) {
-    const px = p.at * ppc, ty = p.toCf * h
+    const ax = p.at * ppc, ay = (p.cf ?? 0.5) * h
+    const bx = (p.toAt ?? p.at) * ppc, by = (p.toCf ?? 0.5) * h
     ctx.save()
-    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2
-    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
-    ctx.setLineDash([4, 4]); ctx.lineWidth = 1
-    ctx.beginPath(); ctx.moveTo(px - 14, ty); ctx.lineTo(px + 14, ty); ctx.stroke()
+    ctx.globalAlpha = 0.4; ctx.setLineDash([4, 6])
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+    ctx.setLineDash([]); ctx.globalAlpha = 1
+    for (const [x, y, col] of [[ax, ay, '#38bdf8'], [bx, by, '#f97316']]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.globalAlpha = 0.25; ctx.stroke()
+      ctx.globalAlpha = 1
+      ctx.beginPath(); ctx.ellipse(x, y, 5, 11, 0, 0, Math.PI * 2)
+      ctx.fillStyle = col + '55'; ctx.fill(); ctx.stroke()
+    }
+    ctx.restore()
+  }
+  if (ED.mode === 'portal' && ED.portalPend) {
+    const x = ED.portalPend.at * ppc, y = ED.portalPend.cf * h
+    ctx.save(); ctx.strokeStyle = '#38bdf8'; ctx.setLineDash([3, 3]); ctx.lineWidth = 2
+    ctx.beginPath(); ctx.ellipse(x, y, 5, 11, 0, 0, Math.PI * 2); ctx.stroke()
     ctx.setLineDash([])
-    ctx.beginPath(); ctx.arc(px, ty, 5, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(56,189,248,0.4)'; ctx.fill(); ctx.stroke()
+    ctx.fillStyle = '#38bdf8'; ctx.font = '10px monospace'; ctx.textAlign = 'center'
+    ctx.fillText('click the exit', x, y - 16)
     ctx.restore()
   }
 
@@ -1480,14 +1495,25 @@ function _edDown(e) {
     if (!lv.portals) lv.portals = []
     _edPush()
     const at = Math.max(0, Math.round(P.x / ppc0))
-    const near = lv.portals.findIndex(p => Math.abs(p.at - at) < 14)
-    if (near >= 0) {
-      lv.portals[near].toCf = +Math.max(0.05, Math.min(0.95, P.y / c0.height)).toFixed(4)
-      ED.drag = { type:'portal', i:near }
-    } else {
-      lv.portals.push({ at, toCf: +Math.max(0.05, Math.min(0.95, P.y / c0.height)).toFixed(4) })
+    const cf = +Math.max(0.05, Math.min(0.95, P.y / c0.height)).toFixed(4)
+    // Two clicks make a portal: the first sets where you go in, the second
+    // where you come out. They can be on the same column or far apart.
+    if (ED.portalPend) {
+      lv.portals.push({ at: ED.portalPend.at, cf: ED.portalPend.cf, toAt: at, toCf: cf })
       lv.portals.sort((a, b) => a.at - b.at)
-      ED.drag = { type:'portal', i: lv.portals.findIndex(p => p.at === at) }
+      ED.portalPend = null
+      _edSetMsg(at < lv.portals[lv.portals.length-1].at
+        ? 'Portal placed. It sends you backwards — the checker cannot follow that.'
+        : 'Portal placed. Click again to start another.')
+    } else {
+      const near = (lv.portals || []).findIndex(p => Math.abs(p.at - at) < 14)
+      if (near >= 0) {
+        // clicking an existing entry grabs it to drag
+        ED.drag = { type:'portal', i: near }
+        _edDraw(); return
+      }
+      ED.portalPend = { at, cf }
+      _edSetMsg('Entry set — now click where it should spit you out.')
     }
     _edTouch(); _edDraw()
     return
@@ -1614,8 +1640,8 @@ function _edMove(e) {
 
   if (d.type === 'portal') {
     const p = (lv.portals || [])[d.i]; if (!p) return
-    p.at   = Math.max(0, Math.round(x / ppc))
-    p.toCf = +Math.max(0.05, Math.min(0.95, y / h)).toFixed(4)
+    p.at = Math.max(0, Math.round(x / ppc))
+    p.cf = +Math.max(0.05, Math.min(0.95, y / h)).toFixed(4)
     lv.portals.sort((a, b) => a.at - b.at)
     d.i = lv.portals.indexOf(p)
     _edTouch(); _edDraw()

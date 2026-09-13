@@ -523,7 +523,7 @@ const G43 = {
   // They used to be one flag; separating them lets you practise a level
   // for real without it counting.
   practice:false, noclip:false,
-  portals:[], portalFlash:0,
+  portals:[], portalFlash:0, portalCool:0,
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
@@ -938,10 +938,16 @@ function _g43LoadChallenge(w, h) {
   G43.keyframes     = kfData.keyframes
   G43.clearAt       = kfData.clearAt
   G43.deco          = kfData.deco || []
-  // Portals: { at, toCf }. Crossing `at` snaps the wave to toCf of the
-  // height, still at the same point in the level. `used` is reset here so a
-  // retry fires them again.
-  G43.portals       = (kfData.portals || []).map(p => ({ at: p.at, toCf: p.toCf, used: false }))
+  // Portals: { at, cf, toAt, toCf, mouth }. You have to fly through the
+  // mouth — an opening of `mouth` of the height, centred on cf — and you
+  // come out at the other end, which can be anywhere: a different column,
+  // a different height, or both. Same column means a pure vertical hop.
+  G43.portals       = (kfData.portals || []).map(p => ({
+    at: p.at, cf: p.cf ?? 0.5,
+    toAt: p.toAt ?? p.at, toCf: p.toCf ?? 0.5,
+    mouth: p.mouth ?? 0.16,
+  }))
+  G43.portalCool    = 0
   G43.scrollX       = 0
   G43.trail         = []
   G43.phase         = 'announce'
@@ -1087,17 +1093,22 @@ function _g43Loop(ts) {
       if (G43.p2trail.length > 140) G43.p2trail.shift()
     }
 
-    // Portals fire as their column reaches the wave. Checked after the
-    // scroll advances and before collision, so you are already at the new
-    // height when the wall at this column is tested.
-    if (G43.portals && G43.portals.length) {
+    // Portals. You only go through if you actually hit the mouth, so a
+    // portal is something to aim for rather than something that happens to
+    // you. Checked after the scroll advances and before collision, so the
+    // wall tested is the one where you came out.
+    if (G43.portalCool > 0) G43.portalCool -= G43.challenge.speed * sdt
+    if (G43.portals && G43.portals.length && G43.portalCool <= 0) {
       for (const p of G43.portals) {
-        if (p.used || G43.scrollX < p.at) continue
-        p.used = true
+        // Crossing the column is enough — no need to line up with anything
+        if (Math.abs(G43.scrollX - p.at) > G43.challenge.speed * sdt) continue
+        G43.scrollX = p.toAt
         G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, p.toCf * h))
         G43.portalFlash = 0.3
+        G43.portalCool = 40      // columns of grace, so the far end can't re-fire
         if (G43.multi) G43.p2wy = G43.wy
         SFX.powerup()
+        break
       }
     }
 
@@ -1532,26 +1543,34 @@ function _g43Draw(ctx, w, h) {
     }
   }
 
-  // Portals — a gate at the column with a beam to the height it sends you to
-  for (const p of (G43.portals || [])) {
-    const px = waveX + (p.at - G43.scrollX)
-    if (px < -30 || px > w + 30) continue
-    const ty = p.toCf * h
-    const live = !p.used
+  // Portals — the mouth you fly into, and the mouth you come out of
+  const _mouth = (px, cy, half, col, solid) => {
     ctx.save()
-    ctx.globalAlpha = live ? 1 : 0.3
-    ctx.strokeStyle = '#38bdf8'
-    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = live ? 14 : 0
+    ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12
     ctx.lineWidth = 3
-    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
-    // where it drops you
-    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5
-    ctx.beginPath(); ctx.moveTo(px - 16, ty); ctx.lineTo(px + 16, ty); ctx.stroke()
-    ctx.setLineDash([])
-    ctx.beginPath(); ctx.arc(px, ty, 7, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(56,189,248,0.35)'; ctx.fill(); ctx.stroke()
-    ctx.shadowBlur = 0
+    ctx.beginPath(); ctx.ellipse(px, cy, 7, half, 0, 0, Math.PI * 2); ctx.stroke()
+    ctx.globalAlpha = 0.22
+    ctx.fillStyle = col; ctx.fill()
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0
+    // lips, so the opening reads as a gap you aim for
+    ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(px - 9, cy - half); ctx.lineTo(px + 9, cy - half); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(px - 9, cy + half); ctx.lineTo(px + 9, cy + half); ctx.stroke()
     ctx.restore()
+  }
+  for (const p of (G43.portals || [])) {
+    const half = p.mouth * h / 2
+    const ax = waveX + (p.at - G43.scrollX)
+    const bx = waveX + (p.toAt - G43.scrollX)
+    if (ax > -30 && ax < w + 30) _mouth(ax, p.cf * h, half, '#38bdf8')
+    if (bx > -30 && bx < w + 30) _mouth(bx, p.toCf * h, half, '#f97316')
+    // a hint of where it goes, when both ends are on screen
+    if (ax > -30 && ax < w + 30 && bx > -30 && bx < w + 30) {
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.setLineDash([4, 6])
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(ax, p.cf * h); ctx.lineTo(bx, p.toCf * h); ctx.stroke()
+      ctx.setLineDash([]); ctx.restore()
+    }
   }
   if (G43.portalFlash > 0) {
     ctx.fillStyle = `rgba(56,189,248,${Math.min(0.3, G43.portalFlash)})`

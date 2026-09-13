@@ -52,10 +52,30 @@ function lcWallAt(kfs, col, h) {
 // crossing the column puts you at the same height. The solvers have to know,
 // or a level with a portal reads as impossible and the bot flies a line that
 // was never going to happen.
-function _lcPortalAt(lv, fromScroll, toScroll) {
+// Which portal does moving from `a` to `b` cross, if any?
+function _lcPortalCross(lv, a, b) {
   const ps = lv.portals
   if (!ps || !ps.length) return null
-  for (const p of ps) if (p.at > fromScroll && p.at <= toScroll) return p
+  for (const p of ps) if (p.at > a && p.at <= b) return p
+  return null
+}
+
+// Crossing the portal's column takes you through it — there is no mouth to
+// aim for, so every position at that column goes. Only forward jumps are
+// followed: a portal that sends you backwards makes a cycle the search
+// cannot reason about, so it is skipped and the report warns instead.
+function _lcPortalJump(lv, i, step, h) {
+  const ps = lv.portals
+  if (!ps || !ps.length) return null
+  const from = i * step, to = from + step
+  for (const p of ps) {
+    if (!(p.at > from && p.at <= to)) continue
+    const j = Math.round((p.toAt ?? p.at) / step)
+    if (j < i) continue          // backwards makes a cycle; left alone
+    // Same column is a pure vertical hop: take the height, carry on from here
+    return { step: Math.max(j, i + 1),
+             y: Math.max(LC_R + 2, Math.min(h - LC_R - 2, (p.toCf ?? 0.5) * h)) }
+  }
   return null
 }
 
@@ -70,43 +90,50 @@ function lcSolveWave(lv, h, dt) {
   // spamming line drifted to the floor. On this grid a move is exactly ±4
   // units and there is no rounding to accumulate.
   const GQ = (LC_WAVE * DT) / 4
-  let states = new Set([Math.round(h/2 / GQ)])
-  let scroll = 0, frame = 0
-  let worst = Infinity, worstCol = 0
+  const step = speed * DT
+  const nSteps = Math.ceil(clear / step)
+  // A paired portal moves you to another column, so the search can no longer
+  // be one state set marching forward — a state can land many steps ahead.
+  // Keep a set per step and fill them in order; a forward jump just drops the
+  // state into a later step's set, which is still reached in order.
+  const at = new Array(nSteps + 2)
+  at[0] = new Set([Math.round(h/2 / GQ)])
+  let worst = Infinity, worstCol = 0, lastLive = 0
 
-  while (scroll < clear) {
-    const next = new Set()
-    // A portal on this step lands you at its height before the wall here is
-    // tested — the same order the game uses. Applying it afterwards meant
-    // every state died on the wall one step early and the portal never fired.
-    const port = _lcPortalAt(lv, scroll - speed * DT, scroll)
-    const pY = port ? Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h)) : null
+  for (let i = 0; i <= nSteps; i++) {
+    const states = at[i]
+    at[i] = null                      // let each step go once it is consumed
+    if (!states || !states.size) continue
+    lastLive = i
+    const scroll = i * step
     const { cy, gapH } = lcWallAt(kfs, scroll, h)
     // Match the game: the wave is clamped to the screen and tested against
-    // the real corridor. Clamping the walls instead made the screen edge
-    // lethal, which killed players on open corridor above y=0.
+    // the real corridor, not a corridor clipped to the screen.
     const top = cy - gapH/2, bot = cy + gapH/2
+    // A portal on this step takes everything with it, wherever it was
+    const jump = _lcPortalJump(lv, i, step, h)
+    const next = jump ? (at[jump.step] || (at[jump.step] = new Set()))
+                      : (at[i + 1] || (at[i + 1] = new Set()))
     for (const q of states) {
       const y = q * GQ
       for (const up of [true, false]) {
-        let ny = pY !== null ? pY : y + (up ? -LC_WAVE : LC_WAVE) * DT
+        let ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
-        next.add(Math.round(ny / GQ))
+        next.add(Math.round(jump ? jump.y / GQ : ny / GQ))
       }
     }
-    if (next.size === 0) return { ok:false, diedAt:Math.round(scroll), frame }
-    // Skip the opening frames: the spread there is just branching, not difficulty
-    if (frame > 8) {
+    if (i > 8 && next.size) {
       const ys = [...next].map(q => q * GQ)
       const span = Math.max(...ys) - Math.min(...ys)
       if (span < worst) { worst = span; worstCol = Math.round(scroll) }
     }
-    states = next
-    scroll += speed * DT
-    frame++
   }
-  return { ok:true, band:worst === Infinity ? 0 : worst, atCol:worstCol, frames:frame }
+  // Anything alive at or past the final step cleared it
+  for (let i = nSteps; i < at.length; i++) if (at[i] && at[i].size) {
+    return { ok:true, band:worst === Infinity ? 0 : worst, atCol:worstCol, frames:nSteps }
+  }
+  return { ok:false, diedAt: Math.round(lastLive * step), frame: lastLive }
 }
 
 // The actual inputs of an ideal run — not just whether one exists.
@@ -119,7 +146,7 @@ function lcSolveWave(lv, h, dt) {
 // positions are quantised to 1/8px, and with variable frame times an
 // input switch can land up to a frame late (4.25px). Without margin a
 // long level accumulates that and eventually clips a wall.
-function lcSolveLine(lv, h, margin, dt, worst) {
+function lcSolveLine(lv, h, margin, dt, worst, seg) {
   const pad = margin || 0
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
@@ -127,21 +154,20 @@ function lcSolveLine(lv, h, margin, dt, worst) {
   const clear = lv.clearAt || 800
   // Same exact-divisor grid as lcSolveWave — see the note there
   const GQ = (LC_WAVE * DT) / 4
-  const start = Math.round(h / 2 / GQ)
+  const from  = seg ? seg.from : 0
+  const until = seg ? seg.to : clear
+  const start = Math.round((seg ? seg.startY : h / 2) / GQ)
 
   // layers[f] : Map(stateKey -> { prev, hold, taps })
   const layers = []
   let cur = new Map([[start + ':0', { prev: null, hold: false, taps: 0 }]])
-  let scroll = 0, frame = 0
+  let scroll = from, frame = 0
 
-  while (scroll < clear) {
+  while (scroll < until) {
     // The game moves the wave, advances the scroll, and only then tests
     // the wall at the new column. Checking at the old column instead put
     // the solved line one frame out of step and it died on its own plan.
     const at = scroll + speed * DT
-    // Portal first, then the wall at the column it drops you into
-    const port = _lcPortalAt(lv, scroll, at)
-    const pY = port ? Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h)) : null
     const { cy, gapH } = lcWallAt(kfs, Math.floor(at), h)
     // Same as the game: real corridor, wave clamped to the screen
     const top = cy - gapH / 2 + pad
@@ -151,7 +177,7 @@ function lcSolveLine(lv, h, margin, dt, worst) {
       const [q, last] = key.split(':')
       const y = +q * GQ
       for (const hold of [true, false]) {
-        let ny = pY !== null ? pY : y + (hold ? -LC_WAVE : LC_WAVE) * DT
+        let ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
         const nk = Math.round(ny / GQ) + ':' + (hold ? '1' : '0')
@@ -183,7 +209,8 @@ function lcSolveLine(lv, h, margin, dt, worst) {
     ys[f]    = +key.split(':')[0] * GQ
     key = node.prev
   }
-  return { ok: true, holds, ys, frames: holds.length, taps: bestTaps, margin: pad, dt: DT }
+  return { ok: true, holds, ys, frames: holds.length, taps: bestTaps, margin: pad, dt: DT,
+           from, startStep: Math.round(from / (speed * DT)) }
 }
 
 // Prefer a line with room to spare; fall back to tighter ones, and finally
@@ -211,15 +238,66 @@ function _lcReplayOk(lv, h, plan) {
     wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))   // same clamp as the game
     const prevScroll = scroll
     scroll += step
-    const port = _lcPortalAt(lv, prevScroll, scroll)
-    if (port) wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, port.toCf * h))
+    const port = _lcPortalCross(lv, prevScroll, scroll)
+    if (port && (port.toAt ?? port.at) >= port.at) {
+      scroll = Math.max(port.toAt ?? port.at, prevScroll + step)
+      wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, (port.toCf ?? 0.5) * h))
+    }
     const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll), h)
     if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) return false
   }
   return true
 }
 
+// The route through a level with portals is fixed: crossing a column always
+// takes you, so the run is a chain of segments with a known start height
+// each. That makes each segment an ordinary solve, and the plans stitch
+// together — no graph search needed.
+function _lcSegments(lv, h, step) {
+  const clear = lv.clearAt || 800
+  const ps = (lv.portals || []).slice().sort((a, b) => a.at - b.at)
+  const segs = []
+  let at = 0, y = h / 2, guard = 0
+  while (at < clear && guard++ < 64) {
+    const nxt = ps.find(p => p.at > at && (p.toAt ?? p.at) > p.at - 1e-9 &&
+                             Math.round((p.toAt ?? p.at) / step) >= Math.round(p.at / step))
+    if (!nxt || nxt.at >= clear) { segs.push({ from: at, to: clear, startY: y }); break }
+    segs.push({ from: at, to: nxt.at, startY: y })
+    at = Math.max((nxt.toAt ?? nxt.at), nxt.at + step)
+    y  = Math.max(LC_R + 2, Math.min(h - LC_R - 2, (nxt.toCf ?? 0.5) * h))
+  }
+  return segs
+}
+
 function lcSolveLineSafe(lv, h, dt, worst) {
+  const DT = dt || LC_DT
+  const step = (lv.speed || 200) * DT
+  const segs = _lcSegments(lv, h, step)
+  if (segs.length > 1) {
+    // Solve each stretch on its own, then lay the plans out against absolute
+    // step numbers so playback can keep indexing by scroll position.
+    const nSteps = Math.ceil((lv.clearAt || 800) / step) + 2
+    const holds = new Array(nSteps).fill(false)
+    const ys = new Array(nSteps).fill(h / 2)
+    let taps = 0, worstMargin = Infinity
+    for (const s of segs) {
+      let got = null
+      for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
+        const r = lcSolveLine(lv, h, pad, DT, worst, s)
+        if (r.ok) { got = r; break }
+      }
+      if (!got) return { ok: false }
+      taps += got.taps
+      worstMargin = Math.min(worstMargin, got.margin)
+      for (let k = 0; k < got.ys.length; k++) {
+        const idx = got.startStep + k
+        if (idx < nSteps) { ys[idx] = got.ys[k]; holds[idx] = got.holds[k] }
+      }
+    }
+    const plan = { ok: true, holds, ys, frames: ys.length, taps, margin: worstMargin, dt: DT }
+    return _lcReplayOk(lv, h, plan) ? plan : { ok: false }
+  }
+
   // A finer ladder than before, because the first plan that solves is not
   // necessarily one the controller can hold — more rungs means more chances
   // to find one that both solves and survives.
@@ -407,14 +485,23 @@ function _lcUfoReplay(lv, h, w, flaps, dt) {
   const RY = LC_U_RY * k, RX = LC_U_RX * k
   const spd = (lv.speed || 160) * k
   let y = h / 2, vy = 0, scroll = 0
-  for (let i = 0; i < flaps.length; i++) {
+  // Index by scroll, not by a running counter. A portal moves the scroll
+  // forward, and the flap list is laid out against absolute step numbers —
+  // counting sequentially put the plan and the level out of step after a jump.
+  const step = spd * dt
+  const clear = lv.clearAt || 3000
+  for (let guard = 0; scroll < clear && guard < flaps.length * 4; guard++) {
+    const i = Math.min(flaps.length - 1, Math.max(0, Math.round(scroll / step)))
     if (flaps[i]) vy = THRUST
     vy += GRAV * dt
     y  += vy * dt
     const prevScroll = scroll
     scroll += spd * dt
-    const port = _lcPortalAt(lv, prevScroll, scroll)
-    if (port) { y = Math.max(RY + 2, Math.min(h - RY - 2, port.toCf * h)); vy = 0 }
+    const port = _lcPortalCross(lv, prevScroll, scroll)
+    if (port && (port.toAt ?? port.at) >= port.at) {
+      scroll = Math.max(port.toAt ?? port.at, prevScroll + spd * dt)
+      y = Math.max(RY + 2, Math.min(h - RY - 2, (port.toCf ?? 0.5) * h)); vy = 0
+    }
     if (_lcUfoHit(lv, h, w, y, scroll, RY, RX, 0)) {
       // landing on a green pillar is a rest, not a death
       let rested = false
@@ -438,7 +525,32 @@ function _lcUfoReplay(lv, h, w, flaps, dt) {
 // the HUD says out loud, rather than a hang.
 const LC_UFO_BUDGET_MS = 2500
 
-function lcSolveUFO(lv, h, w, dt, worst) {
+// Same idea as the wave: portals make the route deterministic, so each
+// stretch between them is an ordinary solve and the flap lists stitch.
+function lcSolveUFOAll(lv, h, w, dt, worst) {
+  const DT = dt || 1 / 240
+  const k = h / 560
+  const step = (lv.speed || 160) * k * DT
+  const segs = _lcSegments(lv, h, step)
+  if (segs.length <= 1) return lcSolveUFO(lv, h, w, DT, worst)
+  const nSteps = Math.ceil((lv.clearAt || 3000) / step) + 2
+  const flaps = new Array(nSteps).fill(false)
+  let taps = 0, margin = Infinity
+  for (const s of segs) {
+    const r = lcSolveUFO(lv, h, w, DT, worst, s)
+    if (!r.ok) return { ok: false }
+    taps += r.taps
+    margin = Math.min(margin, r.margin)
+    for (let i = 0; i < r.flaps.length; i++) {
+      const idx = r.startStep + i
+      if (idx < nSteps) flaps[idx] = r.flaps[i]
+    }
+  }
+  const plan = { ok: true, flaps, taps, margin, dt: DT }
+  return _lcUfoReplay(lv, h, w, flaps, DT).ok ? plan : { ok: false }
+}
+
+function lcSolveUFO(lv, h, w, dt, worst, seg) {
   const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
   const outOfTime = () =>
     ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0) > LC_UFO_BUDGET_MS
@@ -447,19 +559,21 @@ function lcSolveUFO(lv, h, w, dt, worst) {
   const GRAV = LC_U_GRAV * k, THRUST = LC_U_THRUST * k
   const RY = LC_U_RY * k, RX = LC_U_RX * k
   const spd = (lv.speed || 160) * k
-  const clear = lv.clearAt || 3000
+  const clear = seg ? seg.to : (lv.clearAt || 3000)
+  const from  = seg ? seg.from : 0
+  const startY = seg ? seg.startY : h / 2
   const QY = 2.5, QV = 18
   const key = (y, v) => Math.round(y / QY) + ':' + Math.round(v / QV)
 
   for (const pad of [10, 6, 3, 1, 0]) {
     if (outOfTime()) break
     const layers = []
-    let cur = new Map([[key(h/2, 0), { y: h/2, vy: 0, prev: null, flap: false, taps: 0 }]])
-    let scroll = 0, guard = 0, dead = false
+    let cur = new Map([[key(startY, 0), { y: startY, vy: 0, prev: null, flap: false, taps: 0 }]])
+    let scroll = from, guard = 0, dead = false
     while (scroll < clear && guard++ < 60000) {
       const next = new Map()
-      const port = _lcPortalAt(lv, scroll, scroll + spd * DT)
-      const pY = port ? Math.max(RY + 2, Math.min(h - RY - 2, port.toCf * h)) : null
+      const port = _lcPortalCross(lv, scroll, scroll + spd * DT)
+      const pY = port ? Math.max(RY + 2, Math.min(h - RY - 2, (port.toCf ?? 0.5) * h)) : null
       for (const [kk, st] of cur) {
         for (const flap of [true, false]) {
           let vy = flap ? THRUST : st.vy
@@ -493,6 +607,8 @@ function lcSolveUFO(lv, h, w, dt, worst) {
       flaps[i] = n.flap
       kk = n.prev
     }
+    if (seg) return { ok: true, flaps, taps: bestTaps, margin: pad, dt: DT,
+                      startStep: Math.round(from / (spd * DT)) }
     const check = _lcUfoReplay(lv, h, w, flaps, DT)
     if (!check.ok) continue
     if (worst) {
@@ -570,6 +686,7 @@ if (typeof window !== 'undefined') {
   window.lcSolveWave = lcSolveWave
   window.lcSolveLine = lcSolveLine
   window.lcSolveUFO = lcSolveUFO
+  window.lcSolveUFOAll = lcSolveUFOAll
   window.lcSolveSpider = lcSolveSpider
   window.lcSolveLineSafe = lcSolveLineSafe
   window.lcWallAt = lcWallAt
@@ -578,4 +695,4 @@ if (typeof window !== 'undefined') {
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveSpider, lcWallAt, lcLabel }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel }

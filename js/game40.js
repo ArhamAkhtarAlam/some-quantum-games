@@ -64,6 +64,7 @@ const G40 = {
   paused:   false,
   portals:  [],
   portalFlash: 0,
+  portalCool: 0,
   fullTrail: [],
   taps:     0,
 }
@@ -170,11 +171,15 @@ function _g40LoadLevel(w, h) {
   // width, and the finish fired before the last pillar had arrived —
   // FIRST STEPS ended 220 columns early on a 900px canvas.
   const ufoX0 = w * 0.20
-  // Portals: { at, toCf }. Crossing `at` snaps the ship to that height and
-  // zeroes its fall, so a portal is a reliable reset point rather than a
-  // momentum-dependent one.
-  G40.portals   = (tmpl.portals || []).map(p => ({ at: p.at, toCf: p.toCf, used: false }))
+  // Portals: fly through the mouth at (at, cf) and you come out at
+  // (toAt, toCf) — a different column, a different height, or both.
+  G40.portals   = (tmpl.portals || []).map(p => ({
+    at: p.at, cf: p.cf ?? 0.5,
+    toAt: p.toAt ?? p.at, toCf: p.toCf ?? 0.5,
+    mouth: p.mouth ?? 0.16,
+  }))
   G40.portalFlash = 0
+  G40.portalCool = 0
   G40.pipes     = tmpl.pipes.map(p => ({
     x: p.at + ufoX0, cy: p.cyf * h, gap: (p.gapf || tmpl.gapf) * h,
     safe: p.safe || null, passed: false,
@@ -188,7 +193,7 @@ function _g40LoadLevel(w, h) {
   G40.simAcc = 0
   G40.fullTrail = []
   G40.taps = 0
-  if (G40.botMode && !G40.multi && typeof lcSolveUFO === 'function') {
+  if (G40.botMode && !G40.multi && typeof lcSolveUFOAll === 'function') {
     // Solving takes 0.5-2s of blocked main thread on a busy level, and a
     // retry reloads the same level — so without this, every crash in
     // practice froze the tab for a second or two before restarting, which
@@ -201,7 +206,7 @@ function _g40LoadLevel(w, h) {
       G40.bot = { flaps: hit.flaps, i: 0, taps: hit.taps }
     } else {
       try {
-        const r = lcSolveUFO({ speed: tmpl.speed, clearAt: tmpl.clearAt,
+        const r = lcSolveUFOAll({ speed: tmpl.speed, clearAt: tmpl.clearAt,
                                gapf: tmpl.gapf, pipes: tmpl.pipes },
                              h, w, G40_SIM_DT, !!G40.evil)
         if (r.ok) {
@@ -490,13 +495,20 @@ function _g40Loop(ts) {
     // in step with the game.
     const playStep = (sdt) => {
       // Autopilot presses on the steps the plan says to
-      if (G40.bot && G40.bot.i < G40.bot.flaps.length) {
-        if (G40.bot.flaps[G40.bot.i]) {
+      if (G40.bot) {
+        // Index by scroll, like Wave Gauntlet does. A portal jumps the scroll
+        // forward and the plan is laid out against absolute steps, so a
+        // running counter would drift out of step the moment one fires.
+        const bstep = (G40.challenge ? G40.challenge.speed : 160) *
+                      (G40.gauntlet ? h / 560 : 1) * G40_SIM_DT
+        const bi = Math.min(G40.bot.flaps.length - 1,
+                            Math.max(0, Math.round(G40.scrollX / bstep)))
+        if (bi !== G40.bot.i && G40.bot.flaps[bi]) {
           G40.vy = G40_THRUST * (G40.gauntlet ? h / 560 : 1)
           G40.taps = (G40.taps || 0) + 1
           SFX.tap()
         }
-        G40.bot.i++
+        G40.bot.i = bi
       }
       if (!G40.p1dead) { G40.vy += GRAV * sdt; G40.y += G40.vy * sdt }
       if (G40.multi && !G40.p2dead) { G40.p2vy += GRAV * sdt; G40.p2y += G40.p2vy * sdt }
@@ -527,17 +539,25 @@ function _g40Loop(ts) {
         if (!last || last.x < w - G40_PIPE_SEP) _g40Spawn(w + G40_PIPE_W, h)
       }
 
-      // Portals fire as their column reaches the ship, before collision, so
-      // the pillar at this column is tested against the new height.
-      if (G40.portals && G40.portals.length) {
+      // Portals. You have to hit the mouth, so it is something to aim for.
+      // Checked before collision, so the pillar tested is the one you came
+      // out beside. Pillars are laid out in screen space, so they shift by
+      // the same amount the scroll jumps.
+      if (G40.portalCool > 0) G40.portalCool -= spd * sdt
+      if (G40.portals && G40.portals.length && G40.portalCool <= 0) {
         for (const p of G40.portals) {
-          if (p.used || G40.scrollX < p.at) continue
-          p.used = true
+          // Crossing the column is enough — no need to line up with anything
+          if (Math.abs(G40.scrollX - p.at) > spd * sdt) continue
+          const jump = p.toAt - G40.scrollX
+          G40.scrollX = p.toAt
+          for (const q of G40.pipes) q.x -= jump
           G40.y = Math.max(RY + 2, Math.min(h - RY - 2, p.toCf * h))
           G40.vy = 0
           G40.portalFlash = 0.3
+          G40.portalCool = 40
           if (G40.multi) { G40.p2y = G40.y; G40.p2vy = 0 }
           SFX.powerup()
+          break
         }
       }
 
@@ -687,24 +707,24 @@ function _g40Draw(ctx, w, h) {
   }
 
   const ufoX  = w * 0.20
-  for (const p of (G40.portals || [])) {
-    const px = ufoX + (p.at - G40.scrollX)
-    if (px < -30 || px > w + 30) continue
-    const ty = p.toCf * h
-    const live = !p.used
+  const _mouth = (px, cy, half, col) => {
     ctx.save()
-    ctx.globalAlpha = live ? 1 : 0.3
-    ctx.strokeStyle = '#38bdf8'
-    ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = live ? 14 : 0
+    ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12
     ctx.lineWidth = 3
-    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke()
-    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5
-    ctx.beginPath(); ctx.moveTo(px - 16, ty); ctx.lineTo(px + 16, ty); ctx.stroke()
-    ctx.setLineDash([])
-    ctx.beginPath(); ctx.arc(px, ty, 7, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(56,189,248,0.35)'; ctx.fill(); ctx.stroke()
-    ctx.shadowBlur = 0
+    ctx.beginPath(); ctx.ellipse(px, cy, 7, half, 0, 0, Math.PI * 2); ctx.stroke()
+    ctx.globalAlpha = 0.22; ctx.fillStyle = col; ctx.fill()
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0
+    ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(px - 9, cy - half); ctx.lineTo(px + 9, cy - half); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(px - 9, cy + half); ctx.lineTo(px + 9, cy + half); ctx.stroke()
     ctx.restore()
+  }
+  for (const p of (G40.portals || [])) {
+    const half = p.mouth * h / 2
+    const ax = ufoX + (p.at - G40.scrollX)
+    const bx = ufoX + (p.toAt - G40.scrollX)
+    if (ax > -30 && ax < w + 30) _mouth(ax, p.cf * h, half, '#38bdf8')
+    if (bx > -30 && bx < w + 30) _mouth(bx, p.toCf * h, half, '#f97316')
   }
   if (G40.portalFlash > 0) {
     ctx.fillStyle = `rgba(56,189,248,${Math.min(0.3, G40.portalFlash)})`
