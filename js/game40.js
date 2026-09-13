@@ -122,7 +122,7 @@ const G40_POOL = {
       // a rest at the top of the climb, where it hurts most, then a portal
       // that drops you back to the bottom instead of flying the descent
       pipes:_g40Rest(_g40Run(520, 268, [0.70,0.62,0.54,0.46,0.38,0.30,0.38,0.50,0.62]), [5]),
-      portals:[{ at:1500, toCf:0.38 }] },
+      portals:[{ at:1500, toCf:0.38, mouth:1 }] },
     { name:'WHIPLASH', diff:'hard', speed:208, gapf:0.235, clearAt:2844,
       pipes:_g40Run(520, 272, [0.32,0.68,0.30,0.70,0.34,0.66,0.36,0.64]) },
   ],

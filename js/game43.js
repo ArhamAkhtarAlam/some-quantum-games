@@ -111,7 +111,7 @@ const G43_POOL = {
         ],
         // The second shift is now a portal rather than a climb: it drops you
         // straight onto the upper lane at the column the corridor gets there.
-        portals:[{ at:650, toCf:a }] }
+        portals:[{ at:650, toCf:a, mouth:1 }] }
       }
     },
     {
@@ -945,7 +945,7 @@ function _g43LoadChallenge(w, h) {
   G43.portals       = (kfData.portals || []).map(p => ({
     at: p.at, cf: p.cf ?? 0.5,
     toAt: p.toAt ?? p.at, toCf: p.toCf ?? 0.5,
-    mouth: p.mouth ?? 0.16,
+    mouth: p.mouth ?? 0.24,
   }))
   G43.portalCool    = 0
   G43.scrollX       = 0
@@ -1100,8 +1100,11 @@ function _g43Loop(ts) {
     if (G43.portalCool > 0) G43.portalCool -= G43.challenge.speed * sdt
     if (G43.portals && G43.portals.length && G43.portalCool <= 0) {
       for (const p of G43.portals) {
-        // Crossing the column is enough — no need to line up with anything
         if (Math.abs(G43.scrollX - p.at) > G43.challenge.speed * sdt) continue
+        // You have to be inside the mouth. A portal with mouth >= 1 spans the
+        // whole screen and so cannot be dodged; anything less can be flown past.
+        const half = Math.min(1, p.mouth) * h / 2
+        if (Math.abs(G43.wy - p.cf * h) > half) continue
         G43.scrollX = p.toAt
         G43.wy = Math.max(WR + 2, Math.min(h - WR - 2, p.toCf * h))
         G43.portalFlash = 0.3

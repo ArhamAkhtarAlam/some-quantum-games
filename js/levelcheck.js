@@ -64,17 +64,27 @@ function _lcPortalCross(lv, a, b) {
 // aim for, so every position at that column goes. Only forward jumps are
 // followed: a portal that sends you backwards makes a cycle the search
 // cannot reason about, so it is skipped and the report warns instead.
-function _lcPortalJump(lv, i, step, h) {
+function _lcPortalsCrossing(lv, i, step) {
   const ps = lv.portals
   if (!ps || !ps.length) return null
   const from = i * step, to = from + step
-  for (const p of ps) {
-    if (!(p.at > from && p.at <= to)) continue
+  const out = []
+  for (const p of ps) if (p.at > from && p.at <= to) out.push(p)
+  return out.length ? out : null
+}
+
+// Is this position inside a mouth, and where does it come out? A mouth of 1
+// spans the screen and cannot be dodged; anything smaller can be flown past.
+// Backward jumps are skipped: they make a cycle the search cannot follow.
+function _lcThroughMouth(ports, ny, h, step, i, R) {
+  if (!ports) return null
+  for (const p of ports) {
+    const half = Math.min(1, p.mouth ?? 0.24) * h / 2
+    if (Math.abs(ny - (p.cf ?? 0.5) * h) > half) continue
     const j = Math.round((p.toAt ?? p.at) / step)
-    if (j < i) continue          // backwards makes a cycle; left alone
-    // Same column is a pure vertical hop: take the height, carry on from here
+    if (j < i) continue
     return { step: Math.max(j, i + 1),
-             y: Math.max(LC_R + 2, Math.min(h - LC_R - 2, (p.toCf ?? 0.5) * h)) }
+             y: Math.max(R + 2, Math.min(h - R - 2, (p.toCf ?? 0.5) * h)) }
   }
   return null
 }
@@ -110,17 +120,19 @@ function lcSolveWave(lv, h, dt) {
     // Match the game: the wave is clamped to the screen and tested against
     // the real corridor, not a corridor clipped to the screen.
     const top = cy - gapH/2, bot = cy + gapH/2
-    // A portal on this step takes everything with it, wherever it was
-    const jump = _lcPortalJump(lv, i, step, h)
-    const next = jump ? (at[jump.step] || (at[jump.step] = new Set()))
-                      : (at[i + 1] || (at[i + 1] = new Set()))
+    // Portals are avoidable, so this branches: a position inside the mouth
+    // goes through, one outside carries on past it.
+    const ports = _lcPortalsCrossing(lv, i, step)
+    const next = at[i + 1] || (at[i + 1] = new Set())
     for (const q of states) {
       const y = q * GQ
       for (const up of [true, false]) {
         let ny = y + (up ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
-        next.add(Math.round(jump ? jump.y / GQ : ny / GQ))
+        const j = _lcThroughMouth(ports, ny, h, step, i, LC_R)
+        if (j) (at[j.step] || (at[j.step] = new Set())).add(Math.round(j.y / GQ))
+        else   next.add(Math.round(ny / GQ))
       }
     }
     if (i > 8 && next.size) {
@@ -146,33 +158,35 @@ function lcSolveWave(lv, h, dt) {
 // positions are quantised to 1/8px, and with variable frame times an
 // input switch can land up to a frame late (4.25px). Without margin a
 // long level accumulates that and eventually clips a wall.
-function lcSolveLine(lv, h, margin, dt, worst, seg) {
+function lcSolveLine(lv, h, margin, dt, worst) {
   const pad = margin || 0
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
   const speed = lv.speed || 200
   const clear = lv.clearAt || 800
-  // Same exact-divisor grid as lcSolveWave — see the note there
   const GQ = (LC_WAVE * DT) / 4
-  const from  = seg ? seg.from : 0
-  const until = seg ? seg.to : clear
-  const start = Math.round((seg ? seg.startY : h / 2) / GQ)
+  const step = speed * DT
+  const nSteps = Math.ceil(clear / step)
 
-  // layers[f] : Map(stateKey -> { prev, hold, taps })
-  const layers = []
-  let cur = new Map([[start + ':0', { prev: null, hold: false, taps: 0 }]])
-  let scroll = from, frame = 0
+  // Because a portal can be flown past, the route is a choice rather than a
+  // fixed chain, so this is a search over (step, height) with a parent
+  // pointer per state — not a march through consecutive layers.
+  const at = new Array(nSteps + 2)
+  at[0] = new Map([[Math.round(h / 2 / GQ) + ':0',
+                    { prevStep: -1, prevKey: null, hold: false, taps: 0 }]])
+  let lastLive = 0
 
-  while (scroll < until) {
-    // The game moves the wave, advances the scroll, and only then tests
-    // the wall at the new column. Checking at the old column instead put
-    // the solved line one frame out of step and it died on its own plan.
-    const at = scroll + speed * DT
-    const { cy, gapH } = lcWallAt(kfs, Math.floor(at), h)
-    // Same as the game: real corridor, wave clamped to the screen
+  for (let i = 0; i <= nSteps; i++) {
+    const cur = at[i]
+    if (!cur || !cur.size) continue
+    lastLive = i
+    const scroll = i * step
+    // The game moves the wave, advances the scroll, and only then tests the
+    // wall at the new column.
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll + step), h)
     const top = cy - gapH / 2 + pad
     const bot = cy + gapH / 2 - pad
-    const next = new Map()
+    const ports = _lcPortalsCrossing(lv, i, step)
     for (const [key, node] of cur) {
       const [q, last] = key.split(':')
       const y = +q * GQ
@@ -180,37 +194,50 @@ function lcSolveLine(lv, h, margin, dt, worst, seg) {
         let ny = y + (hold ? -LC_WAVE : LC_WAVE) * DT
         ny = Math.max(LC_R + 2, Math.min(h - LC_R - 2, ny))
         if (ny - LC_R < top || ny + LC_R > bot) continue
-        const nk = Math.round(ny / GQ) + ':' + (hold ? '1' : '0')
         const taps = node.taps + ((hold && last === '0') ? 1 : 0)
-        const seen = next.get(nk)
-        // `worst` is evilbot: same line, but wring every extra press out of it
+        const gone = _lcThroughMouth(ports, ny, h, step, i, LC_R)
+        const tStep = gone ? gone.step : i + 1
+        const tY    = gone ? gone.y : ny
+        const m = at[tStep] || (at[tStep] = new Map())
+        const nk = Math.round(tY / GQ) + ':' + (hold ? '1' : '0')
+        const seen = m.get(nk)
         const better = !seen || (worst ? seen.taps < taps : seen.taps > taps)
-        if (better) next.set(nk, { prev: key, hold, taps })
+        if (better) m.set(nk, { prevStep: i, prevKey: key, hold, taps })
       }
     }
-    if (next.size === 0) return { ok: false, diedAt: Math.round(scroll), frame }
-    layers.push(next)
-    cur = next
-    scroll += speed * DT
-    frame++
   }
 
-  // Walk back from the cheapest surviving end state
-  let bestKey = null, bestTaps = worst ? -Infinity : Infinity
-  for (const [k, n] of cur) {
-    if (worst ? n.taps > bestTaps : n.taps < bestTaps) { bestTaps = n.taps; bestKey = k }
+  // Best survivor at or past the finish
+  let endStep = -1, endKey = null, endTaps = worst ? -Infinity : Infinity
+  for (let i = nSteps; i < at.length; i++) {
+    if (!at[i]) continue
+    for (const [k, n] of at[i]) {
+      if (worst ? n.taps > endTaps : n.taps < endTaps) { endTaps = n.taps; endKey = k; endStep = i }
+    }
+    if (endKey) break
   }
-  const holds = new Array(layers.length)
-  const ys    = new Array(layers.length)   // the height the line sits at
-  let key = bestKey
-  for (let f = layers.length - 1; f >= 0; f--) {
-    const node = layers[f].get(key)
-    holds[f] = node.hold
-    ys[f]    = +key.split(':')[0] * GQ
-    key = node.prev
+  if (!endKey) return { ok: false, diedAt: Math.round(lastLive * step), frame: lastLive }
+
+  // Walk back, filling the plan against absolute step numbers. Steps the
+  // route skipped keep their default, and playback never asks for them
+  // because it indexes by scroll.
+  const holds = new Array(nSteps + 2).fill(false)
+  const ys    = new Array(nSteps + 2).fill(h / 2)
+  // Written one step back: playback indexes by the scroll it is AT and aims
+  // for where it should be after the next step, so ys[i] is the target while
+  // standing at step i. Writing it at the arrival step instead leaves the
+  // first entry pointing at where the wave already is, and the line drifts —
+  // that alone cost THE SAW its 360px solution.
+  let s = endStep, k = endKey, guard = 0
+  while (s > 0 && k && guard++ < nSteps + 4) {
+    const n = at[s].get(k)
+    if (!n) break
+    holds[s - 1] = n.hold
+    ys[s - 1]    = +k.split(':')[0] * GQ
+    const ps = n.prevStep, pk = n.prevKey
+    s = ps; k = pk
   }
-  return { ok: true, holds, ys, frames: holds.length, taps: bestTaps, margin: pad, dt: DT,
-           from, startStep: Math.round(from / (speed * DT)) }
+  return { ok: true, holds, ys, frames: ys.length, taps: endTaps, margin: pad, dt: DT }
 }
 
 // Prefer a line with room to spare; fall back to tighter ones, and finally
@@ -239,7 +266,10 @@ function _lcReplayOk(lv, h, plan) {
     const prevScroll = scroll
     scroll += step
     const port = _lcPortalCross(lv, prevScroll, scroll)
-    if (port && (port.toAt ?? port.at) >= port.at) {
+    // Only if the wave was actually inside the mouth — a portal you fly past
+    // must be flown past here too, or the check disagrees with the game.
+    if (port && (port.toAt ?? port.at) >= port.at &&
+        Math.abs(wy - (port.cf ?? 0.5) * h) <= Math.min(1, port.mouth ?? 0.24) * h / 2) {
       scroll = Math.max(port.toAt ?? port.at, prevScroll + step)
       wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, (port.toCf ?? 0.5) * h))
     }
@@ -249,10 +279,6 @@ function _lcReplayOk(lv, h, plan) {
   return true
 }
 
-// The route through a level with portals is fixed: crossing a column always
-// takes you, so the run is a chain of segments with a known start height
-// each. That makes each segment an ordinary solve, and the plans stitch
-// together — no graph search needed.
 function _lcSegments(lv, h, step) {
   const clear = lv.clearAt || 800
   const ps = (lv.portals || []).slice().sort((a, b) => a.at - b.at)
@@ -270,34 +296,6 @@ function _lcSegments(lv, h, step) {
 }
 
 function lcSolveLineSafe(lv, h, dt, worst) {
-  const DT = dt || LC_DT
-  const step = (lv.speed || 200) * DT
-  const segs = _lcSegments(lv, h, step)
-  if (segs.length > 1) {
-    // Solve each stretch on its own, then lay the plans out against absolute
-    // step numbers so playback can keep indexing by scroll position.
-    const nSteps = Math.ceil((lv.clearAt || 800) / step) + 2
-    const holds = new Array(nSteps).fill(false)
-    const ys = new Array(nSteps).fill(h / 2)
-    let taps = 0, worstMargin = Infinity
-    for (const s of segs) {
-      let got = null
-      for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
-        const r = lcSolveLine(lv, h, pad, DT, worst, s)
-        if (r.ok) { got = r; break }
-      }
-      if (!got) return { ok: false }
-      taps += got.taps
-      worstMargin = Math.min(worstMargin, got.margin)
-      for (let k = 0; k < got.ys.length; k++) {
-        const idx = got.startStep + k
-        if (idx < nSteps) { ys[idx] = got.ys[k]; holds[idx] = got.holds[k] }
-      }
-    }
-    const plan = { ok: true, holds, ys, frames: ys.length, taps, margin: worstMargin, dt: DT }
-    return _lcReplayOk(lv, h, plan) ? plan : { ok: false }
-  }
-
   // A finer ladder than before, because the first plan that solves is not
   // necessarily one the controller can hold — more rungs means more chances
   // to find one that both solves and survives.
