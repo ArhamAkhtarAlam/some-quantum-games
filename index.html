@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum Games — Powered by real qubits</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="css/style.css?v=6" />
+  <link rel="stylesheet" href="css/style.css?v=7" />
 </head>
 <body>
 
@@ -1644,7 +1644,15 @@
         <span style="color:#38bdf8;">Blue</span> pillars are tunnel barriers: fly into one and you come out the far side.<br>
         <span id="g40-hint">Faster and tighter as you score!</span>
       </p>
-      <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;" onclick="startUFOGame()">▶ Fly!</button>
+      <div class="g40-modes">
+        <button class="btn-primary" style="background:#a855f7;border-color:#a855f7;font-weight:700;" onclick="startUFOGame()">▶ Start Levels</button>
+        <button class="btn-primary g40-ghost" onclick="startUFOEndless()">∞ Endless</button>
+      </div>
+      <p style="color:var(--muted);font-size:.78rem;text-align:center;max-width:340px;margin:-.2rem 0 0">
+        Levels: built-in levels back to back, one life. Score = how many you clear.<br>
+        Easy → Medium → Hard → Extreme &nbsp;·&nbsp; best <b id="g40-levels-best">0</b>
+        &nbsp;·&nbsp; Endless best <span id="g40-endless-best">0</span> pillars
+      </p>
       <button id="g40-2p-btn" class="btn-primary" style="display:none;background:rgba(56,189,248,.18);border-color:#38bdf8;color:#38bdf8;font-weight:700;" onclick="startUFO2P()">👥 2 Player</button>
       <div id="g40-practice" class="practice-picker"></div>
     </div>
@@ -1670,7 +1678,7 @@
   </div>
 </section>
 
-<script src="js/game40.js?v=20"></script>
+<script src="js/game40.js?v=21"></script>
 
 <section id="game41" class="screen game-screen">
   <div class="top-bar">
@@ -1790,7 +1798,7 @@
 <script src="js/levelcheck.js?v=14"></script>
 <script src="js/cheats.js?v=5"></script>
 <script src="js/deco.js?v=2"></script>
-<script src="js/game43.js?v=41"></script>
+<script src="js/game43.js?v=42"></script>
 
 <section id="game44" class="screen game-screen">
   <div class="top-bar">

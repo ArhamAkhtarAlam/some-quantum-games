@@ -1203,3 +1203,8 @@ body {
 }
 .ga-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: .35rem }
 .ga-ghost { background: var(--card) !important; color: var(--muted) !important; border: 1px solid var(--border) !important; box-shadow: none !important }
+
+/* Quantum Tunnel: Levels and Endless side by side, the same shape as
+   Entangled Gauntlet's pair. */
+.g40-modes { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; justify-content: center }
+.g40-ghost { background: var(--card) !important; color: var(--muted) !important; border: 1px solid var(--border) !important; box-shadow: none !important }

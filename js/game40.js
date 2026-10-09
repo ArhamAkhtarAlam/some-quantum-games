@@ -138,7 +138,19 @@ const G40_POOL = {
   ],
 }
 
-function _g40Gauntlet() { return !!(window.QG_BETA || window.QG_STALL) }
+// Levels unless the player asked for Endless. A test level is always a
+// gauntlet level, whatever was picked.
+function _g40Gauntlet() { return !G40.wantEndless }
+
+// Bests are stored per mode: one counts levels cleared, the other pillars
+// passed, so a single number would be meaningless.
+function _g40BestKey(mode) { return 'qg_ufo_best_' + mode }
+function _g40Best(mode) {
+  try { return +localStorage.getItem(_g40BestKey(mode)) || 0 } catch { return 0 }
+}
+function _g40SetBest(mode, v) {
+  try { if (v > _g40Best(mode)) localStorage.setItem(_g40BestKey(mode), String(v)) } catch {}
+}
 
 function _g40GetPool(score) {
   const {easy,medium,hard,extreme} = G40_POOL
@@ -243,15 +255,18 @@ async function initGame40() {
   _g40Canvas = null
   document.getElementById('g40-overlay').style.display = 'flex'
   document.getElementById('g40-over').style.display    = 'none'
-  // The level series and same-device 2P run on /beta and /stall only;
-  // the main site keeps the original endless game and no 2P button.
+  // Both modes are on every site now, so 2P is always offered — it races
+  // two ships through one level. _g40Gauntlet() is not asked here: it
+  // reports the last run's mode, and nothing has been picked yet.
   const twoP = document.getElementById('g40-2p-btn')
-  if (twoP) twoP.style.display = _g40Gauntlet() ? '' : 'none'
+  if (twoP) twoP.style.display = ''
   try { _g40BuildPracticeUI() } catch (e) { console.error('ufo practice picker:', e) }
   const hint = document.getElementById('g40-hint')
-  if (hint) hint.textContent = _g40Gauntlet()
-    ? 'Clear a series of named levels — each one has a finish line.'
-    : 'Faster and tighter as you score!'
+  if (hint) hint.textContent = 'Each level has a finish line; Endless just gets faster.'
+  const lb = document.getElementById('g40-levels-best')
+  if (lb) lb.textContent = _g40Best('levels')
+  const eb = document.getElementById('g40-endless-best')
+  if (eb) eb.textContent = _g40Best('endless')
   await initCurby()
 }
 window.initGame40 = initGame40
@@ -337,11 +352,21 @@ window.startUFOPractice = function(diff, name) {
   _g40Begin(true)
 }
 
-window.startUFOGame = function() {
+// Two modes, both on every site. Levels is the gauntlet: built-in levels
+// back to back, one life, scored in levels cleared. Endless is the original
+// random run, scored in pillars passed.
+//
+// These used to be chosen for you by which site you were on — main got
+// Endless, beta and the stall got Levels — so most players never saw the
+// levels existed.
+function _g40Play(endless) {
   G40.multi = false; G40.testLevel = null; G40.noclip = false
   G40.practice = false; G40.practiceDiff = null; G40.practiceLevel = null
+  G40.wantEndless = !!endless
   _g40Begin()
 }
+window.startUFOGame    = function() { _g40Play(false) }   // Levels
+window.startUFOEndless = function() { _g40Play(true)  }
 
 // Editor test play: one specific level, walls optional
 window.g40TestLevel = function(tmpl, noclip, bot) {
@@ -352,7 +377,7 @@ window.g40TestLevel = function(tmpl, noclip, bot) {
   _g40Begin(true)
 }
 // Same-device versus: two UFOs, one level, first to clip a pillar loses
-window.startUFO2P   = function() { G40.multi = true;  _g40Begin() }
+window.startUFO2P   = function() { G40.multi = true; G40.wantEndless = false; _g40Begin() }
 
 function _g40Begin(forceGauntlet) {
   // A test level is always a gauntlet level, whatever site you are on
@@ -656,6 +681,8 @@ function _g40Loop(ts) {
       G40.showOver = true
       window._g40Score = G40.score
       const s = G40.score
+      if (!G40.multi && !G40.practice && !G40.testLevel)
+        _g40SetBest(G40.gauntlet ? 'levels' : 'endless', s)
       let label
       if (G40.multi) label = G40.winner ? `Player ${G40.winner} wins — ${s} level${s !== 1 ? 's' : ''}`
                                         : `Draw — ${s} level${s !== 1 ? 's' : ''}`

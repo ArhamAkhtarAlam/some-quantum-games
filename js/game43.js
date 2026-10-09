@@ -520,7 +520,7 @@ const G43 = {
   score:0, challenge:null,
   keyframes:[], clearAt:0, scrollX:0, deco:[],
   trail:[],
-  announceT:0, clearedT:0, t:0,
+  announceT:0, clearedT:0, t:0, banner:null,
   deadT:0, showOver:false, shake:0,
   // practice = this run never scores. noclip = walls don't kill.
   // They used to be one flag; separating them lets you practise a level
@@ -656,7 +656,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     waveR:G43_WAVE_R_NRM,
     score:0, challenge:null, keyframes:[], clearAt:0, scrollX:0,
     trail:[],
-    announceT:0, clearedT:0, t:0,
+    announceT:0, clearedT:0, t:0, banner:null,
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
@@ -925,6 +925,26 @@ function _g43GetPool(score) {
   return [...builtins, ..._g43CustomEligible(score)]
 }
 
+// Load the next challenge and keep flying. _g43LoadChallenge resets the
+// wave to mid-screen, which is right when a run starts but would read as a
+// teleport mid-flight, so the wave's height and direction are carried over
+// and only nudged if the new corridor's opening does not reach them.
+function _g43Merge(w, h) {
+  const wy = G43.wy, wvy = G43.wvy
+  _g43LoadChallenge(w, h)
+  G43.phase = 'playing'
+  const k0 = G43.keyframes && G43.keyframes[0]
+  if (k0) {
+    const WR   = G43.waveR
+    const half = Math.max(0, k0.gapH / 2 - WR - 1)
+    const cy   = k0.cf * h
+    G43.wy  = Math.max(cy - half, Math.min(cy + half, wy))
+    G43.wvy = wvy
+  }
+  const ch = G43.challenge
+  if (ch) G43.banner = { name: ch.name, diff: ch.diff, t: 1.6 }
+}
+
 function _g43LoadChallenge(w, h) {
   let pool
   if (G43.testLevel) {
@@ -1174,8 +1194,6 @@ function _g43Loop(ts) {
     }
 
     if (G43.scrollX >= G43.clearAt) {
-      G43.phase    = 'cleared'
-      G43.clearedT = 0
       if (G43.practice) _g43TrailCard()
       if (!G43.practice) {
         G43.score++
@@ -1183,8 +1201,21 @@ function _g43Loop(ts) {
         document.getElementById('g43-score-hud').textContent = G43.score
       }
       SFX.win()
+      // Run the levels together: cross the finish and the next corridor is
+      // simply there, with its name shown over the top rather than on a
+      // screen of its own. Practice plays one level, so it still stops; and
+      // online has to wait for the host to send the next one, so it keeps
+      // the old pause rather than racing the network.
+      if (!G43.practice && !G43.testLevel && !G43_roomCode) {
+        _g43Merge(w, h)
+      } else {
+        G43.phase    = 'cleared'
+        G43.clearedT = 0
+      }
     }
   }
+
+  if (G43.banner) { G43.banner.t -= dt; if (G43.banner.t <= 0) G43.banner = null }
 
   if (G43.phase === 'waiting') {
     // Online joiner: waiting for host to send first challenge
@@ -1670,6 +1701,27 @@ function _g43Draw(ctx, w, h) {
                               : "practice — walls kill, but nothing is scored", w/2, h/2+58)
     }
     ctx.globalAlpha = 1
+  }
+
+  // ── Merge banner ─────────────────────────────────────
+  // Shown over the running game when one level rolls into the next, so the
+  // name is still there to read without anything stopping to tell you.
+  if (G43.banner) {
+    const b = G43.banner
+    const a = Math.min(1, (1.6 - b.t) * 6) * Math.min(1, b.t * 2.5)
+    if (a > 0.01) {
+      const col = G43_DIFF_COL[b.diff] || '#fff'
+      ctx.globalAlpha = a
+      ctx.textAlign = 'center'
+      ctx.font = 'bold 11px monospace'
+      ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10
+      ctx.fillText(String(b.diff || '').toUpperCase(), w / 2, 30)
+      ctx.font = 'bold 20px monospace'
+      ctx.fillStyle = _lt ? '#111' : '#fff'
+      ctx.fillText(b.name, w / 2, 54)
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = 1
+    }
   }
 
   // ── Cleared overlay ──────────────────────────────────
