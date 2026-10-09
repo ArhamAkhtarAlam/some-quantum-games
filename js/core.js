@@ -199,7 +199,7 @@ const STALL_HOWTO = {
   40: { keys: 'Tap / click / SPACE',
         steps: ['Each tap fires the thruster, let go and you fall',
                 'Slip through the gaps in each barrier \u2014 that is the tunnelling bit',
-                'Blinking pillars are solid ground, you can land on them'] },
+                'Green pillars are solid ground, you can land on them'] },
   43: { keys: 'Hold / release',
         steps: ['Hold to climb, let go to dive',
                 'You are always moving diagonally, never flat',
@@ -243,7 +243,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=13'
+    link.href = QG_ROOT + 'css/stall.css?v=14'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {

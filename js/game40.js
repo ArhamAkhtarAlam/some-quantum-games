@@ -849,15 +849,6 @@ function _g40DrawPipe(ctx, x, y, pw, ph, isTop, safe, tunnel) {
     ctx.restore()
     return
   }
-  // The stall shows a rest pillar as an ordinary pillar that blinks, rather
-  // than a green one.
-  if (safe && window.QG_STALL) {
-    ctx.save()
-    ctx.globalAlpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(performance.now() / 130))
-    _g40DrawPipe(ctx, x, y, pw, ph, isTop, false, false)
-    ctx.restore()
-    return
-  }
   const edge = safe ? '#22c55e' : '#a855f7'
 
   ctx.fillStyle = safe ? '#04140b' : '#06091a'
