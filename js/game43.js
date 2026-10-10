@@ -520,7 +520,7 @@ const G43 = {
   score:0, challenge:null,
   keyframes:[], clearAt:0, scrollX:0, deco:[],
   trail:[],
-  announceT:0, clearedT:0, t:0, banner:null,
+  announceT:0, clearedT:0, t:0, banner:null, nextLv:null,
   deadT:0, showOver:false, shake:0,
   // practice = this run never scores. noclip = walls don't kill.
   // They used to be one flag; separating them lets you practise a level
@@ -656,7 +656,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     waveR:G43_WAVE_R_NRM,
     score:0, challenge:null, keyframes:[], clearAt:0, scrollX:0,
     trail:[],
-    announceT:0, clearedT:0, t:0, banner:null,
+    announceT:0, clearedT:0, t:0, banner:null, nextLv:null,
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
@@ -925,27 +925,34 @@ function _g43GetPool(score) {
   return [...builtins, ..._g43CustomEligible(score)]
 }
 
-// Load the next challenge and keep flying. _g43LoadChallenge resets the
-// wave to mid-screen, which is right when a run starts but would read as a
-// teleport mid-flight, so the wave's height and direction are carried over
-// and only nudged if the new corridor's opening does not reach them.
+// Hand over to the level that has been visible past the finish line.
+//
+// Nothing is reset or repositioned: the next level is already what the
+// corridor ahead of the flag was drawn from, so all that happens is the
+// scroll origin moves back by the finished level's length and the wave
+// keeps flying exactly where it was. Then the level after that is built,
+// so there is always one more to see ahead.
 function _g43Merge(w, h) {
-  const wy = G43.wy, wvy = G43.wvy
-  _g43LoadChallenge(w, h)
-  G43.phase = 'playing'
-  const k0 = G43.keyframes && G43.keyframes[0]
-  if (k0) {
-    const WR   = G43.waveR
-    const half = Math.max(0, k0.gapH / 2 - WR - 1)
-    const cy   = k0.cf * h
-    G43.wy  = Math.max(cy - half, Math.min(cy + half, wy))
-    G43.wvy = wvy
-  }
+  const lv = G43.nextLv || _g43SetSeam(_g43BuildChallenge(h, G43.score), G43, h)
+  const was = G43.clearAt
+  _g43Apply(lv)
+  G43.scrollX   -= was
+  G43.nextLv     = _g43SetSeam(_g43BuildChallenge(h, G43.score + 1), lv, h)
+  G43.phase      = 'playing'
+  G43.portalCool = 0
+  G43.laps       = 0
+  G43.trail      = []
+  G43.bot        = null
+  G43.botPending = G43.botMode
   const ch = G43.challenge
   if (ch) G43.banner = { name: ch.name, diff: ch.diff, t: 1.6 }
 }
 
-function _g43LoadChallenge(w, h) {
+// Pick and generate a challenge without touching anything. Split out so the
+// level after this one can be built early and drawn past the finish line.
+// `score` is which gate to draw the pool from — for the next level that is
+// one higher, since you will have cleared this one by the time it arrives.
+function _g43BuildChallenge(h, score) {
   let pool
   if (G43.testLevel) {
     pool = [G43.testLevel]
@@ -957,16 +964,11 @@ function _g43LoadChallenge(w, h) {
       if (one.length) pool = one
     }
   } else {
-    pool = _g43GetPool(G43.score)
+    pool = _g43GetPool(score)
   }
   if (!pool.length) pool = [...G43_POOL.easy]
-  const tmpl        = _g43Pick(pool)
-  G43.challenge     = { ...tmpl }
-  G43.waveR         = tmpl.miniWave ? G43_WAVE_R_MINI : G43_WAVE_R_NRM
-  const kfData      = tmpl.gen(h)
-  G43.keyframes     = kfData.keyframes
-  G43.clearAt       = kfData.clearAt
-  G43.deco          = kfData.deco || []
+  const tmpl   = _g43Pick(pool)
+  const kfData = tmpl.gen(h)
   // Portals: { at, cf, toAt, toCf, mouth }. You have to fly through the
   // mouth — an opening of `mouth` of the height, centred on cf — and you
   // come out at the other end, which can be anywhere: a different column,
@@ -977,13 +979,34 @@ function _g43LoadChallenge(w, h) {
   // the thing you just authored.
   const wantPortals = kfData.portals && kfData.portals.length &&
     (G43.testLevel ? true : qRandInt(100) < Math.round((kfData.portalChance ?? 0.35) * 100))
-  G43.portals       = wantPortals ? kfData.portals.map(p => ({
-    at: p.at, cf: p.cf ?? 0.5,
-    toAt: p.toAt ?? p.at, toCf: p.toCf ?? 0.5,
-    mouth: p.mouth ?? 0.24,
-  })) : []
-  // So the announce screen can say which version turned up
-  if (G43.challenge) G43.challenge.hasPortal = !!wantPortals
+  return {
+    challenge: { ...tmpl, hasPortal: !!wantPortals },
+    waveR:     tmpl.miniWave ? G43_WAVE_R_MINI : G43_WAVE_R_NRM,
+    keyframes: kfData.keyframes,
+    clearAt:   kfData.clearAt,
+    deco:      kfData.deco || [],
+    portals:   wantPortals ? kfData.portals.map(p => ({
+      at: p.at, cf: p.cf ?? 0.5,
+      toAt: p.toAt ?? p.at, toCf: p.toCf ?? 0.5,
+      mouth: p.mouth ?? 0.24,
+    })) : [],
+  }
+}
+
+// Make a built challenge the one being flown
+function _g43Apply(lv) {
+  G43.challenge = lv.challenge
+  G43.waveR     = lv.waveR
+  G43.keyframes = lv.keyframes
+  G43.clearAt   = lv.clearAt
+  G43.deco      = lv.deco
+  G43.portals   = lv.portals
+  G43.seamDy    = lv.seamDy || 0
+  G43.seamSpan  = lv.seamSpan || 1
+}
+
+function _g43LoadChallenge(w, h) {
+  _g43Apply(_g43BuildChallenge(h, G43.score))
   G43.portalCool    = 0
   G43.laps          = 0
   G43.scrollX       = 0
@@ -1003,27 +1026,71 @@ function _g43LoadChallenge(w, h) {
   if (G43.multi) {
     G43.p2wy = h / 2; G43.p2wvy = G43_WAVE_SPD; G43.p2holding = false; G43.p2trail = []
   }
+  // One level ahead is kept built so it can be drawn past the finish line.
+  // Practice and test play fly a single level, and online is driven by the
+  // host, so neither looks ahead.
+  G43.nextLv = (!G43.practice && !G43.testLevel && !G43_roomCode)
+    ? _g43SetSeam(_g43BuildChallenge(h, G43.score + 1), G43, h) : null
   if (G43_roomCode && G43_isHost) G43_pendingSyncChallenge = _g43SerializeChallenge(h)
 }
 
-// Linearly interpolated corridor shape at a given column offset
+// Linearly interpolated corridor shape at a given column offset.
+//
+// Past the finish line this reads from the level that comes next, so the
+// corridor you can see ahead of the chequered flag is the real one you are
+// about to fly. Collision never gets here — the swap happens exactly at
+// clearAt — so this only ever affects what is drawn.
 function _g43WallAt(col, h) {
-  const kfs = G43.keyframes
+  if (G43.nextLv && col > G43.clearAt) return _g43WallOf(G43.nextLv, col - G43.clearAt, h)
+  return _g43WallOf(G43, col, h)
+}
+
+// Levels all open centred but some close as much as 80px off centre, and
+// openings get as tight as 90px — so joining one straight onto the next
+// would put the wave outside the corridor at the seam. Each level carries
+// the offset it needs to start where the last one ended, easing to its own
+// shape over `seamSpan` columns. The span is chosen so following it never
+// costs more than half the wave's climb, whatever the level's speed.
+function _g43Seam(src, col) {
+  if (!src.seamDy) return 0
+  const t = Math.min(1, Math.max(0, col / src.seamSpan))
+  // Smoothstep: flat at both ends, so the corridor leaves the old height
+  // and settles into the new one without a corner at either join.
+  return src.seamDy * (1 - t * t * (3 - 2 * t))
+}
+
+function _g43WallOf(src, col, h) {
+  const kfs = src.keyframes
   if (!kfs || kfs.length === 0) return { cy:h/2, gapH:h*0.6 }
-  if (col <= kfs[0].at)         return { cy:kfs[0].cf*h, gapH:kfs[0].gapH }
+  const sdy = _g43Seam(src, col)
+  if (col <= kfs[0].at)         return { cy:kfs[0].cf*h + sdy, gapH:kfs[0].gapH }
   const last = kfs[kfs.length-1]
-  if (col >= last.at)           return { cy:last.cf*h, gapH:last.gapH }
+  if (col >= last.at)           return { cy:last.cf*h + sdy, gapH:last.gapH }
   for (let i = 1; i < kfs.length; i++) {
     if (col <= kfs[i].at) {
       const span = kfs[i].at - kfs[i-1].at
       const t    = span > 0 ? (col - kfs[i-1].at) / span : 1
       return {
-        cy:   (kfs[i-1].cf   + (kfs[i].cf   - kfs[i-1].cf)   * t) * h,
+        cy:   (kfs[i-1].cf   + (kfs[i].cf   - kfs[i-1].cf)   * t) * h + sdy,
         gapH:  kfs[i-1].gapH + (kfs[i].gapH - kfs[i-1].gapH) * t,
       }
     }
   }
-  return { cy:last.cf*h, gapH:last.gapH }
+  return { cy:last.cf*h + sdy, gapH:last.gapH }
+}
+
+// Work out the offset a level needs to join on from where `prev` ended
+function _g43SetSeam(lv, prev, h) {
+  const pk = prev && prev.keyframes && prev.keyframes[prev.keyframes.length - 1]
+  const nk = lv.keyframes && lv.keyframes[0]
+  if (!pk || !nk) { lv.seamDy = 0; lv.seamSpan = 1; return lv }
+  lv.seamDy = (pk.cf - nk.cf) * h
+  // Budget half the wave's climb per column. Smoothstep's steepest point is
+  // 1.5x the average, so the span has to allow for that or a fast level's
+  // join would be steeper than the wave can fly.
+  const perCol = 0.5 * G43_WAVE_SPD / ((lv.challenge && lv.challenge.speed) || 200)
+  lv.seamSpan = Math.max(120, Math.ceil(1.5 * Math.abs(lv.seamDy) / Math.max(0.05, perCol)))
+  return lv
 }
 
 function _g43Loop(ts) {
