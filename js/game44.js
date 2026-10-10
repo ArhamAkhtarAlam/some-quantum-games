@@ -463,9 +463,27 @@ function _spdLoadChallenge() {
 }
 
 function _spdKeyDn(e) {
-  if (e.code === 'Space') { e.preventDefault(); _spdDoFlip() }
+  if (e.code !== 'Space') return
+  e.preventDefault()
+  // Holding Space makes the OS repeat keydown about thirty times a second,
+  // and every one of those was a flip — so resting on the key flipped the
+  // spider back and forth on its own. A flip is one press.
+  if (e.repeat) return
+  _spdDoFlip()
 }
-function _spdInput(e) { e.preventDefault(); _spdDoFlip() }
+
+// A tap on a touchscreen fires touchstart and then a synthetic mousedown.
+// preventDefault on touchstart suppresses that on most browsers, but not
+// all, and a double flip puts you straight back where you started — which
+// reads as the tap doing nothing.
+let _spdLastTouch = 0
+function _spdInput(e) {
+  e.preventDefault()
+  const now = performance.now()
+  if (e.type === 'touchstart') _spdLastTouch = now
+  else if (now - _spdLastTouch < 700) return   // synthetic mouse after a tap
+  _spdDoFlip()
+}
 
 function _spdDoFlip() {
   if (!_SPD.active || _SPD.phase !== 'playing') return

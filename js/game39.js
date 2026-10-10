@@ -7,30 +7,26 @@
 const G39_COLORS  = ['#eab308','#ef4444','#a855f7','#3b82f6','#ec4899','#06b6d4','#84cc16','#34d399']
 const G39_NEUTRAL = '#5a5a8a'
 
-// 20 fast permutations — fired every 0.45s starting at t=5
-const G39_PERMS = [
-  [1,0,3,2,5,4,7,6],
-  [2,3,0,1,6,7,4,5],
-  [1,2,3,0,5,6,7,4],
-  [3,0,1,2,7,4,5,6],
-  [4,5,6,7,0,1,2,3],
-  [1,3,0,2,5,7,4,6],
-  [2,0,3,1,6,4,7,5],
-  [3,2,1,0,7,6,5,4],
-  [0,4,2,6,1,5,3,7],
-  [6,7,4,5,2,3,0,1],
-  [1,0,4,5,2,3,7,6],
-  [5,4,7,6,1,0,3,2],
-  [3,1,2,0,7,5,6,4],
-  [2,3,4,5,6,7,0,1],
-  [7,6,5,4,3,2,1,0],
-  [0,2,1,3,4,6,5,7],
-  [4,0,5,1,6,2,7,3],
-  [1,3,0,2,6,4,7,5],
-  [6,4,7,5,2,0,3,1],
-  [3,2,0,1,7,6,4,5],
-]
-const G39_PERM_T     = Array.from({length: 20}, (_, i) => 5.0 + i * 0.45)
+// The shuffles used to be a fixed table of 20, played in the same order
+// every single game — so the whole sequence could be learned. Each one is
+// rolled fresh now, off the same quantum bit pool the games use elsewhere.
+const G39_SHUFFLES = 20
+
+// A random permutation of the eight slots: perm[s] is where whatever sits
+// in slot s ends up. Rejects the identity, since a shuffle that moves
+// nothing looks like the game has frozen.
+function _g39RandPerm() {
+  for (let tries = 0; tries < 20; tries++) {
+    const p = [0, 1, 2, 3, 4, 5, 6, 7]
+    for (let i = 7; i > 0; i--) {
+      const j = qRandInt(i + 1)
+      const t = p[i]; p[i] = p[j]; p[j] = t
+    }
+    if (p.some((v, i) => v !== i)) return p
+  }
+  return [1, 0, 3, 2, 5, 4, 7, 6]   // fallback: a plain pairwise swap
+}
+const G39_PERM_T     = Array.from({length: G39_SHUFFLES}, (_, i) => 5.0 + i * 0.45)
 const G39_SHUFFLE_END = 14.0
 const G39_PICK_SECS   = 5.0   // seconds to pick before timeout
 
@@ -108,6 +104,8 @@ function _g39StartRound() {
   G39.slotToKey  = [0,1,2,3,4,5,6,7]
   G39.keyToSlot  = [0,1,2,3,4,5,6,7]
   G39.permStep   = -1
+  // A fresh set of shuffles every round, so the sequence cannot be learned
+  G39.perms      = Array.from({length: G39_SHUFFLES}, _g39RandPerm)
   G39.isAnimating = false
   G39.result     = null
   G39.resultT    = 0
@@ -129,7 +127,7 @@ function _g39StartRound() {
 }
 
 function _g39ApplyPerm(step, w, h) {
-  const perm = G39_PERMS[step]
+  const perm = G39.perms[step]
   const newSlotToKey = new Array(8)
   for (let s = 0; s < 8; s++) newSlotToKey[perm[s]] = G39.slotToKey[s]
   const newKeyToSlot = new Array(8)
@@ -158,7 +156,7 @@ function _g39Loop(ts) {
 
   if (G39.phase === 'shuffle') {
     const next = G39.permStep + 1
-    if (next < G39_PERMS.length && G39.t >= G39_PERM_T[next]) {
+    if (next < G39.perms.length && G39.t >= G39_PERM_T[next]) {
       _g39ApplyPerm(next, w, h)
       G39.permStep = next
     }
