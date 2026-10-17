@@ -981,7 +981,13 @@ function _g43Merge(w, h) {
   G43.phase      = 'playing'
   G43.portalCool = 0
   G43.laps       = 0
-  G43.trail      = []
+  // The trail is stored in scroll coordinates, and the origin just moved
+  // back by `was` — so shift it rather than clearing it, and the path you
+  // flew through the level you just finished keeps trailing off behind the
+  // wave instead of disappearing at the flag.
+  const shift = t => { for (const p of t) p.sx -= was; return t }
+  shift(G43.trail)
+  if (G43.p2trail) shift(G43.p2trail)
   G43.bot        = null
   G43.botPending = G43.botMode
   const ch = G43.challenge

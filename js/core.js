@@ -256,7 +256,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=20'
+    link.href = QG_ROOT + 'css/stall.css?v=21'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
@@ -316,23 +316,13 @@ function qgApplyStall() {
     const hint = document.createElement('span')
     hint.className = 'stall-esc'
     hint.setAttribute('aria-hidden', 'true')
-    hint.innerHTML = '<kbd>Esc</kbd> back'
+    hint.innerHTML = '<kbd>Esc</kbd> pause'
     b.replaceWith(hint)
   })
-  if (!qgApplyStall._esc) {
-    qgApplyStall._esc = true
-    // Capture phase, so it runs before a game's own key handler sees Escape
-    window.addEventListener('keydown', e => {
-      if (e.key !== 'Escape' || e.repeat) return
-      if (document.getElementById('home').classList.contains('active')) return
-      // Let Escape close an open panel or the submit form first
-      if (typeof qgLbPanelOpen === 'function' && qgLbPanelOpen()) return
-      const sub = document.getElementById('submit-overlay')
-      if (sub && sub.classList.contains('show')) return
-      e.preventDefault(); e.stopImmediatePropagation()
-      goHome()
-    }, true)
-  }
+  // Escape used to go straight home from here. It opens the pause screen
+  // now — same key, but a stray press costs you nothing and Exit is one
+  // click away. The handler lives with the pause code at the end of this
+  // file, so there is nothing stall-specific left to wire up.
 
   // Building a level is not a stand activity
   document.querySelectorAll('a[href^="editor.html"]').forEach(a => {
@@ -1637,3 +1627,106 @@ window.skipSubmit = function() {
 // Load on page start
 initCurby()
 fetchAuthorScores()
+
+// ═══════════════════════════════════════════════════════
+//  PAUSE
+//  Escape pauses whatever game is open and offers Resume or Exit.
+//  Before this, Escape on the stand went straight home — one stray key
+//  mid-run and the run was gone.
+//
+//  Nothing is added to the games themselves. They all drive their loops
+//  with requestAnimationFrame, so while paused that is intercepted: the
+//  callback is held rather than scheduled, and handed back on resume.
+//  The loop simply does not get another frame.
+//
+//  Safe because every game clamps its own dt (all four of the gauntlet
+//  games cap it at 50ms), so a pause of any length costs one short frame
+//  on resume rather than a jump of however long you were away.
+// ═══════════════════════════════════════════════════════
+
+let _qgPaused   = false
+let _qgRafId    = 0
+const _qgHeld   = new Map()
+const _qgRawRaf    = window.requestAnimationFrame.bind(window)
+const _qgRawCancel = window.cancelAnimationFrame.bind(window)
+
+function _qgHold(cb) {
+  // Negative ids, so they can never collide with a real one
+  const id = --_qgRafId
+  _qgHeld.set(id, cb)
+  return id
+}
+
+window.requestAnimationFrame = cb => {
+  if (_qgPaused) return _qgHold(cb)
+  // The frame the browser already has in flight has to be caught too, or
+  // one more step runs after you hit Escape — about 16ms, which is enough
+  // to lose a frame-perfect level while looking at the pause screen.
+  return _qgRawRaf(ts => { if (_qgPaused) _qgHold(cb); else cb(ts) })
+}
+window.cancelAnimationFrame = id => {
+  if (_qgHeld.has(id)) { _qgHeld.delete(id); return }
+  _qgRawCancel(id)
+}
+
+function _qgActiveGame() {
+  return document.querySelector('.screen.game-screen.active')
+}
+
+// Escape is already spoken for by anything modal that is open, so those
+// get it first and the game is left alone.
+function _qgModalOpen() {
+  if (typeof qgLbPanelOpen === 'function' && qgLbPanelOpen()) return true
+  const sub = document.getElementById('submit-overlay')
+  if (sub && sub.classList.contains('show')) return true
+  return !!document.querySelector('.game-over-overlay.show')
+}
+
+function _qgPauseEl() {
+  let el = document.getElementById('qg-pause')
+  if (el) return el
+  el = document.createElement('div')
+  el.id = 'qg-pause'
+  el.innerHTML = `
+    <div class="qg-pause-card">
+      <h2>Paused</h2>
+      <p>Your run is waiting exactly where you left it.</p>
+      <button class="btn-primary" id="qg-pause-resume">▶ Resume</button>
+      <button class="btn-primary qg-pause-exit" id="qg-pause-exit">← Exit to menu</button>
+      <p class="qg-pause-hint"><kbd>Esc</kbd> resumes too</p>
+    </div>`
+  document.body.appendChild(el)
+  el.querySelector('#qg-pause-resume').addEventListener('click', qgResume)
+  el.querySelector('#qg-pause-exit').addEventListener('click', () => { qgResume(); goHome() })
+  return el
+}
+
+window.qgPause = function() {
+  if (_qgPaused || !_qgActiveGame() || _qgModalOpen()) return
+  _qgPaused = true
+  _qgPauseEl().classList.add('show')
+}
+
+window.qgResume = function() {
+  if (!_qgPaused) return
+  _qgPaused = false
+  const el = document.getElementById('qg-pause')
+  if (el) el.classList.remove('show')
+  // Hand every held frame back. Copied first: a callback that asks for the
+  // next frame would otherwise be added to the map while it is being walked.
+  const held = [..._qgHeld.values()]
+  _qgHeld.clear()
+  for (const cb of held) _qgRawRaf(cb)
+}
+
+window.qgPauseToggle = function() { _qgPaused ? qgResume() : qgPause() }
+window.qgIsPaused = () => _qgPaused
+
+// Capture phase, so a game's own Escape handler does not act first
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.repeat) return
+  if (_qgPaused) { e.preventDefault(); e.stopImmediatePropagation(); qgResume(); return }
+  if (!_qgActiveGame() || _qgModalOpen()) return
+  e.preventDefault(); e.stopImmediatePropagation()
+  qgPause()
+}, true)

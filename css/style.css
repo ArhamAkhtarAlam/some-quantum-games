@@ -1425,3 +1425,28 @@ body.has-tp #qg-lb-btn, body.has-tp #qg-theme-btn { display: none; }
   .canvas-overlay { overflow-y: auto; }
   .game-over-card { max-width: calc(100vw - 2rem); }
 }
+
+/* ── Pause ──────────────────────────────────────────── */
+#qg-pause {
+  display: none; position: fixed; inset: 0; z-index: 120;
+  background: rgba(0,0,0,.8); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+}
+#qg-pause.show { display: flex }
+.qg-pause-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 1.5rem; padding: 2.2rem 2.6rem; text-align: center;
+  max-width: 340px;
+}
+.qg-pause-card h2 { margin: 0 0 .4rem; font-size: 1.6rem }
+.qg-pause-card p { color: var(--muted); font-size: .86rem; margin: 0 0 1.2rem }
+.qg-pause-card .btn-primary { display: block; width: 100%; margin-bottom: .55rem }
+.qg-pause-exit {
+  background: var(--card) !important; color: var(--muted) !important;
+  border: 1px solid var(--border) !important; box-shadow: none !important;
+}
+.qg-pause-hint { font-size: .74rem; margin: .7rem 0 0 !important }
+.qg-pause-hint kbd {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: .05rem .3rem; font-size: .72rem;
+}
