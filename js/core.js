@@ -249,14 +249,14 @@ if (QG_STALL && typeof history !== 'undefined' && /[?&]game=stall(&|$)/.test(loc
 function qgApplyStall() {
   if (!QG_STALL) return
 
-  // Carnival dressing. The stylesheet is injected rather than linked from
+  // Cyber dressing. The stylesheet is injected rather than linked from
   // index.html so the main site never downloads or applies it.
   document.body.classList.add('stall-mode')
   if (!document.getElementById('stall-css')) {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=16'
+    link.href = QG_ROOT + 'css/stall.css?v=20'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
@@ -272,11 +272,7 @@ function qgApplyStall() {
   const lights = deco('stall-lights', 26)
   if (lights) document.body.insertBefore(lights, document.body.firstChild)
   const header = document.querySelector('.home-header')
-  if (header && !document.querySelector('.stall-kicker')) {
-    const kicker = document.createElement('span')
-    kicker.className = 'stall-kicker'
-    kicker.textContent = 'Step right up'
-    header.insertBefore(kicker, header.firstChild)
+  if (header) {
     const bunting = deco('stall-bunting', 15)
     if (bunting) header.parentNode.insertBefore(bunting, header.nextSibling)
   }
@@ -287,7 +283,7 @@ function qgApplyStall() {
   if (!document.getElementById('stall-js')) {
     const s = document.createElement('script')
     s.id = 'stall-js'
-    s.src = QG_ROOT + 'js/stall.js?v=3'
+    s.src = QG_ROOT + 'js/stall.js?v=4'
     document.body.appendChild(s)
   }
 
@@ -313,6 +309,30 @@ function qgApplyStall() {
     const tag = card.querySelector('.card-tag')
     card.insertBefore(box, tag || null)
   })
+
+  // No ← Back button on the stand: Escape takes you home instead, and a
+  // small key hint sits where the button was so walk-up players find it.
+  document.querySelectorAll('.top-bar .btn-back').forEach(b => {
+    const hint = document.createElement('span')
+    hint.className = 'stall-esc'
+    hint.setAttribute('aria-hidden', 'true')
+    hint.innerHTML = '<kbd>Esc</kbd> back'
+    b.replaceWith(hint)
+  })
+  if (!qgApplyStall._esc) {
+    qgApplyStall._esc = true
+    // Capture phase, so it runs before a game's own key handler sees Escape
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || e.repeat) return
+      if (document.getElementById('home').classList.contains('active')) return
+      // Let Escape close an open panel or the submit form first
+      if (typeof qgLbPanelOpen === 'function' && qgLbPanelOpen()) return
+      const sub = document.getElementById('submit-overlay')
+      if (sub && sub.classList.contains('show')) return
+      e.preventDefault(); e.stopImmediatePropagation()
+      goHome()
+    }, true)
+  }
 
   // Building a level is not a stand activity
   document.querySelectorAll('a[href^="editor.html"]').forEach(a => {
@@ -369,7 +389,7 @@ function qgApplyTheme() {
     const link = document.createElement('link')
     link.id = 'qg-theme-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/theme.css?v=3'
+    link.href = QG_ROOT + 'css/theme.css?v=6'
     document.head.appendChild(link)
   }
   if (!document.getElementById('qg-theme-btn')) {
@@ -522,6 +542,8 @@ function initCanvas() {
     vx: (Math.random() - .5) * .3,
     vy: (Math.random() - .5) * .3,
     alpha: Math.random() * .6 + .2,
+    // Blue sky or pink floor, to match the synthwave wallpaper
+    rgb: Math.random() < .5 ? '96,165,250' : '236,72,153',
   }))
 }
 function animCanvas() {
@@ -529,7 +551,7 @@ function animCanvas() {
   for (const p of particles) {
     ctx.beginPath()
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(124,58,237,${p.alpha})`
+    ctx.fillStyle = `rgba(${p.rgb},${p.alpha})`
     ctx.fill()
     p.x += p.vx; p.y += p.vy
     if (p.x < 0) p.x = canvas.width

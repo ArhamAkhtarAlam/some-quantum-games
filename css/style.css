@@ -15,7 +15,14 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background: var(--bg);
+  /* Cyber wallpaper: a blue sky over a pink synthwave floor, the same
+     mirror horizon as Entangled Gauntlet. The floor itself is drawn by the
+     pseudo-elements below. */
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(59,130,246,.18) 0%, transparent 62%),
+    radial-gradient(ellipse 90% 45% at 50% 100%, rgba(236,72,153,.18) 0%, transparent 72%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
   min-height: 100vh;
@@ -25,6 +32,38 @@ body {
 /* ── Particle canvas background ── */
 #bg-canvas {
   position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.4;
+}
+
+/* ── Synthwave floor ── */
+/* A pink grid laid flat and tipped away from you, rolling toward the
+   horizon. Home screen only — the game screens have their own arena. */
+body:has(#home.active)::before {
+  content: ''; position: fixed; z-index: 0; pointer-events: none;
+  left: -50%; right: -50%; bottom: 0; height: 46vh;
+  background:
+    linear-gradient(90deg, rgba(236,72,153,.55) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(0deg,  rgba(236,72,153,.55) 1px, transparent 1px) 0 0 / 64px 64px;
+  transform: perspective(320px) rotateX(62deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(0deg, #000 10%, transparent 85%);
+  mask-image: linear-gradient(0deg, #000 10%, transparent 85%);
+  opacity: .3;
+  animation: cy-floor 2.4s linear infinite;
+}
+/* The horizon line where the floor meets the sky */
+body:has(#home.active)::after {
+  content: ''; position: fixed; z-index: 0; pointer-events: none;
+  left: 0; right: 0; bottom: 46vh; height: 2px;
+  background: linear-gradient(90deg, transparent, #3b82f6 20%, #ec4899 80%, transparent);
+  box-shadow: 0 0 18px 2px rgba(236,72,153,.45), 0 0 40px 6px rgba(59,130,246,.2);
+  opacity: .45;
+}
+@keyframes cy-floor {
+  from { background-position: 0 0, 0 0 }
+  to   { background-position: 0 0, 0 64px }
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has(#home.active)::before { animation: none }
 }
 
 /* ── Layout shells ── */
@@ -779,9 +818,55 @@ body {
 }
 
 /* responsive */
-@media (max-width: 500px) {
-  .game-cards { flex-direction: column; align-items: center; }
-  .game-card { width: 100%; max-width: 360px; }
+/* Phones: the home screen works like a phone's own — a grid of app
+   icons with a name under each, and one tap opens the game. The
+   description and tag are left out; the game's start screen has them. */
+@media (max-width: 600px) {
+  #home { gap: 1.4rem; padding: 3.6rem .75rem 5rem; }
+  .game-cards {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.1rem .4rem; width: 100%; max-width: 420px; margin: 0 auto;
+  }
+  /* The card itself disappears; only the icon tile and its name remain */
+  .game-card, .stall-mode .game-card {
+    width: auto; max-width: none; padding: 0; margin: 0;
+    background: none !important;
+    box-shadow: none !important; clip-path: none; overflow: visible;
+    display: flex; flex-direction: column; align-items: center; gap: .4rem;
+    text-align: center; -webkit-tap-highlight-color: transparent;
+    border-width: 0;
+  }
+  .stall-mode .game-card::before { display: none; }
+  .game-card:hover, .stall-mode .game-card:hover { transform: none; }
+  .game-card .card-icon {
+    width: 62px; height: 62px; margin: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; line-height: 1;
+    border-radius: 16px;
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.08) 0%, transparent 55%),
+      var(--card);
+    /* The card's own tint (set inline on most cards) edges the tile */
+    border: 1px solid; border-color: inherit;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35), 0 0 14px rgba(124,58,237,.12);
+    transition: transform .12s;
+  }
+  .game-card:active .card-icon { transform: scale(.9); }
+  .game-card .card-title {
+    font-size: .7rem; font-weight: 600; line-height: 1.2; margin: 0;
+    max-width: 100%; padding: 0 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    color: var(--text);
+  }
+  .game-card .card-desc, .game-card .card-tag, .game-card .stall-how { display: none; }
+  /* Sits above the title instead of on top of it */
+  .auth-header-wrap { position: absolute; top: .75rem; right: .75rem; }
+}
+/* Light pages: a softer shadow under the icon tiles */
+@media (max-width: 600px) {
+  :root[data-theme="light"] .game-card .card-icon {
+    box-shadow: 0 3px 10px rgba(20,21,43,.12);
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1265,3 +1350,78 @@ body {
 .qg-lb-status:empty { display: none; }
 .lb-row-focus { outline: 2px solid var(--accent2); outline-offset: -2px; animation: lb-focus 1.6s ease-out; }
 @keyframes lb-focus { from { background: rgba(6,182,212,.25); } }
+
+/* ══════════════════════════════════════
+   TOUCH CONTROLS — js/touchpad.js
+   On touch screens the keyboard-only games are played by touching the
+   game itself. This slim bar under them says how, and holds the few
+   game actions that are not a place on the screen (pause, the gates).
+   Type Racer gets a typing field here instead.
+══════════════════════════════════════ */
+#tp-pad {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .5rem max(.8rem, env(safe-area-inset-right)) max(.6rem, env(safe-area-inset-bottom)) max(.8rem, env(safe-area-inset-left));
+  background: linear-gradient(0deg, rgba(7,6,26,.94) 60%, rgba(7,6,26,0));
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.tp-hint {
+  flex: 1; min-width: 0;
+  font-size: .76rem; line-height: 1.35; color: #a9b1d6;
+}
+/* Room for the bar, so it never sits over the arena. Keyed off markup
+   that is there before the game starts, not off the bar itself, so the
+   arena is already its final size when the game measures its canvas. */
+body.tp-touch .game-screen.active[data-tp="bar"]  { padding-bottom: 72px; }
+body.tp-touch .game-screen.active[data-tp="type"] { padding-bottom: 84px; }
+/* Wave Collapse has a second row of buttons */
+body.tp-touch #game14.active[data-tp] { padding-bottom: 116px; }
+/* Fingers on the game must steer, not scroll or zoom the page */
+body.tp-touch #g10-arena, body.tp-touch #g13-arena, body.tp-touch #g15-arena { touch-action: none; }
+body.tp-touch .g14-cell { cursor: pointer; }
+/* The floating corner buttons would land on the arena or the bar */
+body.has-tp #qg-lb-btn, body.has-tp #qg-theme-btn { display: none; }
+
+.tp-btn {
+  touch-action: none;
+  min-width: 46px; height: 46px; padding: 0 .6rem;
+  border-radius: 12px; border: 1px solid rgba(167,139,250,.45);
+  background: rgba(22,22,42,.85); color: #e2e8f0;
+  font-family: inherit; font-weight: 700; font-size: 1rem; line-height: 1;
+  box-shadow: 0 0 10px rgba(59,130,246,.18), inset 0 0 0 1px rgba(255,255,255,.03);
+  transition: transform .05s, background .05s;
+}
+.tp-btn.on {
+  transform: scale(.94);
+  background: rgba(236,72,153,.35); border-color: #ec4899;
+  box-shadow: 0 0 16px rgba(236,72,153,.5);
+}
+.tp-btn.tp-wide { min-width: 76px; font-size: .82rem; letter-spacing: .04em; }
+
+.tp-keys { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+.tp-row { display: flex; gap: 6px; }
+.tp-small .tp-btn { min-width: 40px; height: 38px; font-size: .9rem; }
+@media (max-width: 420px) {
+  #tp-pad { gap: .4rem; padding-left: .6rem; padding-right: .6rem; }
+  .tp-btn { min-width: 42px; height: 44px; }
+  .tp-small .tp-btn { min-width: 38px; height: 36px; }
+}
+
+.tp-type { flex: 1; }
+.tp-type-input {
+  width: 100%; height: 52px; border-radius: 12px;
+  border: 1px solid rgba(34,211,238,.5); background: rgba(22,22,42,.9);
+  color: #e2e8f0; font: inherit; font-size: 16px; /* 16px stops iOS zooming in */
+  text-align: center; outline: none;
+}
+.tp-type-input:focus { border-color: #ec4899; box-shadow: 0 0 14px rgba(236,72,153,.4); }
+
+/* A game screen on a phone: tighter frame, smaller header */
+@media (max-width: 600px) {
+  .game-screen { padding: .8rem .7rem; gap: .6rem; }
+  .top-bar { gap: .5rem .7rem; }
+  .game-title { font-size: .98rem; }
+  .btn-back { padding: .35rem .7rem; font-size: .8rem; }
+  .canvas-overlay { overflow-y: auto; }
+  .game-over-card { max-width: calc(100vw - 2rem); }
+}
