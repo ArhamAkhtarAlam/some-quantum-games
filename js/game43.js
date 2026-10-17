@@ -234,64 +234,8 @@ const G43_POOL = {
         ]}
       }
     },
-  ],
-
-  fp: [
-    // speed=255 = wave vertical speed → diagonal angle = exactly 45°.
-    // Wall snaps tight (gapH=22) while simultaneously sloping at 1px/column.
-    // Wave R=7 (diam=14), clearance=4px/side ≈ 1-frame timing window.
-    // Player must hold (upslope) or release (downslope) at the exact frame.
     {
-      name:'FRAME PERFECT', diff:'fp', speed:255, isFP:true,
-      gen(h) {
-        const startCf = 0.60 + qRandInt(15)/100   // 60-75%: below center
-        const endCf   = startCf - 80/h             // 80px rise = 45° upslope
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },       // drift to slope position
-          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
-          { at:280, cf:endCf,   gapH:22    },        // 45° upslope (80 col)
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
-        ]}
-      }
-    },
-    {
-      name:'DOWN FP', diff:'fp', speed:255, isFP:true,
-      gen(h) {
-        const startCf = 0.28 + qRandInt(12)/100   // 28-40%: above center
-        const endCf   = startCf + 80/h             // 80px drop = 45° downslope
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },
-          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
-          { at:280, cf:endCf,   gapH:22    },        // 45° downslope (80 col)
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
-        ]}
-      }
-    },
-    {
-      name:'MID FP', diff:'fp', speed:255, isFP:true,
-      gen(h) {
-        const up      = qRandInt(2) === 0
-        const startCf = up ? 0.55 + qRandInt(15)/100 : 0.28 + qRandInt(12)/100
-        const endCf   = up ? startCf - 80/h : startCf + 80/h
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },
-          { at:200, cf:startCf, gapH:22    },
-          { at:280, cf:endCf,   gapH:22    },
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
-        ]}
-      }
-    },
-    {
-      name:'SUPERSONIC', diff:'fp', speed:3000,
+      name:'SUPERSONIC', diff:'hard', speed:3000, weight:0.25,
       gen(h) {
         // Hand-built in the editor. At 3000px/s the level lasts under two
         // seconds and scrolls ~50 columns per frame at 60Hz, so the fine
@@ -351,6 +295,62 @@ const G43_POOL = {
           {at:5762, cf:0.456, gapH:h*0.2915},
           {at:5791, cf:0.5394, gapH:h*0.2915},
           {at:5954, cf:0.6437, gapH:h*0.5},
+        ]}
+      }
+    },
+  ],
+
+  fp: [
+    // speed=255 = wave vertical speed → diagonal angle = exactly 45°.
+    // Wall snaps tight (gapH=22) while simultaneously sloping at 1px/column.
+    // Wave R=7 (diam=14), clearance=4px/side ≈ 1-frame timing window.
+    // Player must hold (upslope) or release (downslope) at the exact frame.
+    {
+      name:'FRAME PERFECT', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const startCf = 0.60 + qRandInt(15)/100   // 60-75%: below center
+        const endCf   = startCf - 80/h             // 80px rise = 45° upslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },       // drift to slope position
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° upslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
+        ]}
+      }
+    },
+    {
+      name:'DOWN FP', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const startCf = 0.28 + qRandInt(12)/100   // 28-40%: above center
+        const endCf   = startCf + 80/h             // 80px drop = 45° downslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° downslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
+        ]}
+      }
+    },
+    {
+      name:'MID FP', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const up      = qRandInt(2) === 0
+        const startCf = up ? 0.55 + qRandInt(15)/100 : 0.28 + qRandInt(12)/100
+        const endCf   = up ? startCf - 80/h : startCf + 80/h
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },
+          { at:280, cf:endCf,   gapH:22    },
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
         ]}
       }
     },

@@ -518,7 +518,11 @@ function _spdKeyDn(e) {
 // preventDefault on touchstart suppresses that on most browsers, but not
 // all, and a double flip puts you straight back where you started — which
 // reads as the tap doing nothing.
-let _spdLastTouch = 0
+// -Infinity, not 0: performance.now() is milliseconds since the page
+// loaded, so starting at 0 meant every click in the first 700ms looked
+// like it followed a touch and was thrown away. Opening the game and
+// clicking straight off did nothing, and you had to click again.
+let _spdLastTouch = -Infinity
 function _spdInput(e) {
   e.preventDefault()
   const now = performance.now()
