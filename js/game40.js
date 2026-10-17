@@ -22,9 +22,13 @@ const G40_RETRY_WAIT = 0.5   // beat to see the crash before it resets
 // comes up a tunnel barrier does not kill: fly into it and you come out the
 // far side, level with its gap.
 const G40_TUNNEL_PCT = 20
-// Trail length in frames. Long enough to read the arc you flew, short
-// enough not to clutter the pillars you are about to meet.
-const G40_TRAIL = 46
+// The trail is not cut to a length — it is kept until it scrolls off the
+// left edge, so it always reaches right back across the screen instead of
+// stopping a fraction of a second behind the ship. The cap below is only a
+// backstop in case something stops the world scrolling; at 60fps a screen's
+// worth is a few hundred points.
+const G40_TRAIL_OFF = -40     // dropped once past this x
+const G40_TRAIL_MAX = 4000
 
 const G40 = {
   active:   false,
@@ -628,15 +632,18 @@ function _g40Loop(ts) {
       const ufoTX = _g40C().width * 0.20
       if (!G40.p1dead) {
         G40.trail.push({ x: ufoTX, y: G40.y })
-        if (G40.trail.length > G40_TRAIL) G40.trail.shift()
+        if (G40.trail.length > G40_TRAIL_MAX) G40.trail.shift()
       }
       if (G40.multi && !G40.p2dead) {
         G40.p2trail.push({ x: ufoTX, y: G40.p2y })
-        if (G40.p2trail.length > G40_TRAIL) G40.p2trail.shift()
+        if (G40.p2trail.length > G40_TRAIL_MAX) G40.p2trail.shift()
       }
       for (const p of G40.pipes)   p.x -= spd * sdt
       for (const t of G40.trail)   t.x -= spd * sdt
       for (const t of G40.p2trail) t.x -= spd * sdt
+      // Only once they are genuinely off the left edge
+      while (G40.trail.length   && G40.trail[0].x   < G40_TRAIL_OFF) G40.trail.shift()
+      while (G40.p2trail.length && G40.p2trail[0].x < G40_TRAIL_OFF) G40.p2trail.shift()
       if (G40.prevClearX != null) {
         G40.prevClearX -= spd * sdt
         if (G40.prevClearX < -60) G40.prevClearX = null

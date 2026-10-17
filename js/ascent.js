@@ -40,10 +40,12 @@ const GA_PACE      = 0.88
 const GA_BREAK_DUR = 2.4
 const GA_BREAK_CD  = 5.5
 const GA_CAM_LEAD  = 0.28   // dots sit this far across the screen
-// Trail length in frames. Levels are laid end to end in one world, so
-// this keeps running across a handover without anything carrying it —
-// the path through the level you just cleared is still behind you.
-const GA_TRAIL     = 44
+// The trail is kept until it scrolls off the left edge rather than cut to
+// a length, so it reaches back across the screen and, because levels are
+// laid end to end in one world, straight through the level you just
+// cleared. The cap is only a backstop.
+const GA_TRAIL_OFF = -80      // dropped once this far behind the camera
+const GA_TRAIL_MAX = 4000
 const GA_BEST_KEY  = 'qg_ascent_best'
 const GA_GBEST_KEY = 'qg_ascent_gauntlet_best'
 
@@ -468,7 +470,8 @@ function gaUpdate(dt) {
     if (s.x < 0) { s.x = GA.W + 2; s.y = Math.random() * H }
   }
   GA.trail.push({ x: GA.x, py: GA.py, ty: GA.ty })
-  if (GA.trail.length > GA_TRAIL) GA.trail.shift()
+  while (GA.trail.length && GA.trail[0].x - GA.camX < GA_TRAIL_OFF) GA.trail.shift()
+  if (GA.trail.length > GA_TRAIL_MAX) GA.trail.shift()
 
   if (GA.broken) { GA.breakT -= dt; if (GA.breakT <= 0) GA.broken = false }
   if (GA.breakCD > 0) GA.breakCD = Math.max(0, GA.breakCD - dt)

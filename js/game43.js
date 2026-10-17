@@ -1279,7 +1279,14 @@ function _g43Loop(ts) {
     // the wave's fixed x, so the "trail" was a vertical smear rather than a
     // streak running back behind it.
     G43.trail.push({ sx: G43.scrollX, y: G43.wy })
-    if (G43.trail.length > 140) G43.trail.shift()
+    // Was cut to 140 frames, about two seconds, so the trail stopped a
+    // short way behind the wave. It is kept until it genuinely scrolls off
+    // the left edge instead — the same test _drawTrail uses to decide what
+    // to draw — so the path reaches right back across the screen, and
+    // through the level behind you. The count cap is only a backstop.
+    const _back = w * 0.22 + 60          // the wave sits at 0.22 of the width
+    while (G43.trail.length && G43.scrollX - G43.trail[0].sx > _back) G43.trail.shift()
+    if (G43.trail.length > 4000) G43.trail.shift()
     // Practice keeps the entire path so a clear can be drawn as one picture
     if (G43.practice) {
       const ft = G43.fullTrail
@@ -1287,7 +1294,8 @@ function _g43Loop(ts) {
     }
     if (G43.multi) {
       G43.p2trail.push({ sx: G43.scrollX, y: G43.p2wy })
-      if (G43.p2trail.length > 140) G43.p2trail.shift()
+      while (G43.p2trail.length && G43.scrollX - G43.p2trail[0].sx > _back) G43.p2trail.shift()
+      if (G43.p2trail.length > 4000) G43.p2trail.shift()
     }
 
     // Portals. You only go through if you actually hit the mouth, so a
