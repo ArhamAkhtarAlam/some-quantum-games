@@ -348,6 +348,7 @@ window.initGame44 = initSpider
 window.stopGame44 = function() { stopSpider() }
 
 function _spdStart(practice, practiceDiff, noclip) {
+  if (typeof qgDropFocus === 'function') qgDropFocus()
   SFX.resume(); SFX.click()
   const c = _spdC()
   c.width  = c.parentElement.clientWidth

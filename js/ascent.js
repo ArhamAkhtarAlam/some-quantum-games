@@ -40,6 +40,10 @@ const GA_PACE      = 0.88
 const GA_BREAK_DUR = 2.4
 const GA_BREAK_CD  = 5.5
 const GA_CAM_LEAD  = 0.28   // dots sit this far across the screen
+// Trail length in frames. Levels are laid end to end in one world, so
+// this keeps running across a handover without anything carrying it —
+// the path through the level you just cleared is still behind you.
+const GA_TRAIL     = 44
 const GA_BEST_KEY  = 'qg_ascent_best'
 const GA_GBEST_KEY = 'qg_ascent_gauntlet_best'
 
@@ -362,6 +366,7 @@ window.gaMenu = function() { gaEndRun(); gaShowMenu() }
 
 // ── Run setup ────────────────────────────────────────────
 function gaStart(level) {
+  if (typeof qgDropFocus === 'function') qgDropFocus()
   if (typeof SFX !== 'undefined') { SFX.resume(); SFX.click() }
   gaSize()
   document.getElementById('ga-overlay').style.display = 'none'
@@ -463,7 +468,7 @@ function gaUpdate(dt) {
     if (s.x < 0) { s.x = GA.W + 2; s.y = Math.random() * H }
   }
   GA.trail.push({ x: GA.x, py: GA.py, ty: GA.ty })
-  if (GA.trail.length > 14) GA.trail.shift()
+  if (GA.trail.length > GA_TRAIL) GA.trail.shift()
 
   if (GA.broken) { GA.breakT -= dt; if (GA.breakT <= 0) GA.broken = false }
   if (GA.breakCD > 0) GA.breakCD = Math.max(0, GA.breakCD - dt)
@@ -739,12 +744,25 @@ function gaDraw() {
 
   const alive = GA.phase === 'playing' || GA.phase === 'won'
   if (alive) {
-    for (let i = 0; i < GA.trail.length; i++) {
-      const t = GA.trail[i]
-      ctx.globalAlpha = (i / GA.trail.length) * 0.35
-      ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(sx(t.x), t.py, AL_R * 0.7, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(sx(t.x), t.ty, AL_R * 0.7, 0, Math.PI * 2); ctx.fill()
+    // One stroked path per ship rather than a row of dots: at this length
+    // the dots read as beads, and a line shows the arc you actually flew.
+    const _trail = (pick, col) => {
+      if (GA.trail.length < 2) return
+      ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+      for (const [width, a, blur] of [[AL_R * 1.5, 0.14, 12], [AL_R * 0.5, 0.6, 0]]) {
+        ctx.beginPath()
+        for (let i = 0; i < GA.trail.length; i++) {
+          const t = GA.trail[i]
+          i === 0 ? ctx.moveTo(sx(t.x), pick(t)) : ctx.lineTo(sx(t.x), pick(t))
+        }
+        ctx.strokeStyle = col; ctx.lineWidth = width
+        ctx.globalAlpha = a; ctx.shadowColor = col; ctx.shadowBlur = blur
+        ctx.stroke()
+      }
+      ctx.restore()
     }
+    _trail(t => t.py, '#3b82f6')
+    _trail(t => t.ty, '#ec4899')
     ctx.globalAlpha = 1
     if (!unlinked) {
       const pulse = 0.45 + 0.25 * Math.sin(performance.now() / 160)

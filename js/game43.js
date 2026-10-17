@@ -641,6 +641,7 @@ async function initGame43() {
 window.initGame43 = initGame43
 
 function _g43Start(practice, practiceDiff, multi, noclip) {
+  if (typeof qgDropFocus === 'function') qgDropFocus()
   SFX.resume(); SFX.click()
   const c = _g43C()
   c.width  = c.parentElement.clientWidth

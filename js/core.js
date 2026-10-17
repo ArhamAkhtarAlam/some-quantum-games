@@ -1730,3 +1730,13 @@ window.addEventListener('keydown', e => {
   e.preventDefault(); e.stopImmediatePropagation()
   qgPause()
 }, true)
+
+// A button keeps focus after you click it, and browsers fire a focused
+// button's click again on Space — the same key that plays these games. So
+// pressing Space to fly also re-triggered whatever you last pressed: the
+// level button that started the run, or the Bot / Noclip toggle. Every
+// game calls this as its run begins.
+window.qgDropFocus = function() {
+  const a = document.activeElement
+  if (a && a !== document.body && typeof a.blur === 'function') a.blur()
+}

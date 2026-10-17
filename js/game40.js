@@ -22,6 +22,9 @@ const G40_RETRY_WAIT = 0.5   // beat to see the crash before it resets
 // comes up a tunnel barrier does not kill: fly into it and you come out the
 // far side, level with its gap.
 const G40_TUNNEL_PCT = 20
+// Trail length in frames. Long enough to read the arc you flew, short
+// enough not to clutter the pillars you are about to meet.
+const G40_TRAIL = 46
 
 const G40 = {
   active:   false,
@@ -444,6 +447,7 @@ window.g40TestLevel = function(tmpl, noclip, bot) {
 window.startUFO2P   = function() { G40.multi = true; G40.wantEndless = false; _g40Begin() }
 
 function _g40Begin(forceGauntlet) {
+  if (typeof qgDropFocus === 'function') qgDropFocus()
   // A test level is always a gauntlet level, whatever site you are on
   G40.gauntlet = forceGauntlet || !!G40.testLevel || _g40Gauntlet()
   SFX.resume(); SFX.click()
@@ -467,6 +471,8 @@ function _g40Begin(forceGauntlet) {
   G40.vy       = 0
   G40.score    = 0
   G40.pipes    = []
+  G40.trail    = []
+  G40.p2trail  = []
   G40.speed    = G40_PIPE_SPD0
   G40.gap      = G40_PIPE_GAP0
   G40.deadT    = 0
@@ -616,7 +622,21 @@ function _g40Loop(ts) {
       if (!G40.p1dead) { G40.vy += GRAV * sdt; G40.y += G40.vy * sdt }
       if (G40.multi && !G40.p2dead) { G40.p2vy += GRAV * sdt; G40.p2y += G40.p2vy * sdt }
 
-      for (const p of G40.pipes) p.x -= spd * sdt
+      // Trail. Points sit in screen space like the pillars do, so they move
+      // with exactly the same step — including the jumps a portal or a
+      // tunnel barrier makes, which move the world rather than the ship.
+      const ufoTX = _g40C().width * 0.20
+      if (!G40.p1dead) {
+        G40.trail.push({ x: ufoTX, y: G40.y })
+        if (G40.trail.length > G40_TRAIL) G40.trail.shift()
+      }
+      if (G40.multi && !G40.p2dead) {
+        G40.p2trail.push({ x: ufoTX, y: G40.p2y })
+        if (G40.p2trail.length > G40_TRAIL) G40.p2trail.shift()
+      }
+      for (const p of G40.pipes)   p.x -= spd * sdt
+      for (const t of G40.trail)   t.x -= spd * sdt
+      for (const t of G40.p2trail) t.x -= spd * sdt
       if (G40.prevClearX != null) {
         G40.prevClearX -= spd * sdt
         if (G40.prevClearX < -60) G40.prevClearX = null
@@ -657,7 +677,9 @@ function _g40Loop(ts) {
           if (Math.abs(G40.scrollX - p.at) > spd * sdt) continue
           const jump = p.toAt - G40.scrollX
           G40.scrollX = p.toAt
-          for (const q of G40.pipes) q.x -= jump
+          for (const q of G40.pipes)   q.x -= jump
+        for (const t of G40.trail)   t.x -= jump
+        for (const t of G40.p2trail) t.x -= jump
           if (G40.prevClearX != null) G40.prevClearX -= jump
           G40.y = Math.max(RY + 2, Math.min(h - RY - 2, p.toCf * h))
           G40.vy = 0
@@ -696,7 +718,9 @@ function _g40Loop(ts) {
       // the same move a portal makes.
       const tunnelPast = (p) => {
         const jump = p.x + G40_PIPE_W - (ufoX - RX) + 1
-        for (const q of G40.pipes) q.x -= jump
+        for (const q of G40.pipes)   q.x -= jump
+        for (const t of G40.trail)   t.x -= jump
+        for (const t of G40.p2trail) t.x -= jump
         if (G40.prevClearX != null) G40.prevClearX -= jump
         if (G40.gauntlet) G40.scrollX += jump
         G40.portalFlash = 0.3
@@ -870,6 +894,33 @@ function _g40Draw(ctx, w, h) {
   if (G40.gauntlet && G40.prevClearX != null) _g40DrawFinish(ctx, G40.prevClearX, h)
   const alpha = G40.phase === 'dead' ? Math.max(0.15, 1 - G40.deadT * 1.4) : 1
   const scale = G40.gauntlet ? h / 560 : 1
+
+  // The path flown, behind the ship. Two passes like Wave Dash and Wave
+  // Gauntlet use: one wide and faint for the glow, one thin and bright on
+  // top, both fading out towards the oldest point.
+  const _trail = (pts, col) => {
+    if (!pts || pts.length < 2) return
+    ctx.save()
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    for (const [width, a, blur] of [[9, 0.16, 14], [2.4, 0.75, 0]]) {
+      ctx.beginPath()
+      for (let i = 0; i < pts.length; i++) {
+        i === 0 ? ctx.moveTo(pts[i].x, pts[i].y) : ctx.lineTo(pts[i].x, pts[i].y)
+      }
+      ctx.strokeStyle = col; ctx.lineWidth = width
+      ctx.globalAlpha = a * alpha
+      ctx.shadowColor = col; ctx.shadowBlur = blur
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+  if (G40.multi) {
+    _trail(G40.p2trail, '#fb923c')
+    _trail(G40.trail,   '#22d3ee')
+  } else {
+    _trail(G40.trail, '#a855f7')
+  }
+
   if (G40.multi) {
     // P2 first so P1 reads on top when they overlap
     ctx.globalAlpha = G40.p2dead ? 0.28 : alpha
