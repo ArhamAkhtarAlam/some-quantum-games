@@ -520,7 +520,7 @@ const G43 = {
   score:0, challenge:null,
   keyframes:[], clearAt:0, scrollX:0, deco:[],
   trail:[],
-  announceT:0, clearedT:0, t:0, banner:null, nextLv:null, prevLv:null,
+  announceT:0, clearedT:0, t:0, banner:null, queue:[], prevLv:null,
   deadT:0, showOver:false, shake:0,
   // practice = this run never scores. noclip = walls don't kill.
   // They used to be one flag; separating them lets you practise a level
@@ -656,7 +656,7 @@ function _g43Start(practice, practiceDiff, multi, noclip) {
     waveR:G43_WAVE_R_NRM,
     score:0, challenge:null, keyframes:[], clearAt:0, scrollX:0,
     trail:[],
-    announceT:0, clearedT:0, t:0, banner:null, nextLv:null, prevLv:null,
+    announceT:0, clearedT:0, t:0, banner:null, queue:[], prevLv:null,
     deadT:0, showOver:false, shake:0,
     practice:!!practice, noclip:practice ? (noclip !== false) : false,
     practiceDiff:practiceDiff||null, practiceLevel:G43.practiceLevel || null, hitFlash:0,
@@ -933,6 +933,27 @@ function _g43GetPool(score) {
   return [...builtins, ..._g43CustomEligible(score)]
 }
 
+// How many levels past the current one are kept built. Each one is seamed
+// onto the one before it, so the whole chain joins up and a wide monitor
+// can show several at once. Five is well past what any screen shows; the
+// cost is five generated corridors held in memory.
+const G43_LOOKAHEAD = 5
+
+// Extend the queue until it holds G43_LOOKAHEAD levels, each following on
+// from the last. `from` is what the first queued level joins onto.
+function _g43FillQueue(h, from) {
+  if (!G43.queue) G43.queue = []
+  let prev = G43.queue.length ? G43.queue[G43.queue.length - 1] : from
+  let score = G43.score + 1 + G43.queue.length
+  while (G43.queue.length < G43_LOOKAHEAD) {
+    const name = prev && prev.challenge && prev.challenge.name
+    const lv = _g43SetSeam(_g43BuildChallenge(h, score, name), prev, h)
+    G43.queue.push(lv)
+    prev = lv
+    score++
+  }
+}
+
 // Hand over to the level that has been visible past the finish line.
 //
 // Nothing is reset or repositioned: the next level is already what the
@@ -941,8 +962,8 @@ function _g43GetPool(score) {
 // keeps flying exactly where it was. Then the level after that is built,
 // so there is always one more to see ahead.
 function _g43Merge(w, h) {
-  const lv = G43.nextLv ||
-    _g43SetSeam(_g43BuildChallenge(h, G43.score, G43.challenge && G43.challenge.name), G43, h)
+  if (!G43.queue || !G43.queue.length) _g43FillQueue(h, G43)
+  const lv = G43.queue.shift()
   const was = G43.clearAt
   // Hold on to the level just finished so the corridor behind the wave is
   // still the one it came out of, rather than cutting off at the flag.
@@ -952,7 +973,7 @@ function _g43Merge(w, h) {
   }
   _g43Apply(lv)
   G43.scrollX   -= was
-  G43.nextLv     = _g43SetSeam(_g43BuildChallenge(h, G43.score + 1, lv.challenge.name), lv, h)
+  _g43FillQueue(h, lv)
   G43.phase      = 'playing'
   G43.portalCool = 0
   G43.laps       = 0
@@ -1046,8 +1067,8 @@ function _g43LoadChallenge(w, h) {
   // Practice and test play fly a single level, and online is driven by the
   // host, so neither looks ahead.
   G43.prevLv = null
-  G43.nextLv = (!G43.practice && !G43.testLevel && !G43_roomCode)
-    ? _g43SetSeam(_g43BuildChallenge(h, G43.score + 1, G43.challenge && G43.challenge.name), G43, h) : null
+  G43.queue  = []
+  if (!G43.practice && !G43.testLevel && !G43_roomCode) _g43FillQueue(h, G43)
   if (G43_roomCode && G43_isHost) G43_pendingSyncChallenge = _g43SerializeChallenge(h)
 }
 
@@ -1057,22 +1078,43 @@ function _g43LoadChallenge(w, h) {
 // corridor you can see ahead of the chequered flag is the real one you are
 // about to fly. Collision never gets here — the swap happens exactly at
 // clearAt — so this only ever affects what is drawn.
+// Which level a column belongs to, and where in that level it falls.
+//
+// Past the finish, walk forward through the queue of levels that are
+// coming, subtracting each one's length, until the column lands inside
+// one. A wide monitor can show several levels at once, so one lookahead
+// was not enough — G43_LOOKAHEAD of them are kept built.
+//
+// Collision never reaches past clearAt, because the handover happens
+// exactly there, so everything beyond it only affects what is drawn.
+function _g43LevelAt(col) {
+  if (col < 0) {
+    return G43.prevLv ? { lv: G43.prevLv, at: G43.prevLv.clearAt + col } : { lv: G43, at: col }
+  }
+  if (col <= G43.clearAt) return { lv: G43, at: col }
+  let rest = col - G43.clearAt
+  const q = G43.queue || []
+  for (const lv of q) {
+    if (rest <= lv.clearAt) return { lv, at: rest }
+    rest -= lv.clearAt
+  }
+  // Past everything built: hold the last one's closing shape rather than
+  // snapping back to the current level's.
+  const last = q.length ? q[q.length - 1] : G43
+  return { lv: last, at: last.clearAt }
+}
+
 function _g43WallAt(col, h) {
-  if (G43.nextLv && col > G43.clearAt) return _g43WallOf(G43.nextLv, col - G43.clearAt, h)
-  // Behind the wave, columns below zero belong to the level just finished,
-  // whose own columns run up to its clearAt. Without this the corridor
-  // behind you snapped to the current level's opening height.
-  if (G43.prevLv && col < 0) return _g43WallOf(G43.prevLv, G43.prevLv.clearAt + col, h)
-  return _g43WallOf(G43, col, h)
+  const { lv, at } = _g43LevelAt(col)
+  return _g43WallOf(lv, at, h)
 }
 
 // Which level's colour a column should be drawn in, so the difficulty of
 // what is coming is readable before you reach it.
 function _g43ColAt(col) {
-  const of = lv => G43_DIFF_COL[lv && lv.challenge && lv.challenge.diff] || '#22c55e'
-  if (G43.nextLv && col > G43.clearAt) return of(G43.nextLv)
-  if (G43.prevLv && col < 0)           return of(G43.prevLv)
-  return G43_DIFF_COL[G43.challenge && G43.challenge.diff] || '#22c55e'
+  const lv = _g43LevelAt(col).lv
+  const ch = (lv === G43) ? G43.challenge : lv.challenge
+  return G43_DIFF_COL[ch && ch.diff] || '#22c55e'
 }
 
 // Levels all open centred but some close as much as 80px off centre, and
@@ -1111,10 +1153,18 @@ function _g43WallOf(src, col, h) {
 
 // Work out the offset a level needs to join on from where `prev` ended
 function _g43SetSeam(lv, prev, h) {
-  const pk = prev && prev.keyframes && prev.keyframes[prev.keyframes.length - 1]
   const nk = lv.keyframes && lv.keyframes[0]
-  if (!pk || !nk) { lv.seamDy = 0; lv.seamSpan = 1; return lv }
-  lv.seamDy = (pk.cf - nk.cf) * h
+  if (!prev || !prev.keyframes || !prev.keyframes.length || !nk) {
+    lv.seamDy = 0; lv.seamSpan = 1; return lv
+  }
+  // Ask the corridor where it actually is at the finish line, rather than
+  // reading the last keyframe. They are not the same thing: SUPERSONIC's
+  // last keyframe sits at column 5954 but it finishes at 5800, so its
+  // corridor is 55px from what the keyframe says — and that 55px was the
+  // step at the join. Going through _g43WallOf also picks up any seam the
+  // previous level is still easing out of.
+  const prevEnd = _g43WallOf(prev, prev.clearAt != null ? prev.clearAt : 0, h).cy
+  lv.seamDy = prevEnd - nk.cf * h
   // Budget half the wave's climb per column. Smoothstep's steepest point is
   // 1.5x the average, so the span has to allow for that or a fast level's
   // join would be steeper than the wave can fly.
@@ -1793,7 +1843,20 @@ function _g43Draw(ctx, w, h) {
   }
 
   // Finish line
-  if (G43.clearAt) _g43DrawFinish(ctx, waveX + (G43.clearAt - G43.scrollX), h)
+  // A flag at every boundary that is on screen, not just this level's. On
+  // a wide monitor several levels are visible at once and each one ends
+  // somewhere; without this only the first had a flag and the rest just
+  // changed colour. _g43DrawFinish drops anything off the edges itself.
+  if (G43.clearAt) {
+    let at = G43.clearAt
+    _g43DrawFinish(ctx, waveX + (at - G43.scrollX), h)
+    for (const lv of (G43.queue || [])) {
+      at += lv.clearAt
+      const x = waveX + (at - G43.scrollX)
+      if (x > w + 40) break            // the rest are further right still
+      _g43DrawFinish(ctx, x, h)
+    }
+  }
   // The finish line you just crossed keeps scrolling away behind you. The
   // handover shifts the scroll origin back by the finished level's length,
   // so that flag now sits at column zero. Without it the flag vanished the
