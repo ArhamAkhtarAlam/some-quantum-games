@@ -242,6 +242,15 @@ window.startRhythm = function() {
 
 function _g37Key(e) {
   if (!document.getElementById('game37').classList.contains('active')) return
+  // Rhythm games are played with whatever is under your fingers, so any
+  // key counts as the beat — see qgTapKey in core.js.
+  if (typeof qgTapKey === 'function') {
+    if (!qgTapKey(e)) return
+    qgTapPrevent(e)
+    if (e.repeat) return        // auto-repeat is not a new press
+    _g37Press()
+    return
+  }
   if (e.code === 'Space') { e.preventDefault(); _g37Press() }
 }
 

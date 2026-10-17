@@ -839,17 +839,47 @@ function _g43KeyDn(e) {
   // Suppress the browser default first, and only then ignore auto-repeat.
   // The other order meant a held key never called preventDefault, so a
   // focused button stayed armed and Chrome clicked it on the keyup.
-  const ours = e.code === 'Space' || e.key === 'ArrowUp'
-  if (ours) e.preventDefault()
+  // Two people share one keyboard in 2P, so it keeps Space and ArrowUp
+  // apart. On your own, any key climbs — see qgTapKey in core.js.
+  if (G43.multi) {
+    const ours = e.code === 'Space' || e.key === 'ArrowUp'
+    if (ours) e.preventDefault()
+    if (e.repeat) return        // key auto-repeat is not a new press
+    if (e.code === 'Space') _g43Hold()
+    else if (e.key === 'ArrowUp') G43.p2holding = true
+    return
+  }
+  const ok = (typeof qgTapKey === 'function')
+    ? qgTapKey(e) : (e.code === 'Space' || e.key === 'ArrowUp')
+  if (!ok) return
+  if (typeof qgTapPrevent === 'function') qgTapPrevent(e); else e.preventDefault()
   if (e.repeat) return          // key auto-repeat is not a new press
-  if (e.code === 'Space') _g43Hold()
-  else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = true) : _g43Hold() }
+  // Which keys are down, not how many presses: holding A, pressing B and
+  // releasing A should keep climbing until both are up.
+  _g43Held.add(e.code)
+  _g43Hold()
 }
+
+const _g43Held = new Set()
+
 function _g43KeyUp(e) {
-  if (e.code === 'Space' || e.key === 'ArrowUp') e.preventDefault()
-  if (e.code === 'Space') G43.holding = false
-  else if (e.key === 'ArrowUp') { G43.multi ? (G43.p2holding = false) : (G43.holding = false) }
+  if (G43.multi) {
+    if (e.code === 'Space' || e.key === 'ArrowUp') e.preventDefault()
+    if (e.code === 'Space') G43.holding = false
+    else if (e.key === 'ArrowUp') G43.p2holding = false
+    return
+  }
+  if (typeof qgTapPrevent === 'function') qgTapPrevent(e)
+  _g43Held.delete(e.code)
+  if (!_g43Held.size) G43.holding = false
 }
+
+// A key held while the window loses focus never sends its keyup, so the
+// wave would climb for ever. Let go of everything instead.
+window.addEventListener('blur', () => {
+  _g43Held.clear()
+  if (typeof G43 !== 'undefined') { G43.holding = false; G43.p2holding = false }
+})
 
 // ── Editor-published levels ───────────────────────────
 
@@ -1915,7 +1945,7 @@ function _g43Draw(ctx, w, h) {
       ctx.fillStyle = mainCol; ctx.fillText('P1: SPACE / click', w/2, h/2 + 16)
       ctx.fillStyle = '#38bdf8'; ctx.fillText('P2: ↑ arrow key',  w/2, h/2 + 34)
     } else {
-      ctx.fillText('hold SPACE / click to fly up', w/2, h/2 + 18)
+      ctx.fillText('hold any key / click to fly up', w/2, h/2 + 18)
     }
     if (ch.isFP) {
       ctx.font = '11px monospace'

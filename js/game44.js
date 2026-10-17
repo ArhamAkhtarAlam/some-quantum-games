@@ -506,8 +506,11 @@ function _spdMerge() {
 }
 
 function _spdKeyDn(e) {
-  if (e.code !== 'Space') return
-  e.preventDefault()
+  // Any key flips — see qgTapKey in core.js for the ones that keep their
+  // own job. Falls back to Space alone if core.js somehow is not there.
+  const ok = (typeof qgTapKey === 'function') ? qgTapKey(e) : e.code === 'Space'
+  if (!ok) return
+  if (typeof qgTapPrevent === 'function') qgTapPrevent(e); else e.preventDefault()
   // Holding Space makes the OS repeat keydown about thirty times a second,
   // and every one of those was a flip — so resting on the key flipped the
   // spider back and forth on its own. A flip is one press.

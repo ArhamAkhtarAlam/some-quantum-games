@@ -28,6 +28,13 @@ function stopGame32() {
 window.stopGame32 = stopGame32
 
 function _g32Key(e) {
+  // One button, so any key is that button — see qgTapKey in core.js.
+  if (typeof qgTapKey === 'function') {
+    if (!qgTapKey(e)) return
+    qgTapPrevent(e)
+    g32Flip()
+    return
+  }
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'KeyW') {
     e.preventDefault()
     g32Flip()

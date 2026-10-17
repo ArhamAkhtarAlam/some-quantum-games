@@ -559,8 +559,17 @@ window.addEventListener('load', () => {
   setInterval(g16TickNews, 6000)
 })
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !e.repeat && document.getElementById('game16')?.classList.contains('active')) {
-    e.preventDefault()
+  if (e.repeat) return
+  if (!document.getElementById('game16')?.classList.contains('active')) return
+  // Any key observes a qubit, same as clicking. qgTapKey keeps the shop's
+  // own typing out of it. Only Space is suppressed, not the arrows and
+  // Page keys qgTapPrevent also takes: the building list is long and
+  // those are how you scroll it. A stray click costs nothing here.
+  if (typeof qgTapKey === 'function') {
+    if (!qgTapKey(e)) return
+    if (e.code === 'Space') e.preventDefault()
     g16Click(null)
+    return
   }
+  if (e.code === 'Space') { e.preventDefault(); g16Click(null) }
 })

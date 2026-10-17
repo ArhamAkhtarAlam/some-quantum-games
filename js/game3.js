@@ -15,13 +15,26 @@ function stopReact() {
 }
 window.stopReact = stopReact
 
+// The arena was click-only, but a reaction test is normally played with a
+// key — and a key is the faster input, so leaving it out cost players
+// time. Any key is a click; it is scoped to game3 being on screen so it
+// cannot fire from the menu. See qgTapKey in core.js.
+document.addEventListener('keydown', e => {
+  if (e.repeat) return
+  if (!document.getElementById('game3')?.classList.contains('active')) return
+  const ok = (typeof qgTapKey === 'function') ? qgTapKey(e) : e.code === 'Space'
+  if (!ok) return
+  if (typeof qgTapPrevent === 'function') qgTapPrevent(e); else e.preventDefault()
+  reactClick()
+})
+
 async function initGame3() {
   stopReact()
   G3.round = 0; G3.results = []; G3.state = 'idle'
   document.getElementById('g3-over').classList.remove('show')
   const arena = document.getElementById('g3-arena')
   arena.className = 'arena state-wait'
-  document.getElementById('g3-msg').textContent = 'Click to Start'
+  document.getElementById('g3-msg').textContent = 'Click or press any key'
   document.getElementById('g3-sub').textContent = `5 rounds · quantum-random delay each time`
   document.getElementById('g3-sub').style.display = ''
   document.getElementById('g3-time').style.display = 'none'
@@ -96,7 +109,7 @@ function scheduleFlash() {
   const delay = 1000 + qRandInt(3000)
   G3.waitTimeout = setTimeout(() => {
     arena.className = 'arena state-flash'
-    document.getElementById('g3-msg').textContent = 'CLICK NOW!'
+    document.getElementById('g3-msg').textContent = 'NOW!'
     document.getElementById('g3-sub').style.display = 'none'
     G3.flashTime = Date.now()
     G3.state = 'flash'

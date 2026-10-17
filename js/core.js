@@ -209,15 +209,15 @@ const STALL_HOWTO = {
         steps: ['Two ships fall apart from each other; thrust pushes them together',
                 'Drag in either half to steer the ship there, or hold W to thrust',
                 'One spike ends the run \u2014 clear as many levels as you can'] },
-  40: { keys: 'Tap / click / SPACE',
+  40: { keys: 'Tap / click / any key',
         steps: ['Each tap fires the thruster, let go and you fall',
                 'Slip through the gaps in each barrier \u2014 that is the tunnelling bit',
                 'Red lasers kill, green ones you can land on, blue ones you pass through'] },
-  43: { keys: 'Hold / release',
+  43: { keys: 'Hold any key / release',
         steps: ['Hold to climb, let go to dive',
                 'You are always moving diagonally, never flat',
                 'Stay inside the corridor \u2014 touching a wall ends the run'] },
-  44: { keys: 'Tap / click / SPACE',
+  44: { keys: 'Tap / click / any key',
         steps: ['Each tap flips you between the two states, up and down',
                 'There is no in-between \u2014 you are one or the other',
                 'Time the flip so the blocks pass on the empty side'] },
@@ -1739,4 +1739,47 @@ window.addEventListener('keydown', e => {
 window.qgDropFocus = function() {
   const a = document.activeElement
   if (a && a !== document.body && typeof a.blur === 'function') a.blur()
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANY KEY PLAYS
+//  The tap games were Space only, which a walk-up player at a stand has
+//  no way of knowing. Any key works now — but not every key, because a
+//  few already have a job:
+//
+//    Escape          opens the pause screen
+//    Tab             moves focus, and taking it would trap keyboard users
+//    with Ctrl/Cmd/Alt   browser shortcuts: reload, devtools, switch tab
+//    the modifiers themselves  Shift on its own is not a press
+//    F-keys          reload, fullscreen, devtools
+//
+//  Typing into a field never plays either, or the level editor's name box
+//  would fly the ship.
+//
+//  Same-device 2P keeps its split keys: with two people on one keyboard,
+//  any key for player one would mean player two flies them both.
+// ═══════════════════════════════════════════════════════
+
+const _QG_NOT_TAP = new Set([
+  'Escape', 'Tab', 'Shift', 'Control', 'Alt', 'Meta',
+  'CapsLock', 'NumLock', 'ScrollLock', 'ContextMenu', 'Insert',
+])
+
+window.qgTapKey = function(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false
+  if (_QG_NOT_TAP.has(e.key)) return false
+  if (/^F\d+$/.test(e.key)) return false
+  const a = document.activeElement
+  if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return false
+  return true
+}
+
+// Only the keys that would otherwise scroll the page are suppressed.
+// preventDefault on everything would break reload and the rest.
+const _QG_SCROLLS = new Set([
+  ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'PageUp', 'PageDown', 'Home', 'End',
+])
+window.qgTapPrevent = function(e) {
+  if (e.code === 'Space' || _QG_SCROLLS.has(e.key)) e.preventDefault()
 }

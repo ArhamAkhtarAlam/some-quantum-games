@@ -79,7 +79,7 @@
     <div class="game-card game3" onclick="showGame(3)">
       <div class="card-icon">⚡</div>
       <div class="card-title">Reaction Test</div>
-      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click as fast as you can. 5 rounds.</div>
+      <div class="card-desc">Wait for the green flash — but the delay is quantum-random so you can never predict it. Click or hit any key as fast as you can. 5 rounds.</div>
       <span class="card-tag">Quantum Delay</span>
     </div>
     <div class="game-card game4" onclick="showGame(4)">
@@ -187,7 +187,7 @@
     <div class="game-card" onclick="showGame(32)" style="border-color:#f472b644;">
       <div class="card-icon">🔄</div>
       <div class="card-title">Gravity Flipper</div>
-      <div class="card-desc">Auto-runner with a twist — press SPACE or tap to flip gravity. Navigate through quantum-placed pillar gaps. How many can you clear?</div>
+      <div class="card-desc">Auto-runner with a twist — press any key or tap to flip gravity. Navigate through quantum-placed pillar gaps. How many can you clear?</div>
       <span class="card-tag" style="background:rgba(244,114,182,.15);color:#f472b6;border-color:#f472b644;">Runner</span>
     </div>
     <div class="game-card" onclick="showGame(33)" style="border-color:#a78bfa44;">
@@ -217,7 +217,7 @@
     <div class="game-card" onclick="showGame(37)" style="border-color:#f472b644;">
       <div class="card-icon">🪐</div>
       <div class="card-title">Quantum Rhythm</div>
-      <div class="card-desc">ADOFAI-inspired one-button rhythm game. A planet orbits each tile — press SPACE or click when it aligns with the next tile. 3 hearts, 21 tiles.</div>
+      <div class="card-desc">ADOFAI-inspired one-button rhythm game. A planet orbits each tile — press any key or click when it aligns with the next tile. 3 hearts, 21 tiles.</div>
       <span class="card-tag" style="background:rgba(244,114,182,.15);color:#f472b6;border-color:#f472b644;">Rhythm</span>
     </div>
     <div class="game-card" onclick="showGame(38)" style="border-color:#4ade8044;">
@@ -235,7 +235,7 @@
     <div class="game-card" onclick="showGame(40)" style="border-color:#a855f744;">
       <div class="card-icon">🛸</div>
       <div class="card-title">Quantum Tunnel</div>
-      <div class="card-desc">Quantum tunnelling, the arcade version. Tap or Space to thrust — slip your saucer through the barrier gaps. A classical particle would bounce off; you get through.</div>
+      <div class="card-desc">Quantum tunnelling, the arcade version. Tap or press any key to thrust — slip your saucer through the barrier gaps. A classical particle would bounce off; you get through.</div>
       <span class="card-tag" style="background:rgba(168,85,247,.15);color:#a855f7;border-color:#a855f744;">Quantum Tunnelling</span>
     </div>
     <div class="game-card" onclick="showGame(41)" style="border-color:#f9731644;">
@@ -475,7 +475,7 @@
   </div>
   <div class="arena state-wait" id="g3-arena" onclick="reactClick()">
     <div class="react-rounds" id="g3-rounds"></div>
-    <div class="react-msg" id="g3-msg">Click to Start</div>
+    <div class="react-msg" id="g3-msg">Click or press any key</div>
     <div class="react-sub" id="g3-sub">5 rounds · quantum-random delay each time</div>
     <div class="react-time" id="g3-time" style="display:none"></div>
   </div>
@@ -775,7 +775,7 @@
         </div>
       </div>
       <!-- Space bar hint -->
-      <div style="font-size:.72rem;color:var(--muted);text-align:center;">Press <kbd style="background:var(--card);border:1px solid var(--border);padding:.1rem .4rem;border-radius:3px;font-size:.7rem;">Space</kbd> to click</div>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;">Press <kbd style="background:var(--card);border:1px solid var(--border);padding:.1rem .4rem;border-radius:3px;font-size:.7rem;">any key</kbd> to click</div>
       <!-- Building summary -->
       <div id="g16-bld-summary" style="width:100%;display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;"></div>
     </div>
@@ -1290,7 +1290,7 @@
     <canvas id="g32-canvas"></canvas>
     <div class="canvas-overlay" id="g32-overlay">
       <h3>🔄 Gravity Flipper</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">You auto-run forward. Press <b>SPACE</b>, tap the screen, or click to <b>flip gravity</b>. Navigate through the gaps in each pillar pair!</p>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">You auto-run forward. Press <b>any key</b>, tap the screen, or click to <b>flip gravity</b>. Navigate through the gaps in each pillar pair!</p>
       <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">Gaps are quantum-placed. Speed increases with each pillar cleared.</div>
       <button class="btn-primary" onclick="startGravFlip()">Flip!</button>
     </div>
@@ -1349,19 +1349,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/sfx.js?v=2"></script>
-<script src="js/core.js?v=47"></script>
+<script src="js/core.js?v=48"></script>
 <script src="js/touchpad.js?v=6"></script>
 <script src="js/auth.js"></script>
 <script src="js/game1.js?v=2"></script>
 <script src="js/game2.js?v=2"></script>
-<script src="js/game3.js"></script>
+<script src="js/game3.js?v=1"></script>
 <script src="js/game4.js"></script>
 <script src="js/game5.js"></script>
 <script src="js/game6.js"></script>
 <script src="js/game10.js?v=2"></script>
 <script src="js/game11.js?v=2"></script>
 <script src="js/game13.js?v=2"></script>
-<script src="js/game16.js"></script>
+<script src="js/game16.js?v=1"></script>
 <script src="js/game14.js"></script>
 <script src="js/game15.js?v=3"></script>
 <script src="js/game17.js?v=5"></script>
@@ -1374,7 +1374,7 @@
 <script src="js/game29.js?v=2"></script>
 <script src="js/game30.js?v=3"></script>
 <script src="js/game31.js?v=3"></script>
-<script src="js/game32.js?v=2"></script>
+<script src="js/game32.js?v=3"></script>
 <script src="js/game33.js?v=2"></script>
 <!-- ══════════════════════════════════
      GAME 34 — WAVE DASH
@@ -1433,7 +1433,7 @@
     <canvas id="g35-canvas"></canvas>
     <div class="canvas-overlay" id="g35-overlay">
       <h3>〰️ Wave Dash</h3>
-      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> SPACE / click / tap to angle <b>up</b>. <b>Release</b> to angle down. Navigate the corridor — starts easy, gets tighter and faster!</p>
+      <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;"><b>Hold</b> any key / click / tap to angle <b>up</b>. <b>Release</b> to angle down. Navigate the corridor — starts easy, gets tighter and faster!</p>
       <div style="font-size:.75rem;color:#666;text-align:center;margin-bottom:.5rem">A 3-second countdown gives you time to adapt before it moves</div>
       <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer;margin-bottom:.3rem">
         <input type="checkbox" id="g35-limbo50" onchange="_g35LimboInterval = this.checked ? 50 : (document.getElementById('g35-nolimbo').checked ? Infinity : 100)" style="accent-color:#fbbf24">
@@ -1463,7 +1463,7 @@
   </div>
 </section>
 
-<script src="js/game35.js?v=4"></script>
+<script src="js/game35.js?v=5"></script>
 
 <section id="game36" class="screen game-screen">
   <div class="top-bar">
@@ -1498,7 +1498,7 @@
   </div>
 </section>
 
-<script src="js/game36.js?v=3"></script>
+<script src="js/game36.js?v=4"></script>
 
 <section id="game37" class="screen game-screen">
   <div class="top-bar">
@@ -1512,7 +1512,7 @@
       <h3>🪐 Quantum Rhythm</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
         A planet orbits each tile along the path.<br>
-        Press <b>SPACE</b> or <b>click/tap</b> when the planet aligns with the next tile.<br>
+        Press <b>any key</b> or <b>click/tap</b> when the planet aligns with the next tile.<br>
         <span style="color:#fbbf24;">Gold ring</span> = target spot. 3 hearts. 21 tiles.
       </p>
       <button class="btn-primary" style="background:#f472b6;border-color:#f472b6;" onclick="startRhythm()">▶ Play</button>
@@ -1531,7 +1531,7 @@
   </div>
 </section>
 
-<script src="js/game37.js?v=2"></script>
+<script src="js/game37.js?v=3"></script>
 
 <section id="game38" class="screen game-screen">
   <div class="top-bar">
@@ -1598,7 +1598,7 @@
     <div class="canvas-overlay" id="g40-overlay">
       <h3>🛸 Quantum Tunnel</h3>
       <p style="color:var(--muted);font-size:.9rem;text-align:center;max-width:300px;">
-        Tap, click, or press <b>Space</b> to thrust up.<br>
+        Tap, click, or press <b>any key</b> to thrust up.<br>
         Release to fall — dodge the <span style="color:#ef4444;">red</span> laser walls.<br>
         <span style="color:#22c55e;">Green</span> lasers you can land on and slide along.<br>
         <span style="color:#38bdf8;">Blue</span> lasers are tunnel barriers: fly into one and you come out the far side.<br>
@@ -1638,7 +1638,7 @@
   </div>
 </section>
 
-<script src="js/game40.js?v=28"></script>
+<script src="js/game40.js?v=29"></script>
 
 <section id="game41" class="screen game-screen">
   <div class="top-bar">
@@ -1758,7 +1758,7 @@
 <script src="js/levelcheck.js?v=16"></script>
 <script src="js/cheats.js?v=5"></script>
 <script src="js/deco.js?v=6"></script>
-<script src="js/game43.js?v=54"></script>
+<script src="js/game43.js?v=55"></script>
 
 <section id="game44" class="screen game-screen">
   <div class="top-bar">
@@ -1802,7 +1802,7 @@
   </div>
 </section>
 
-<script src="js/game44.js?v=26"></script>
+<script src="js/game44.js?v=27"></script>
 
 <!-- ══════════════════════════════════
      GAME 45 — QUANTUM FREIGHTER (co-op)

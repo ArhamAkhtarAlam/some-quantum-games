@@ -215,8 +215,38 @@ function stopGame35() {
 }
 window.stopGame35 = stopGame35
 
-function _g35KD(e) { if (e.code==='Space'||e.code==='KeyW'||e.code==='ArrowUp') { e.preventDefault(); G35.holding=true } }
-function _g35KU(e) { if (e.code==='Space'||e.code==='KeyW'||e.code==='ArrowUp') { e.preventDefault(); G35.holding=false } }
+// Hold to climb, so this tracks WHICH keys are down rather than counting
+// presses: holding A, pressing B and releasing A should keep climbing
+// until both are up. Any key flies it — see qgTapKey in core.js.
+const _g35Held = new Set()
+
+function _g35KD(e) {
+  if (typeof qgTapKey === 'function') {
+    if (!qgTapKey(e)) return
+    qgTapPrevent(e)
+    if (e.repeat) return
+    _g35Held.add(e.code)
+    G35.holding = true
+    return
+  }
+  if (e.code==='Space'||e.code==='KeyW'||e.code==='ArrowUp') { e.preventDefault(); G35.holding=true }
+}
+function _g35KU(e) {
+  if (typeof qgTapKey === 'function') {
+    qgTapPrevent(e)
+    _g35Held.delete(e.code)
+    if (!_g35Held.size) G35.holding = false
+    return
+  }
+  if (e.code==='Space'||e.code==='KeyW'||e.code==='ArrowUp') { e.preventDefault(); G35.holding=false }
+}
+
+// A key held while the window loses focus never sends its keyup, so the
+// wave would climb for ever. Let go of everything instead.
+window.addEventListener('blur', () => {
+  _g35Held.clear()
+  if (typeof G35 !== 'undefined') G35.holding = false
+})
 function _g35MD() { G35.holding = true }
 function _g35MU() { G35.holding = false }
 function _g35TD(e) { e.preventDefault(); G35.holding = true }

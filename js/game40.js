@@ -516,11 +516,21 @@ window.stopGame40 = function() {
 
 function _g40Key(e) {
   // preventDefault before the auto-repeat check — see the note in game43
-  const ours = e.code === 'Space' || e.key === 'ArrowUp'
-  if (ours) e.preventDefault()
+  // Two players share one keyboard, so 2P keeps Space and ArrowUp apart.
+  if (G40.multi) {
+    const ours = e.code === 'Space' || e.key === 'ArrowUp'
+    if (ours) e.preventDefault()
+    if (e.repeat) return
+    if (e.code === 'Space') _g40DoThrust()
+    else if (e.key === 'ArrowUp') _g40DoThrust2()
+    return
+  }
+  const ok = (typeof qgTapKey === 'function')
+    ? qgTapKey(e) : (e.code === 'Space' || e.key === 'ArrowUp')
+  if (!ok) return
+  if (typeof qgTapPrevent === 'function') qgTapPrevent(e); else e.preventDefault()
   if (e.repeat) return
-  if (e.code === 'Space') _g40DoThrust()
-  else if (e.key === 'ArrowUp') { G40.multi ? _g40DoThrust2() : _g40DoThrust() }
+  _g40DoThrust()
 }
 function _g40DoThrust2() {
   if (G40.phase !== 'playing' || G40.p2dead) return

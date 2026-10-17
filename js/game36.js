@@ -124,6 +124,10 @@ function _g36Pointer(e) {
 function _g36Key(e) {
   if (!document.getElementById('game36').classList.contains('active')) return
   if (e.repeat) return
+  // Any key has always counted here, which is the point of a CPS test, but
+  // Escape and Tab counted too — so quitting padded your score and you
+  // could not tab away. qgTapKey draws that line in one place.
+  if (typeof qgTapKey === 'function' && !qgTapKey(e)) return
   if (G36.heldKeys && G36.heldKeys.size >= 1 && !G36.heldKeys.has(e.code)) return
   if (G36.heldKeys) G36.heldKeys.add(e.code)
   e.preventDefault()
