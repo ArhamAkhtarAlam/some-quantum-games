@@ -75,6 +75,40 @@ function alIsDesync(o) {
   return hi < lo
 }
 
+// Every run of desync columns gets a desync trigger in front of it and a
+// sync trigger after it, unless a trigger the level already has covers it.
+// Levels list desync columns without them; this makes the split controls
+// (and the touch pads) switch on for every one. The trigger sits a beat
+// ahead of the run, never back past the column before it, and sync comes
+// just after the run, never past the column after it.
+const AL_DESYNC_LEAD = 200
+function alGuardDesync(objects) {
+  const sorted = [...objects].sort((a, b) => a.x - b.x)
+  const cols = sorted.filter(o => o.t === 'col')
+  // Which columns already sit inside a section the level marks itself
+  const guarded = new Set()
+  let forced = false
+  for (const o of sorted) {
+    if (o.t === 'trigger' && o.mode === 'desync') forced = true
+    else if (o.t === 'trigger' && o.mode === 'sync') forced = false
+    else if (o.t === 'col' && forced) guarded.add(o)
+  }
+  const add = []
+  const edge = (c, side) => c.x + side * (c.w || AL_COL_W) / 2
+  for (let i = 0; i < cols.length; i++) {
+    if (!alIsDesync(cols[i]) || guarded.has(cols[i])) continue
+    let j = i
+    while (j + 1 < cols.length && alIsDesync(cols[j + 1]) && !guarded.has(cols[j + 1])) j++
+    const start = edge(cols[i], -1), end = edge(cols[j], 1)
+    const before = i > 0 ? (edge(cols[i - 1], 1) + start) / 2 : -Infinity
+    const after  = j + 1 < cols.length ? (end + edge(cols[j + 1], -1)) / 2 : Infinity
+    add.push({ t: 'trigger', x: Math.max(start - AL_DESYNC_LEAD, before), mode: 'desync' })
+    add.push({ t: 'trigger', x: Math.min(end + 30, after), mode: 'sync' })
+    i = j
+  }
+  return add.length ? objects.concat(add) : objects
+}
+
 // Where the level actually ends: the first finish trigger, else `length`
 function alEndX(lv) {
   const f = lv.objects.filter(o => o.t === 'trigger' && o.mode === 'finish').map(o => o.x)
@@ -168,6 +202,7 @@ function alGenerator(rand, opts) {
     }
     const end = cx + w / 2 + 90
     if (o.portals) portal(end, 'normal')
+    g.objs.push({ t: 'trigger', x, mode: 'desync' }, { t: 'trigger', x: cx + w / 2 + 30, mode: 'sync' })
     g.sinceDesync = 0
     g.x = end + alReach(AL_HALF - gapAt(), vz)
   }

@@ -108,6 +108,7 @@ function gaSetBest(v) { try { localStorage.setItem(GA_BEST_KEY, String(v)) } cat
 
 const _gaQuery = new URLSearchParams(location.search)
 const GA_TEST = _gaQuery.get('test') === '1'
+const GA_TOUCH = typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches
 
 function gaInit() {
   _gaCanvas = document.getElementById('ga-canvas')
@@ -161,6 +162,16 @@ function gaTouch(e) {
     x: (t.clientX - rect.left) * (GA.W / rect.width),
     y: (t.clientY - rect.top)  * (AL_H / rect.height),
   })
+}
+
+// Which pads the fingers on screen are holding. Unsplit, any finger is W.
+function gaPads(split) {
+  const p = { p1: false, p2: false }
+  for (const t of GA.touches.values()) {
+    if (!split || t.x < GA.W / 2) p.p1 = true
+    else p.p2 = true
+  }
+  return p
 }
 
 window.gaBreak = function() {
@@ -329,7 +340,7 @@ function gaQueueNext() {
   if (!lv) return
   const base = GA.endX + Math.max(0, GA_MIN_RUNIN - gaRunIn(lv))
   GA.nextBase = base
-  GA.pending.push(...lv.objects.map(o => Object.assign({}, o, { x: o.x + base })))
+  GA.pending.push(...alGuardDesync(lv.objects).map(o => Object.assign({}, o, { x: o.x + base })))
   GA.pending.sort((a, b) => a.x - b.x)
 }
 
@@ -401,7 +412,7 @@ function gaStart(level) {
     if (GA.plan) { GA.evil = gaPrac.evil; GA.noclip = true }
     else GA.banner = { text: 'Bot found no route — you fly', col: '#facc15', t: 2.5 }
   }
-  if (level) GA.pending = level.objects.map(o => Object.assign({}, o)).sort((a, b) => a.x - b.x)
+  if (level) GA.pending = alGuardDesync(level.objects).map(o => Object.assign({}, o)).sort((a, b) => a.x - b.x)
   else { GA.gen = alGenerator(gaRand, {}); GA.gen.x = 900 }
   const gauntlet = GA.mode === 'gauntlet'
   document.getElementById('ga-score-label').textContent = gauntlet ? 'Clears' : level ? 'Progress' : 'Columns'
@@ -483,7 +494,7 @@ function gaUpdate(dt) {
     if (tr.mode === 'finish') continue        // handled by the end-of-level check below
     GA.forced = tr.mode === 'desync'
     GA.banner = GA.forced
-      ? { text: '⚡ DESYNC — W/S you · ↑/↓ twin', col: '#f87171', t: 1.6 }
+      ? { text: GA_TOUCH ? '⚡ DESYNC — P1 you · P2 twin' : '⚡ DESYNC — W/S you · ↑/↓ twin', col: '#f87171', t: 1.6 }
       : { text: '🔗 RE-ENTANGLED', col: '#a78bfa', t: 1.2 }
     if (typeof SFX !== 'undefined') SFX.whoosh()
   }
@@ -493,17 +504,16 @@ function gaUpdate(dt) {
   // W is the thrust key: it pushes each ship against its own gravity (blue
   // down, pink up — toward each other from their home sides). S is the
   // opposite, pushing with gravity.
-  const mir = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0)
-  const ali = (k.ArrowDown ? 1 : 0) - (k.ArrowUp ? 1 : 0)    // ↑/↓
+  // A touch is W. While the controls are split (desync, or a broken link)
+  // the screen becomes two pads: the left half is P1 (W, thrusts you), the
+  // right half is P2 (↑, thrusts the twin), so two thumbs fly both.
+  const split = GA.broken || GA.forced
+  const pad = gaPads(split)
+  const mir = (k.KeyW || pad.p1 ? 1 : 0) - (k.KeyS ? 1 : 0)
+  const ali = (k.ArrowDown ? 1 : 0) - (k.ArrowUp || pad.p2 ? 1 : 0)    // ↑/↓
   let pdy, tdy
-  if (GA.broken || GA.forced) { pdy = mir; tdy = ali }
-  else           { pdy = mir + ali; tdy = -mir + ali }
-  // A finger steers whichever dot is in the half it touches
-  for (const t of GA.touches.values()) {
-    const blue = (t.y < half) !== GA.swapped
-    if (blue) pdy = Math.abs(t.y - GA.py) > 6 ? Math.sign(t.y - GA.py) : 0
-    else      tdy = Math.abs(t.y - GA.ty) > 6 ? Math.sign(t.y - GA.ty) : 0
-  }
+  if (split) { pdy = mir; tdy = ali }
+  else       { pdy = mir + ali; tdy = -mir + ali }
   pdy = Math.max(-1, Math.min(1, pdy)); tdy = Math.max(-1, Math.min(1, tdy))
   if (GA.plan) [pdy, tdy] = abControl(GA.plan, GA.evil, GA.x, GA.py, GA.pv, GA.ty, GA.tv)
 
@@ -799,10 +809,10 @@ function gaDraw() {
   let label
   if (GA.forced) {
     ctx.fillStyle = '#ef4444'; ctx.fillRect(bx, by, bw, 5)
-    label = 'DESYNC · W/S you · ↑/↓ twin'
+    label = GA_TOUCH ? 'DESYNC · P1 you · P2 twin' : 'DESYNC · W/S you · ↑/↓ twin'
   } else if (GA.broken) {
     ctx.fillStyle = '#f97316'; ctx.fillRect(bx, by, bw * (GA.breakT / GA_BREAK_DUR), 5)
-    label = 'BROKEN · W/S you · ↑/↓ twin'
+    label = GA_TOUCH ? 'BROKEN · P1 you · P2 twin' : 'BROKEN · W/S you · ↑/↓ twin'
   } else if (GA.breakCD > 0) {
     ctx.fillStyle = 'rgba(99,102,241,0.6)'; ctx.fillRect(bx, by, bw * (1 - GA.breakCD / GA_BREAK_CD), 5)
     label = 'ENTANGLED · recharging'
@@ -831,10 +841,32 @@ function gaDraw() {
     ctx.shadowBlur = 14; ctx.shadowColor = GA.banner.col
     ctx.fillText(GA.banner.text, W / 2, 52); ctx.shadowBlur = 0; ctx.globalAlpha = 1
   }
+  if (GA_TOUCH && GA.phase === 'playing' && !GA.plan && (GA.broken || GA.forced)) gaDrawPads(ctx, W, H)
   if (GA.score < 3 && GA.phase === 'playing' && GA.x < 1200) {
     ctx.textAlign = 'center'; ctx.fillStyle = _lt ? 'rgba(109,40,217,0.8)' : 'rgba(167,139,250,0.75)'; ctx.font = '12px monospace'
-    ctx.fillText('W = thrust · S = other way · ↑/↓ = move both together · portals are optional', W / 2, H - 14)
+    ctx.fillText(GA_TOUCH ? 'Touch = thrust (W) · portals are optional'
+                          : 'W = thrust · S = other way · ↑/↓ = move both together · portals are optional', W / 2, H - 14)
   }
+}
+
+// The P1 / P2 pads shown on touch screens while the controls are split.
+// Each covers its half of the screen; the drawn pad marks where it is.
+function gaDrawPads(ctx, W, H) {
+  const on = gaPads(true)
+  const pw = Math.min(150, W * 0.3), ph = 64, y = H - ph - 30
+  const one = (x, label, key, col, lit) => {
+    ctx.globalAlpha = lit ? 0.55 : 0.22
+    ctx.fillStyle = col
+    ctx.beginPath(); ctx.roundRect(x, y, pw, ph, 14); ctx.fill()
+    ctx.globalAlpha = lit ? 1 : 0.7
+    ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke()
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'
+    ctx.font = 'bold 20px monospace'; ctx.fillText(label, x + pw / 2, y + 28)
+    ctx.font = '12px monospace';      ctx.fillText(key, x + pw / 2, y + 48)
+    ctx.globalAlpha = 1
+  }
+  one(16, 'P1', 'you · W', '#3b82f6', on.p1)
+  one(W - pw - 16, 'P2', 'twin · ↑', '#ec4899', on.p2)
 }
 
 function gaDrawPortal(ctx, x, y, kind, used) {
