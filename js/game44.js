@@ -377,7 +377,13 @@ function _spdStart(practice, practiceDiff, noclip) {
   _SPD.lastTime = performance.now()
   _SPD.raf = requestAnimationFrame(_spdLoop)
 }
-window.startSpider = function() { _SPD.testLevel = null; _SPD.practiceLevel = null; _spdStart(false, null) }
+window.startSpider = function() {
+  // Same leak as UFO had: the bot toggle persists from the practice picker
+  // and _spdStart does not clear it, so a scored run was flown by the bot.
+  _SPD.testLevel = null; _SPD.practiceLevel = null
+  _SPD.botMode = false; _SPD.evil = false
+  _spdStart(false, null)
+}
 
 window.spdUseNoclip = true
 window.spdToggleBot = function() {

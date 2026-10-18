@@ -433,6 +433,11 @@ window.startUFOPractice = function(diff, name) {
 function _g40Play(endless) {
   G40.multi = false; G40.testLevel = null; G40.noclip = false
   G40.practice = false; G40.practiceDiff = null; G40.practiceLevel = null
+  // The bot toggle lives next to the practice levels and persists, so it
+  // was still on when you came back out and pressed Play — and nothing
+  // here turned it off. The bot flies the solved line and never dies, so
+  // it ran up a scored endless run with the Submit button right there.
+  G40.botMode = false; G40.evil = false
   G40.wantEndless = !!endless
   _g40Begin()
 }
@@ -448,7 +453,12 @@ window.g40TestLevel = function(tmpl, noclip, bot) {
   _g40Begin(true)
 }
 // Same-device versus: two UFOs, one level, first to clip a pillar loses
-window.startUFO2P   = function() { G40.multi = true; G40.wantEndless = false; _g40Begin() }
+window.startUFO2P   = function() {
+  G40.multi = true; G40.wantEndless = false
+  G40.botMode = false; G40.evil = false; G40.noclip = false
+  G40.practice = false; G40.testLevel = null
+  _g40Begin()
+}
 
 function _g40Begin(forceGauntlet) {
   if (typeof qgDropFocus === 'function') qgDropFocus()
@@ -802,7 +812,10 @@ function _g40Loop(ts) {
       G40.showOver = true
       window._g40Score = G40.score
       const s = G40.score
-      if (!G40.multi && !G40.practice && !G40.testLevel)
+      // botMode belongs in this list too: a bot run cannot be a scored run
+      // any more, but the local best is cheap to guard and this is the kind
+      // of list that drifts.
+      if (!G40.multi && !G40.practice && !G40.testLevel && !G40.botMode)
         _g40SetBest(G40.gauntlet ? 'levels' : 'endless', s)
       let label
       if (G40.multi) label = G40.winner ? `Player ${G40.winner} wins — ${s} level${s !== 1 ? 's' : ''}`

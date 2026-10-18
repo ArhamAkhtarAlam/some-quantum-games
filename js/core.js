@@ -1385,7 +1385,43 @@ const SCORE_COLORS = {
   ascent:        '#a78bfa',
 }
 
+// ── Assisted runs never reach the leaderboard ──────────
+//  Each game is supposed to clear its practice flags when a scored run
+//  starts, and most do. Two did not: the bot toggle in Quantum Tunnel and
+//  Spin Flip persists next to the practice levels, so it was still on when
+//  you came back out and pressed Play, and the bot flies the solved line
+//  and never dies. That is fixed where it happened, but relying on every
+//  game to remember is how it broke in the first place, so the submit path
+//  now checks for itself and refuses rather than trusting the flags were
+//  cleared. A new game that forgets gets caught here instead of on the
+//  board.
+//
+//  These read each game's state by name, the way the qclicker score below
+//  already does: a top-level const is shared across scripts, and typeof
+//  covers the game's file not being loaded on this site.
+const ASSISTED = {
+  ufo:          () => typeof G40  !== 'undefined' && (G40.botMode  || G40.noclip  || G40.practice || G40.testLevel),
+  spider:       () => typeof _SPD !== 'undefined' && (_SPD.botMode || _SPD.noclip || _SPD.practice || _SPD.testLevel),
+  wavegauntlet: () => typeof G43  !== 'undefined' && (G43.botMode  || G43.noclip  || G43.practice || G43.testLevel),
+  ascent:       () => typeof GA   !== 'undefined' && (GA.plan      || GA.noclip   || GA.practice),
+}
+
+// Why this run cannot be submitted, or null if it is a clean one.
+window.qgAssistReason = function(game) {
+  const check = ASSISTED[game]
+  if (!check) return null
+  let on = false
+  try { on = !!check() } catch { return null }   // state gone: don't block
+  return on ? 'Practice, noclip and bot runs are not scored.' : null
+}
+
 window.openSubmit = function(game) {
+  const assisted = qgAssistReason(game)
+  if (assisted) {
+    if (typeof SFX !== 'undefined') SFX.bounce?.()
+    alert(assisted + '\nPlay the normal mode with the bot and noclip off.')
+    return
+  }
   let score = 0
   if (game === 'equation') score = window._g1Score || 0
   else if (game === 'aim') score = window.G2 ? window.G2.score : 0
