@@ -1374,6 +1374,7 @@ body:has(#home.active)::after {
    arena is already its final size when the game measures its canvas. */
 body.tp-touch .game-screen.active[data-tp="bar"]  { padding-bottom: 72px; }
 body.tp-touch .game-screen.active[data-tp="type"] { padding-bottom: 84px; }
+body.tp-touch .game-screen.active[data-tp="pad"]  { padding-bottom: 100px; }
 /* Wave Collapse has a second row of buttons */
 body.tp-touch #game14.active[data-tp] { padding-bottom: 116px; }
 /* Fingers on the game must steer, not scroll or zoom the page */
@@ -1398,13 +1399,18 @@ body.has-tp #qg-lb-btn, body.has-tp #qg-theme-btn { display: none; }
 }
 .tp-btn.tp-wide { min-width: 76px; font-size: .82rem; letter-spacing: .04em; }
 
+.tp-move { display: flex; gap: 10px; flex-shrink: 0; }
+.tp-btn.tp-big { min-width: 68px; height: 68px; font-size: 1.4rem; border-radius: 16px; }
+.tp-btn.tp-jump { min-width: 104px; font-size: 1rem; letter-spacing: .08em; border-color: rgba(251,146,60,.6); }
 .tp-keys { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
-.tp-row { display: flex; gap: 6px; }
+.tp-row { display: flex; gap: 6px; align-items: center; }
 .tp-small .tp-btn { min-width: 40px; height: 38px; font-size: .9rem; }
 @media (max-width: 420px) {
   #tp-pad { gap: .4rem; padding-left: .6rem; padding-right: .6rem; }
   .tp-btn { min-width: 42px; height: 44px; }
   .tp-small .tp-btn { min-width: 38px; height: 36px; }
+  .tp-btn.tp-big { min-width: 60px; height: 64px; }
+  .tp-btn.tp-jump { min-width: 92px; }
 }
 
 .tp-type { flex: 1; }

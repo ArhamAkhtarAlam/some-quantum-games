@@ -13,6 +13,11 @@
 //                        right half to steer pink (two fingers works),
 //                        double-tap to break the entanglement
 //
+//  Parkour is the exception that keeps a pad: ◀ ▶ under the left thumb
+//  and a big JUMP under the right, held down like real keys, because a
+//  platformer needs exact timing you cannot get from guessing where an
+//  invisible zone on the canvas ends.
+//
 //  Only games where typing IS the game keep a keyboard: Type Racer gets
 //  a tap-to-type field that opens the phone keyboard (Quantum Type
 //  already has its own field).
@@ -39,6 +44,10 @@
           keys: [['X', 'KeyX'], ['H', 'KeyH'], ['M', 'KeyM'], ['↶', 'KeyZ']],
           extra: [['⏱', 'KeyT'], ['💡', 'KeyI'], ['👁', 'KeyP'], ['⏸', 'Escape']] },
     15: { hint: 'Left half steers blue · right half pink · double-tap to break',
+          keys: [['⏸', 'Escape']] },
+    // Parkour: `move` and `jump` are held buttons (keydown on press, keyup
+    // on release), laid out as a pad on either side of the bar
+    28: { move: [['◀', 'ArrowLeft'], ['▶', 'ArrowRight']], jump: [['JUMP', 'Space']],
           keys: [['⏸', 'Escape']] },
     42: { type: true },
   }
@@ -242,6 +251,7 @@
 
   // ── The slim bar under a game ──────────────────────
   let bar = null, current = null
+  let releases = []          // the held buttons on the bar, to let go of on leave
 
   function btn(label, code, cls) {
     const b = document.createElement('button')
@@ -259,6 +269,37 @@
     b.addEventListener('pointercancel', off)
     b.addEventListener('pointerleave', off)
     b.addEventListener('contextmenu', e => e.preventDefault())
+    return b
+  }
+
+  // A button that stays down while your finger does, like a real key
+  function holdBtn(label, code, cls) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'tp-btn' + (cls ? ' ' + cls : '')
+    b.textContent = label
+    let down = false
+    const press = e => {
+      e.preventDefault()
+      if (down) return
+      down = true
+      b.classList.add('on')
+      try { b.setPointerCapture(e.pointerId) } catch {}
+      if (navigator.vibrate) try { navigator.vibrate(8) } catch {}
+      send('keydown', code)
+    }
+    const release = () => {
+      if (!down) return
+      down = false
+      b.classList.remove('on')
+      send('keyup', code)
+    }
+    b.addEventListener('pointerdown', press)
+    b.addEventListener('pointerup', release)
+    b.addEventListener('pointercancel', release)
+    b.addEventListener('lostpointercapture', release)
+    b.addEventListener('contextmenu', e => e.preventDefault())
+    releases.push(release)
     return b
   }
 
@@ -295,6 +336,12 @@
     const el = document.createElement('div')
     el.id = 'tp-pad'
     if (cfg.type) { el.appendChild(typeField()); return el }
+    if (cfg.move) {
+      const m = document.createElement('div')
+      m.className = 'tp-move'
+      for (const [label, code] of cfg.move) m.appendChild(holdBtn(label, code, 'tp-big'))
+      el.appendChild(m)
+    }
     if (cfg.hint) {
       const h = document.createElement('span')
       h.className = 'tp-hint'
@@ -311,6 +358,7 @@
       for (const [label, code] of cfg.extra) r2.appendChild(btn(label, code))
       g.appendChild(r2)
     }
+    if (cfg.jump) for (const [label, code] of cfg.jump) row.appendChild(holdBtn(label, code, 'tp-big tp-jump'))
     el.appendChild(g)
     return el
   }
@@ -325,6 +373,8 @@
     const n = touchFirst.matches ? activeGame() : null
     const want = n && TP_GAMES[n] ? n : null
     if (want === current) return
+    for (const r of releases) r()
+    releases = []
     if (bar) { bar.remove(); bar = null }
     // Leaving a game mid-steer must not leave a key stuck down
     for (const g of Object.keys(held)) hold(g, new Set())
@@ -344,7 +394,7 @@
     document.body.classList.toggle('tp-touch', touchFirst.matches)
     for (const n of Object.keys(TP_GAMES)) {
       const s = document.getElementById('game' + n)
-      if (s) s.dataset.tp = TP_GAMES[n].type ? 'type' : 'bar'
+      if (s) s.dataset.tp = TP_GAMES[n].type ? 'type' : TP_GAMES[n].move ? 'pad' : 'bar'
     }
   }
 
