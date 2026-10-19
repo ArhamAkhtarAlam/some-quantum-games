@@ -18,6 +18,11 @@
 //  platformer needs exact timing you cannot get from guessing where an
 //  invisible zone on the canvas ends.
 //
+//  The two snakes keep a d-pad too, under the left thumb. Runaway Snake's
+//  sends the arrow keys as they are. Quantum Snake only turns left and
+//  right, so its d-pad points the snake: hold ▲ and it turns until it
+//  faces up (two buttons together aim between them).
+//
 //  Only games where typing IS the game keep a keyboard: Type Racer gets
 //  a tap-to-type field that opens the phone keyboard (Quantum Type
 //  already has its own field).
@@ -49,6 +54,12 @@
     // on release), laid out as a pad on either side of the bar
     28: { move: [['◀', 'ArrowLeft'], ['▶', 'ArrowRight']], jump: [['JUMP', 'Space']],
           keys: [['⏸', 'Escape']] },
+    // The snakes: `dpad` is a four-way pad on the left of the bar.
+    // 'keys' taps the arrow keys; 'steer' turns Quantum Snake to face the
+    // way the pad points (see steerDpad)
+    17: { dpad: 'steer', fire: [['FIRE', 'KeyF']], jump: [['BOOST', 'ShiftLeft']],
+          extra: [['🎯', 'KeyV'], ['⏸', 'Escape']] },
+    31: { dpad: 'keys', hint: 'Swipe works too', keys: [] },
     42: { type: true },
   }
 
@@ -303,6 +314,63 @@
     return b
   }
 
+  // A four-way pad laid out like a keyboard's arrows: ▲ over ◀ ▼ ▶
+  function dpadGrid(make) {
+    const g = document.createElement('div')
+    g.className = 'tp-dpad'
+    g.append(make('▲', 'up', 'tp-up'), make('◀', 'left', 'tp-left'),
+             make('▼', 'down', 'tp-down'), make('▶', 'right', 'tp-right'))
+    return g
+  }
+
+  // Quantum Snake: while pad buttons are held, turn the head toward the
+  // way they point by holding ← or →, re-checked every frame
+  const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
+  function steerDpad() {
+    const dirs = new Set()
+    const live = () => typeof G17 !== 'undefined' && G17.active && !G17.paused && G17.player
+    const step = () => {
+      if (!dirs.size || !live()) { hold('g17', new Set()); return false }
+      let x = 0, y = 0
+      for (const d of dirs) { x += DIRS[d][0]; y += DIRS[d][1] }
+      if (!x && !y) { hold('g17', new Set()); return }     // ▲ and ▼ together cancel
+      let diff = Math.atan2(y, x) - G17.player.angle
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff))    // into -π..π
+      // Within one frame's turn counts as facing it, so it does not wobble
+      hold('g17', new Set(diff > G17_TURN ? ['ArrowRight'] : diff < -G17_TURN ? ['ArrowLeft'] : []))
+    }
+    return dpadGrid((label, dir, cls) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'tp-btn ' + cls
+      b.textContent = label
+      let down = false
+      b.addEventListener('pointerdown', e => {
+        e.preventDefault()
+        if (down) return
+        down = true
+        b.classList.add('on')
+        try { b.setPointerCapture(e.pointerId) } catch {}
+        if (navigator.vibrate) try { navigator.vibrate(8) } catch {}
+        dirs.add(dir)
+        loop(step)
+      })
+      const release = () => {
+        if (!down) return
+        down = false
+        b.classList.remove('on')
+        dirs.delete(dir)
+        if (!dirs.size) { hold('g17', new Set()); stopLoop() }
+      }
+      b.addEventListener('pointerup', release)
+      b.addEventListener('pointercancel', release)
+      b.addEventListener('lostpointercapture', release)
+      b.addEventListener('contextmenu', e => e.preventDefault())
+      releases.push(release)
+      return b
+    })
+  }
+
   // Phone keyboards do not send usable keydowns to the page unless a text
   // field has focus, and even then Android often reports "Unidentified".
   // So a real input takes the typing, and each character that lands in it
@@ -342,6 +410,8 @@
       for (const [label, code] of cfg.move) m.appendChild(holdBtn(label, code, 'tp-big'))
       el.appendChild(m)
     }
+    if (cfg.dpad === 'steer') el.appendChild(steerDpad())
+    else if (cfg.dpad) el.appendChild(dpadGrid((label, dir, cls) => btn(label, ARROWS[dir], cls)))
     if (cfg.hint) {
       const h = document.createElement('span')
       h.className = 'tp-hint'
@@ -358,6 +428,7 @@
       for (const [label, code] of cfg.extra) r2.appendChild(btn(label, code))
       g.appendChild(r2)
     }
+    if (cfg.fire) for (const [label, code] of cfg.fire) row.appendChild(btn(label, code, 'tp-big tp-fire'))
     if (cfg.jump) for (const [label, code] of cfg.jump) row.appendChild(holdBtn(label, code, 'tp-big tp-jump'))
     el.appendChild(g)
     return el
@@ -394,7 +465,7 @@
     document.body.classList.toggle('tp-touch', touchFirst.matches)
     for (const n of Object.keys(TP_GAMES)) {
       const s = document.getElementById('game' + n)
-      if (s) s.dataset.tp = TP_GAMES[n].type ? 'type' : TP_GAMES[n].move ? 'pad' : 'bar'
+      if (s) s.dataset.tp = TP_GAMES[n].type ? 'type' : TP_GAMES[n].dpad ? 'dpad' : TP_GAMES[n].move ? 'pad' : 'bar'
     }
   }
 
