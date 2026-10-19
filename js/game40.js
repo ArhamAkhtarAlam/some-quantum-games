@@ -441,6 +441,10 @@ function _g40Play(endless) {
   G40.wantEndless = !!endless
   _g40Begin()
 }
+// Which board the game-over button posts to. Kept here rather than in the
+// markup because only this file knows which mode just ran.
+window.g40Submit = function() { openSubmit(G40.gauntlet ? 'ufolevels' : 'ufo') }
+
 window.startUFOGame    = function() { _g40Play(false) }   // Levels
 window.startUFOEndless = function() { _g40Play(true)  }
 
@@ -823,11 +827,18 @@ function _g40Loop(ts) {
       else if (G40.gauntlet) label = `${s} level${s !== 1 ? 's' : ''}`
       else label = `${s} pipe${s !== 1 ? 's' : ''}`
       document.getElementById('g40-final-score').textContent = label
-      // The leaderboard counts pillars passed in the endless game. Gauntlet
-      // mode scores cleared levels, which is a different scale entirely, so
-      // it does not submit rather than mixing the two in one table.
+      // Levels scores cleared levels and Endless scores pillars passed, so
+      // they post to separate boards rather than one mixed table. Levels
+      // used to have no button at all, which left most runs unpostable.
+      // 2P is one race between two people on a shared keyboard, so it still
+      // posts nothing.
       const sub = document.getElementById('g40-submit-btn')
-      if (sub) sub.style.display = G40.gauntlet ? 'none' : ''
+      if (sub) {
+        sub.style.display = G40.multi ? 'none' : ''
+        sub.textContent   = G40.gauntlet ? 'Submit Levels Score' : 'Submit Score'
+      }
+      if (typeof renderMedalDisplay === 'function' && !G40.multi)
+        renderMedalDisplay('g40-medal-display', G40.gauntlet ? 'ufolevels' : 'ufo', s)
       document.getElementById('g40-over').style.display = 'flex'
     }
   }

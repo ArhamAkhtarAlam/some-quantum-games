@@ -618,6 +618,39 @@ function pushHomeUrl() {
   history.pushState({ home: true }, '', url)
 }
 
+// ── Canvas backing stores ──────────────────────────────
+//  Every game screen keeps its own <canvas> in the DOM — 29 of them — and a
+//  canvas holds a bitmap of width x height x 4 bytes whether or not anything
+//  is drawing into it. Each game sizes its canvas to the window when you open
+//  it and nothing ever shrank it again, so every game you visited kept a
+//  full-window bitmap for the rest of the session: 2560 x 1440 x 4 bytes is
+//  14 MB each, so ten games visited is 140 MB of bitmaps for games you are
+//  not looking at.
+//
+//  So shrink the ones that are off screen. Every canvas game sizes its canvas
+//  on entry (in its initGameN or its start function), so the full-size buffer
+//  comes straight back when you open it again.
+//  The screen being opened gets its canvas sized back here rather than left
+//  at 1x1, because several games only size theirs when you press Play — the
+//  canvas sits under the start overlay until then, and a 1x1 bitmap stretched
+//  by CSS is a visible smear. The game overwrites this with its own size the
+//  moment the run starts.
+function qgReleaseCanvases(keepId) {
+  for (const c of document.querySelectorAll('.screen canvas')) {
+    const screen = c.closest('.screen')
+    if (!screen) continue
+    if (screen.id === keepId) {
+      if (c.width <= 1 && c.parentElement) {
+        const pw = c.parentElement.clientWidth, ph = c.parentElement.clientHeight
+        if (pw > 0 && ph > 0) { c.width = pw; c.height = ph }
+      }
+      continue
+    }
+    if (c.width > 1 || c.height > 1) { c.width = 1; c.height = 1 }
+  }
+}
+window.qgReleaseCanvases = qgReleaseCanvases
+
 window.showGame = function(n) {
   // Beta games simply do not exist on the main site
   if (BETA_GAMES.has(n) && !QG_BETA) { if (typeof goHome === 'function') goHome(); return }
@@ -626,6 +659,8 @@ window.showGame = function(n) {
   if (QG_STALL && !STALL_GAMES.has(n)) { if (typeof goHome === 'function') goHome(); return }
   document.getElementById('home').classList.remove('active')
   document.getElementById(`game${n}`).classList.add('active')
+  // Give back the bitmaps of every other game before this one sizes its own
+  qgReleaseCanvases(`game${n}`)
   pushGameUrl(n)
   if (n === 1)  initGame1()
   if (n === 2)  initGame2()
@@ -696,6 +731,7 @@ window.goHome = function() {
   if (typeof stopGame48    === 'function') stopGame48()
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
+  qgReleaseCanvases('home')
   pushHomeUrl()
 }
 
@@ -781,6 +817,7 @@ const MEDALS = {
   // Starting guesses — tune once there are real scores to look at
   rhythm:       { bronze: 5,  silver: 12, gold: 21 },
   ufo:          { bronze: 10, silver: 25, gold: 45 },
+  ufolevels:    { bronze: 5,  silver: 12, gold: 20 },
   wavegauntlet: { bronze: 5,  silver: 12, gold: 20 },
   spider:       { bronze: 4,  silver: 10, gold: 18 },
   freighter:    { bronze: 15, silver: 40, gold: 80 },
@@ -958,6 +995,7 @@ function escHtml(str) {
 }
 
 function scoreToDisplay(game, score) {
+  if (game === 'ufolevels') return score + ' level' + (score === 1 ? '' : 's')
   if (game === 'reaction') return score + ' ms'
   if (game === 'dodge') return (score / 10).toFixed(1) + 's'
   if (game === 'gravity') return score + ' pts'
@@ -998,6 +1036,13 @@ const LB_GAMES = [
   { n: 36, game: 'cps',          label: 'CPS' },
   { n: 37, game: 'rhythm',       label: 'Rhythm' },
   { n: 40, game: 'ufo',          label: 'Tunnel' },
+  // Levels clears and Endless pillars are different scales, so they get
+  // separate boards rather than one mixed table — the same reason the local
+  // bests are already stored per mode (see _g40BestKey in game40.js).
+  // Both carry n:40 so the stall and beta filters treat them as one game;
+  // the panel's "board for the game on screen" lookup takes the first,
+  // which is Tunnel.
+  { n: 40, game: 'ufolevels',    label: 'Tunnel Levels' },
   { n: 43, game: 'wavegauntlet', label: 'Wave Gauntlet' },
   { n: 44, game: 'spider',       label: 'Spin Flip' },
   { n: 45, game: 'freighter',    label: 'Freighter' },
@@ -1375,6 +1420,7 @@ const SCORE_COLORS = {
   cps:        '#6366f1',
   crossy:     '#4ade80',
   ufo:        '#a855f7',
+  ufolevels:  '#a855f7',
   jetrush:     '#f97316',
   typerracer:    '#06b6d4',
   rhythm:        '#f472b6',
@@ -1401,6 +1447,7 @@ const SCORE_COLORS = {
 //  covers the game's file not being loaded on this site.
 const ASSISTED = {
   ufo:          () => typeof G40  !== 'undefined' && (G40.botMode  || G40.noclip  || G40.practice || G40.testLevel),
+  ufolevels:    () => typeof G40  !== 'undefined' && (G40.botMode  || G40.noclip  || G40.practice || G40.testLevel),
   spider:       () => typeof _SPD !== 'undefined' && (_SPD.botMode || _SPD.noclip || _SPD.practice || _SPD.testLevel),
   wavegauntlet: () => typeof G43  !== 'undefined' && (G43.botMode  || G43.noclip  || G43.practice || G43.testLevel),
   ascent:       () => typeof GA   !== 'undefined' && (GA.plan      || GA.noclip   || GA.practice),
@@ -1455,6 +1502,7 @@ window.openSubmit = function(game) {
   else if (game === 'cps')          score = window._g36Score  || 0
   else if (game === 'crossy')       score = window._g38Score  || 0
   else if (game === 'ufo')          score = window._g40Score  || 0
+  else if (game === 'ufolevels')    score = window._g40Score  || 0
   else if (game === 'jetrush')      score = window._g41Score  || 0
   else if (game === 'typerracer')   score = window._g42Score  || 0
   else if (game === 'rhythm')       score = window._g37Score  || 0
@@ -1639,7 +1687,7 @@ window.submitScore = async function() {
         entanglement:'g15-over', qsnake:'g17-over',
         qwhip:'g18-over', gravitysling:'g22-over', chargerush:'g23-over',
         pulse:'g24-over', orbit:'g26-over', parkour:'g28-over', qblaster:'g29-over',
-        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', jetrush:'g41-over', typerracer:'g42-over', rhythm:'g37-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over', traprace:'g46-over', ascent:'ga-over',
+        mrts:'g30-over', runsnake:'g31-over', gravflip:'g32-over', memseq:'g33-over', manualsort:'g34-over', wavedash:'g35-over', cps:'g36-over', crossy:'g38-over', ufo:'g40-over', ufolevels:'g40-over', jetrush:'g41-over', typerracer:'g42-over', rhythm:'g37-over', wavegauntlet:'g43-over', spider:'spd-over', freighter:'g45-over', traprace:'g46-over', ascent:'ga-over',
       }
       const overId = overMap[pendingSubmit.game]
       if (overId) document.getElementById(overId).classList.remove('show')
