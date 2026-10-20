@@ -530,6 +530,7 @@ const G43 = {
   practiceDiff:null, practiceLevel:null, hitFlash:0, attempts:0,
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
+  decoPulse:0,          // 1 on a press, fading — the backdrop reacts to it
   botMode:false, bot:null, botPending:false, simAcc:0, evil:false,  // autopilot playing the solved ideal line
   bot2:null,            // 2P: the autopilot flying the second wave
   botStyle:'normal',    // editor picks this; see LC_STYLES in levelcheck.js
@@ -837,7 +838,11 @@ function _g43ApplyNetChallenge(data, h) {
 // the count at the refresh rate — 30/s on a 60Hz screen — and made the
 // same mashing score differently on different monitors.
 function _g43Hold() {
-  if (!G43.holding) { if (G43.practice) G43.taps++; SFX.tap() }
+  if (!G43.holding) {
+    if (G43.practice) G43.taps++
+    SFX.tap()
+    G43.decoPulse = 1        // the backdrop answers a press; see the wave theme
+  }
   G43.holding = true
 }
 
@@ -1319,6 +1324,8 @@ function _g43Loop(ts) {
     if (G43.shake    > 0) G43.shake    = Math.max(0, G43.shake    - dt * 4)
     if (G43.hitFlash > 0) G43.hitFlash = Math.max(0, G43.hitFlash - dt)
   if (G43.portalFlash > 0) G43.portalFlash = Math.max(0, G43.portalFlash - dt)
+  // The backdrop's answer to a press, fading over about a second
+  if (G43.decoPulse > 0) G43.decoPulse = Math.max(0, G43.decoPulse - dt * 1.1)
     if (G43.retryT >= G43_RETRY_WAIT) _g43RetryNow()
     _g43Draw(c.getContext('2d'), w, h)
     G43.raf = requestAnimationFrame(_g43Loop)
@@ -1895,6 +1902,12 @@ function _g43Draw(ctx, w, h) {
   }
 
   // Deco sits behind the corridor so it can never read as a wall
+  // Backdrop first, then the level's own deco items over it
+  if (typeof drawDecoTheme === 'function') {
+    drawDecoTheme(ctx, 'wave', w, h, scrollI, waveX, {
+      time: G43.t, hold: !!G43.holding, pulse: G43.decoPulse || 0, waveX,
+    })
+  }
   if (typeof drawDeco === 'function') drawDeco(ctx, G43.deco, w, h, scrollI, waveX, { time: G43.t })
 
   // ── Corridor walls ───────────────────────────────────

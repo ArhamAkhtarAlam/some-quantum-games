@@ -240,6 +240,7 @@ const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
   botMode:false, bot:null, evil:false, botStyle:'normal',
+  decoPulse:0,          // 1 on a flip, fading — the bits backdrop reacts to it
   paused:false, taps:0,
   scrollX:0, speed:0,
   score:0,
@@ -551,6 +552,7 @@ function _spdDoFlip() {
   const toY   = _SPD.onFloor ? h - SPD_R - 4 : SPD_R + 4
   _SPD.threads.push({ worldX: _SPD.scrollX, y1: fromY, y2: toY, age: 0 })
   if (_SPD.threads.length > 10) _SPD.threads.shift()
+  _SPD.decoPulse = 1      // the registers behind brighten on a flip
   SFX.tap()
 }
 
@@ -577,6 +579,7 @@ function _spdLoop(ts) {
     _SPD.retryT += dt
     if (_SPD.shake    > 0) _SPD.shake    = Math.max(0, _SPD.shake    - dt * 4)
     if (_SPD.hitFlash > 0) _SPD.hitFlash = Math.max(0, _SPD.hitFlash - dt * 5)
+    if (_SPD.decoPulse > 0) _SPD.decoPulse = Math.max(0, _SPD.decoPulse - dt * 1.6)
     if (_SPD.retryT >= SPD_RETRY_WAIT) {
       _SPD.retrying = false; _SPD.retryT = 0
       _SPD.scrollX  = 0; _SPD.onFloor = true
@@ -591,6 +594,7 @@ function _spdLoop(ts) {
   if (_SPD.banner) { _SPD.banner.t -= dt; if (_SPD.banner.t <= 0) _SPD.banner = null }
   if (_SPD.shake   > 0) _SPD.shake   = Math.max(0, _SPD.shake   - dt * 4)
   if (_SPD.hitFlash > 0) _SPD.hitFlash = Math.max(0, _SPD.hitFlash - dt * 5)
+  if (_SPD.decoPulse > 0) _SPD.decoPulse = Math.max(0, _SPD.decoPulse - dt * 1.6)
 
   if (_SPD.phase === 'announce') {
     _SPD.announceT += dt
@@ -774,7 +778,8 @@ function _spdDraw(ctx, w, h) {
 
   // Deco sits behind the obstacles so it can never read as a block. The
   // bits backdrop goes first, so a level's own deco still sits on top of it.
-  if (typeof drawDecoTheme === 'function') drawDecoTheme(ctx, 'bits', w, h, S.scrollX, spX, { time: S.t })
+  if (typeof drawDecoTheme === 'function')
+    drawDecoTheme(ctx, 'bits', w, h, S.scrollX, spX, { time: S.t, pulse: S.decoPulse || 0 })
   if (typeof drawDeco === 'function') {
     for (const L of layers) drawDeco(ctx, L.lv.deco, w, h, S.scrollX - L.off, spX, { time: S.t })
   }

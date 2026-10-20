@@ -233,13 +233,25 @@ function _decoHash(i, k) {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296
 }
 
+// ── Backdrops that answer the player ────────────────────
+//  A theme can be handed what the player is doing right now, through opts:
+//    hold   true while the button is down
+//    pulse  1 at the instant of a press, falling to 0 over about a second
+//  Both are optional and every theme works without them, because the editor
+//  and the level pictures draw these with nobody playing.
+//
+//  The point is restraint. Scenery that answers you is good; scenery that
+//  competes with the corridor for your eye will get you killed, so the
+//  reactions here move brightness and amplitude and never position.
 const DECO_THEMES = {
   // Spin Flip — bits. Streams of 0s and 1s hang from the ceiling or climb
   // from the floor, faint byte registers tick over mid-air, and the odd big
   // lone bit flips 0↔1 the way the player flips floor↔ceiling. Every digit
   // flips on its own clock, so the scenery keeps quietly changing.
-  bits: { gap: 150, par: 0.5, draw(ctx, i, x, h, t, pal) {
+  bits: { gap: 150, par: 0.5, draw(ctx, i, x, h, t, pal, opts) {
     const r = k => _decoHash(i, k)
+    // A flip ripples through the registers: everything brightens for a moment
+    const pulse = Math.max(0, Math.min(1, (opts && opts.pulse) || 0))
     const up  = r(0) < 0.5               // anchored to the ceiling?
     const col = r(1) < 0.7 ? pal[2] : pal[5]
     ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1
@@ -256,7 +268,7 @@ const DECO_THEMES = {
       ctx.font = `bold ${fs}px monospace`
       for (let j = 0; j < n; j++) {
         const y = up ? fs * (0.9 + j * 1.15) : h - fs * (0.9 + j * 1.15)
-        ctx.globalAlpha = 0.34 * (1 - j / (n + 1))
+        ctx.globalAlpha = 0.34 * (1 - j / (n + 1)) * (1 + pulse * 0.9)
         ctx.fillText(String(bit(j, 5)), x, y)
       }
     } else if (kind < 0.8) {
@@ -266,7 +278,7 @@ const DECO_THEMES = {
       const x0 = x - (8 * c + 7 * gap) / 2
       for (let j = 0; j < 8; j++) {
         const cx = x0 + j * (c + gap)
-        if (bit(j, 4)) { ctx.globalAlpha = 0.3; ctx.fillRect(cx, y, c, c) }
+        if (bit(j, 4)) { ctx.globalAlpha = 0.3 * (1 + pulse * 0.9); ctx.fillRect(cx, y, c, c) }
         else           { ctx.globalAlpha = 0.2; ctx.strokeRect(cx + 0.5, y + 0.5, c - 1, c - 1) }
       }
     } else {
@@ -283,6 +295,59 @@ const DECO_THEMES = {
   // below, so the line reads as one horizon the two ships share. Rungs
   // stream toward the horizon and the rays slide with the scroll, so the
   // speed of the run is easy to feel. Whole-frame, so it uses `paint`.
+  // Wave Gauntlet — the wave seen from outside. Traces scroll past like an
+  // oscilloscope, slower ones further back, and the whole stack breathes with
+  // what you are doing: holding lifts the amplitude, and every press sends a
+  // ripple out from the wave's own x. A standing-wave grid sits behind it so
+  // the traces have something to be measured against.
+  wave: { par: 0.45, paint(ctx, w, h, s, t, pal, opts) {
+    const hold  = !!(opts && opts.hold)
+    const pulse = Math.max(0, Math.min(1, (opts && opts.pulse) || 0))
+    const waveX = (opts && opts.waveX) || w * 0.22
+    const lt = typeof qgLight === 'function' && qgLight()
+    const base = lt ? 0.05 : 0.07
+
+    // Graticule: faint horizontals, a brighter centre line
+    ctx.lineWidth = 1
+    ctx.strokeStyle = pal[1]
+    for (let k = 1; k < 6; k++) {
+      ctx.globalAlpha = (k === 3 ? 0.16 : 0.06) + pulse * 0.05
+      const y = h * k / 6
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
+    }
+
+    // Three traces at different depths. Holding raises them; a press makes
+    // them briefly busier. Amplitude is capped so this never fills the screen.
+    const amp0 = h * 0.055
+    for (let L = 0; L < 3; L++) {
+      const depth = 1 - L * 0.28
+      const k     = 0.012 + L * 0.004               // waves per pixel
+      const amp   = amp0 * depth * (1 + (hold ? 0.45 : 0) + pulse * 0.5)
+      const yMid  = h * (0.5 + (L - 1) * 0.16)
+      const phase = -s * (0.6 + L * 0.35) * 0.02 + t * (0.8 + L * 0.3)
+      ctx.strokeStyle = L === 1 ? pal[2] : pal[1]
+      ctx.globalAlpha = (base + 0.05 * depth) * (1 + pulse * 0.8)
+      ctx.lineWidth = L === 1 ? 1.6 : 1
+      ctx.beginPath()
+      for (let x = 0; x <= w; x += 6) {
+        const y = yMid + Math.sin(x * k + phase) * amp
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+
+    // The press itself: a ring leaving the wave, which is the one thing here
+    // tied to a moment rather than to a state.
+    if (pulse > 0.01) {
+      const r = (1 - pulse) * w * 0.5
+      ctx.strokeStyle = pal[2]
+      ctx.globalAlpha = pulse * 0.22
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.ellipse(waveX, h / 2, r, r * 0.55, 0, 0, Math.PI * 2); ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+  } },
+
   entangled: { par: 1, paint(ctx, w, h, s, t, pal, opts) {
     const mid  = opts.mid ?? h / 2
     const lt   = typeof qgLight === 'function' && qgLight()
