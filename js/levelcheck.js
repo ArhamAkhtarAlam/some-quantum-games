@@ -89,6 +89,39 @@ function _lcThroughMouth(ports, ny, h, step, i, R) {
   return null
 }
 
+// ═══════════════════════════════════════════════════════
+//  BOT STYLES
+//  The editor picks one of these and the games hand it straight to the
+//  solvers. Early and late are the useful pair for tuning: they bracket the
+//  timing window, so if both clear a level there is slack in it, and if only
+//  one does the window is as tight as that one line.
+//
+//  normal  fewest presses — what the bot has always done
+//  early   the same line, every press as early as it can go
+//  late    the same line, every press as late as it can go
+//  evil    the most presses that still clear (the old evilbot)
+//
+//  There is deliberately no "safest" style: lcSolveLineSafe already walks the
+//  margin ladder widest-first, so the regular bot is already the roomiest
+//  line it can find, and asking a search to maximise clearance instead just
+//  spams presses to hug the middle — 640 of them on a test level.
+// ═══════════════════════════════════════════════════════
+const LC_STYLES = ['normal', 'early', 'late', 'evil']
+
+// The solvers used to take a boolean `worst`, so true still means evil and
+// anything unrecognised falls back to the line the bot always flew.
+function lcStyle(s) {
+  if (s === true) return 'evil'
+  if (!s) return 'normal'
+  return LC_STYLES.indexOf(s) >= 0 ? s : 'normal'
+}
+
+// Only evilbot changes what the search prefers. Early and late are applied
+// afterwards, to a plan that already flies — see _lcWaveShift.
+function _lcBetter(st, a, b) {
+  return st === 'evil' ? a.taps > b.taps : a.taps < b.taps
+}
+
 function lcSolveWave(lv, h, dt) {
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
@@ -163,7 +196,8 @@ function lcSolveWave(lv, h, dt) {
 // positions are quantised to 1/8px, and with variable frame times an
 // input switch can land up to a frame late (4.25px). Without margin a
 // long level accumulates that and eventually clips a wall.
-function lcSolveLine(lv, h, margin, dt, worst) {
+function lcSolveLine(lv, h, margin, dt, style) {
+  const st = lcStyle(style)
   const pad = margin || 0
   const DT = dt || LC_DT
   const kfs = lv.keyframes || []
@@ -206,21 +240,22 @@ function lcSolveLine(lv, h, margin, dt, worst) {
         const m = at[tStep] || (at[tStep] = new Map())
         const nk = Math.round(tY / GQ) + ':' + (hold ? '1' : '0')
         const seen = m.get(nk)
-        const better = !seen || (worst ? seen.taps < taps : seen.taps > taps)
-        if (better) m.set(nk, { prevStep: i, prevKey: key, hold, taps })
+        const cand = { prevStep: i, prevKey: key, hold, taps }
+        if (!seen || _lcBetter(st, cand, seen)) m.set(nk, cand)
       }
     }
   }
 
   // Best survivor at or past the finish
-  let endStep = -1, endKey = null, endTaps = worst ? -Infinity : Infinity
+  let endStep = -1, endKey = null, endNode = null
   for (let i = nSteps; i < at.length; i++) {
     if (!at[i]) continue
     for (const [k, n] of at[i]) {
-      if (worst ? n.taps > endTaps : n.taps < endTaps) { endTaps = n.taps; endKey = k; endStep = i }
+      if (!endNode || _lcBetter(st, n, endNode)) { endNode = n; endKey = k; endStep = i }
     }
     if (endKey) break
   }
+  const endTaps = endNode ? endNode.taps : 0
   if (!endKey) return { ok: false, diedAt: Math.round(lastLive * step), frame: lastLive }
 
   // Walk back, filling the plan against absolute step numbers. Steps the
@@ -300,13 +335,77 @@ function _lcSegments(lv, h, step) {
   return segs
 }
 
-function lcSolveLineSafe(lv, h, dt, worst) {
+// Slide every press as early (dir -1) or as late (dir +1) as it will go.
+//
+// Deciding this inside the search does not work, for the same reason the UFO
+// evilbot pads afterwards: only one node is kept per (height, holding) key, so
+// preferring an earlier route stores a representative that loses later and the
+// line comes out no earlier at all — measured, the "early" bot's first press
+// landed at step 183 while the plain bot's was at 85.
+//
+// So shift a plan that already flies. The wave's path is fully determined by
+// the hold sequence, so moving a switch and re-integrating gives a new path,
+// and _lcReplayOk says whether it still clears. Switches are walked from the
+// front for early and from the back for late so they cannot hop over each
+// other and collapse into a pile.
+function _lcWaveShift(lv, h, plan, dir) {
+  const DT = plan.dt, speed = lv.speed || 200
+  const step = speed * DT
+  const n = plan.holds.length
+  // Re-integrate the wave from a hold sequence, exactly as the game moves it.
+  const pathOf = holds => {
+    const ys = new Array(n).fill(h / 2)
+    let wy = h / 2
+    for (let i = 0; i < n; i++) {
+      wy += (holds[i] ? -LC_WAVE : LC_WAVE) * DT
+      wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))
+      ys[i] = wy
+    }
+    return ys
+  }
+  const flies = holds => _lcReplayOk(lv, h, { ys: pathOf(holds), dt: DT })
+  let holds = plan.holds.slice()
+  if (!flies(holds)) return plan        // nothing to improve on
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const t0 = now()
+  const switches = () => {
+    const out = []
+    for (let i = 1; i < n; i++) if (holds[i] !== holds[i - 1]) out.push(i)
+    return out
+  }
+  const list = switches()
+  if (dir > 0) list.reverse()
+  for (const start of list) {
+    let at = start
+    while (true) {
+      const to = at + dir
+      if (to < 1 || to > n - 1) break
+      if (holds[to] !== holds[to - 1]) break        // would land on another switch
+      if (now() - t0 > 900) { plan.ys = pathOf(holds); plan.holds = holds; return plan }
+      const next = holds.slice()
+      // Moving a switch means the step it vacates takes the other value
+      if (dir < 0) next[to] = holds[at]
+      else         next[at] = holds[at - 1]
+      if (flies(next)) { holds = next; at = to } else break
+    }
+  }
+  plan.holds = holds
+  plan.ys = pathOf(holds)
+  return plan
+}
+
+function lcSolveLineSafe(lv, h, dt, style) {
+  const st = lcStyle(style)
   // A finer ladder than before, because the first plan that solves is not
   // necessarily one the controller can hold — more rungs means more chances
   // to find one that both solves and survives.
   for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
-    const r = lcSolveLine(lv, h, pad, dt, worst)
-    if (r.ok && _lcReplayOk(lv, h, r)) return r
+    const r = lcSolveLine(lv, h, pad, dt, st)
+    if (r.ok && _lcReplayOk(lv, h, r)) {
+      if (st === 'early' || st === 'late') _lcWaveShift(lv, h, r, st === 'early' ? -1 : 1)
+      r.style = st
+      return r
+    }
   }
   // Better no bot than a bot that flies into a wall
   return { ok: false }
@@ -570,17 +669,17 @@ const LC_UFO_BUDGET_MS = 2500
 
 // Same idea as the wave: portals make the route deterministic, so each
 // stretch between them is an ordinary solve and the flap lists stitch.
-function lcSolveUFOAll(lv, h, w, dt, worst) {
+function lcSolveUFOAll(lv, h, w, dt, style) {
   const DT = dt || 1 / 240
   const k = h / 560
   const step = (lv.speed || 160) * k * DT
   const segs = _lcSegments(lv, h, step)
-  if (segs.length <= 1) return lcSolveUFO(lv, h, w, DT, worst)
+  if (segs.length <= 1) return lcSolveUFO(lv, h, w, DT, style)
   const nSteps = Math.ceil((lv.clearAt || 3000) / step) + 2
   const flaps = new Array(nSteps).fill(false)
   let taps = 0, margin = Infinity
   for (const s of segs) {
-    const r = lcSolveUFO(lv, h, w, DT, worst, s)
+    const r = lcSolveUFO(lv, h, w, DT, style, s)
     if (!r.ok) return { ok: false }
     taps += r.taps
     margin = Math.min(margin, r.margin)
@@ -593,7 +692,8 @@ function lcSolveUFOAll(lv, h, w, dt, worst) {
   return _lcUfoReplay(lv, h, w, flaps, DT).ok ? plan : { ok: false }
 }
 
-function lcSolveUFO(lv, h, w, dt, worst, seg) {
+function lcSolveUFO(lv, h, w, dt, style, seg) {
+  const st = lcStyle(style)
   const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
   const outOfTime = () =>
     ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0) > LC_UFO_BUDGET_MS
@@ -654,13 +754,49 @@ function lcSolveUFO(lv, h, w, dt, worst, seg) {
                       startStep: Math.round(from / (spd * DT)) }
     const check = _lcUfoReplay(lv, h, w, flaps, DT)
     if (!check.ok) continue
-    if (worst) {
+    if (st === 'evil') {
       const padded = _lcUfoMoreTaps(lv, h, w, flaps, DT)
-      return { ok: true, flaps: padded, taps: padded.filter(Boolean).length, margin: pad, dt: DT }
+      return { ok: true, flaps: padded, taps: padded.filter(Boolean).length,
+               margin: pad, dt: DT, style: st }
     }
-    return { ok: true, flaps, taps: bestTaps, margin: pad, dt: DT }
+    // Early and late shift the taps of a plan that already flies, for the
+    // same reason evilbot pads one: the state key quantises (y, vy), so
+    // preferring an earlier or later way of reaching a key stores a worse
+    // representative and the search starves. Moving taps on a known-good
+    // plan and re-flying it is both robust and obviously valid.
+    if (st === 'early' || st === 'late') {
+      const moved = _lcUfoShift(lv, h, w, flaps, DT, st === 'early' ? -1 : 1)
+      return { ok: true, flaps: moved, taps: moved.filter(Boolean).length,
+               margin: pad, dt: DT, style: st }
+    }
+    return { ok: true, flaps, taps: bestTaps, margin: pad, dt: DT, style: st }
   }
   return { ok: false }
+}
+
+// Slide every tap as early (dir -1) or as late (dir +1) as it will go, one
+// step at a time, keeping a move only while the whole line still flies. Taps
+// are walked from the front for early and from the back for late so they
+// cannot hop over one another and collapse into a pile.
+function _lcUfoShift(lv, h, w, flaps, DT, dir) {
+  const best = flaps.slice()
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const t0 = now()
+  const idx = []
+  for (let i = 0; i < best.length; i++) if (best[i]) idx.push(i)
+  if (dir > 0) idx.reverse()
+  for (const start of idx) {
+    let at = start
+    while (true) {
+      const to = at + dir
+      if (to < 1 || to > best.length - 2 || best[to]) break
+      if (now() - t0 > 900) return best      // whatever it has by now still flies
+      best[at] = false; best[to] = true
+      if (_lcUfoReplay(lv, h, w, best, DT).ok) { at = to }
+      else { best[to] = false; best[at] = true; break }
+    }
+  }
+  return best
 }
 
 // evilbot. Maximising taps inside the search does not work: the state key
@@ -696,7 +832,8 @@ function _lcUfoMoreTaps(lv, h, w, flaps, DT) {
 // `startFloor` is which surface the spider is on at column 0. A level always
 // spawns it on the floor, but in a gauntlet run one level rolls straight
 // into the next and the spider arrives on whichever surface it finished on.
-function lcSolveSpider(lv, worst, startFloor) {
+function lcSolveSpider(lv, style, startFloor) {
+  const st = lcStyle(style)
   const obs = [...(lv.obstacles || [])].sort((a, b) => a.col - b.col)
   const flips = []
   let onFloor = startFloor !== false
@@ -704,17 +841,24 @@ function lcSolveSpider(lv, worst, startFloor) {
   for (const o of obs) {
     const needFloor = !o.floor           // stand on the opposite surface
     if (needFloor !== onFloor) {
-      // Flip in the clear space before this block. Latest possible is the
-      // edge of its hit window; evilbot dawdles, the normal bot goes early.
+      // Flip in the clear space before this block. The whole window is known
+      // here, so a style is just which end of it to take: early goes the
+      // instant the last block lets go, late waits until the next one would
+      // catch it, and safe sits in the middle with the most room either side.
       const latest = o.col - 26 / 2 - 9 - 2
       const earliest = prevCol + 26 / 2 + 9 + 2
-      flips.push(Math.max(0, worst ? latest : Math.max(earliest, (earliest + latest) / 2)))
+      const mid = (earliest + latest) / 2
+      const pick = st === 'early' ? earliest
+                 : (st === 'late' || st === 'evil') ? latest
+                 : st === 'safe' ? mid
+                 : Math.max(earliest, mid)     // normal, unchanged
+      flips.push(Math.max(0, pick))
       onFloor = needFloor
     }
     prevCol = o.col
   }
   // evilbot pads out the run with harmless extra flips in the gaps
-  if (worst) {
+  if (st === 'evil') {
     const extra = []
     for (let i = 0; i < obs.length - 1; i++) {
       const a = obs[i].col + 22, b = obs[i+1].col - 22
@@ -724,7 +868,7 @@ function lcSolveSpider(lv, worst, startFloor) {
     flips.push(...extra)
     flips.sort((x, y) => x - y)
   }
-  return { ok: true, flips, taps: flips.length }
+  return { ok: true, flips, taps: flips.length, style: st }
 }
 
 if (typeof window !== 'undefined') {
@@ -735,10 +879,12 @@ if (typeof window !== 'undefined') {
   window.lcSolveUFOAll = lcSolveUFOAll
   window.lcSolveSpider = lcSolveSpider
   window.lcSolveLineSafe = lcSolveLineSafe
+  window.lcStyle = lcStyle
+  window.LC_STYLES = LC_STYLES
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES }

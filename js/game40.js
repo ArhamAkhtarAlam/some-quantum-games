@@ -65,6 +65,7 @@ const G40 = {
   botMode:  false,
   bot:      null,
   evil:     false,
+  botStyle: 'normal',   // editor picks this; see LC_STYLES in levelcheck.js
   simAcc:   0,
   practice: false,
   practiceDiff: null,
@@ -292,7 +293,7 @@ function _g40LoadLevel(w, h) {
     // looks exactly like the page hanging. The plan only depends on the
     // level, the canvas height and which bot you asked for, so cache on that.
     const sig = [tmpl.name, tmpl.clearAt, tmpl.speed, tmpl.gapf,
-                 (tmpl.pipes || []).length, h, G40.evil ? 1 : 0,
+                 (tmpl.pipes || []).length, h, _g40BotStyle(),
                  G40.hasPortal ? 'p' : '-'].join('|')
     const hit = G40._botCache
     if (hit && hit.sig === sig) {
@@ -302,7 +303,7 @@ function _g40LoadLevel(w, h) {
         const r = lcSolveUFOAll({ speed: tmpl.speed, clearAt: tmpl.clearAt,
                                gapf: tmpl.gapf, pipes: tmpl.pipes,
                                portals: G40.portals },
-                             h, w, G40_SIM_DT, !!G40.evil)
+                             h, w, G40_SIM_DT, _g40BotStyle())
         if (r.ok) {
           G40.bot = { flaps: r.flaps, i: 0, taps: r.taps }
           G40._botCache = { sig, flaps: r.flaps, taps: r.taps }
@@ -430,6 +431,12 @@ window.startUFOPractice = function(diff, name) {
 // These used to be chosen for you by which site you were on — main got
 // Endless, beta and the stall got Levels — so most players never saw the
 // levels existed.
+// Which bot line to fly. The editor sets botStyle; the in-game evilbot cheat
+// only knows how to set `evil`, so that still counts as asking for 'evil'.
+function _g40BotStyle() {
+  return G40.evil ? 'evil' : (G40.botStyle || 'normal')
+}
+
 function _g40Play(endless) {
   G40.multi = false; G40.testLevel = null; G40.noclip = false
   G40.practice = false; G40.practiceDiff = null; G40.practiceLevel = null

@@ -61,7 +61,7 @@ const ED = {
   levels:[],            // drafts, from localStorage
   sel:-1,               // index into ED.levels
   drag:null,            // {type, i}
-  evilBot:false,        // bot runs take the most presses instead of the fewest
+  botStyle:'normal',    // which line a Bot run flies — see LC_STYLES in levelcheck.js
   portalPend:null,      // first half of a portal, waiting for its exit
   portalSel:0,          // which portal the properties panel is editing
   scroll:0,             // horizontal scroll in columns
@@ -750,29 +750,49 @@ window.edBotPlay = function() {
   edTestPlay(true, false)
 }
 
-// evilbot is a hidden code in the games, but in here it is a plain option:
-// you are tuning a level and want to see the sloppiest clear it allows.
-function _edRestoreEvil() {
-  try { ED.evilBot = localStorage.getItem('qg_ed_evil') === '1' } catch {}
-  const b = document.getElementById('ed-evil-btn')
-  if (b) {
-    b.textContent = ED.evilBot ? '\ud83d\ude08 Evilbot ON' : '\ud83d\ude08 Evilbot OFF'
-    b.classList.toggle('on', !!ED.evilBot)
-  }
+// Evilbot is a hidden code in the games, but in here the bot's line is a
+// plain option, because tuning a level is exactly when you want to see a
+// different one. Early and late are the pair that actually answer a design
+// question: they fly the same line as the regular bot with every press
+// shifted to one end of its window, so if both clear the level there is
+// slack in it, and if only one does, that one line is the whole window.
+const ED_BOT_BLURB = {
+  normal: 'Bot run takes the fewest presses.',
+  early:  'Bot run presses as early as it can — with Late bot, these two bracket the timing window.',
+  late:   'Bot run presses as late as it can — with Early bot, these two bracket the timing window.',
+  evil:   'Bot run takes the most presses that still clear.',
 }
-if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', _edRestoreEvil)
 
+function _edSyncBotStyle() {
+  const sel = document.getElementById('ed-bot-style')
+  if (!sel) return
+  sel.value = ED.botStyle
+  // Tint it when it is not the ordinary bot, so a Bot run can never quietly
+  // be flying something else than you expect.
+  sel.classList.toggle('tuned', ED.botStyle !== 'normal')
+}
+
+function _edRestoreBotStyle() {
+  let v = null
+  try { v = localStorage.getItem('qg_ed_bot_style') } catch {}
+  // Older builds stored the evilbot toggle on its own key
+  if (!v) { try { if (localStorage.getItem('qg_ed_evil') === '1') v = 'evil' } catch {} }
+  ED.botStyle = (typeof lcStyle === 'function') ? lcStyle(v) : (v || 'normal')
+  _edSyncBotStyle()
+}
+if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', _edRestoreBotStyle)
+
+window.edSetBotStyle = function(v) {
+  ED.botStyle = (typeof lcStyle === 'function') ? lcStyle(v) : (v || 'normal')
+  try { localStorage.setItem('qg_ed_bot_style', ED.botStyle) } catch {}
+  _edSyncBotStyle()
+  _edSetMsg(ED_BOT_BLURB[ED.botStyle] || ED_BOT_BLURB.normal)
+}
+
+// Kept so an old button or a saved link cannot break: it just flips between
+// the ordinary bot and evilbot.
 window.edToggleEvil = function() {
-  ED.evilBot = !ED.evilBot
-  try { localStorage.setItem('qg_ed_evil', ED.evilBot ? '1' : '0') } catch {}
-  const b = document.getElementById('ed-evil-btn')
-  if (b) {
-    b.textContent = ED.evilBot ? '\ud83d\ude08 Evilbot ON' : '\ud83d\ude08 Evilbot OFF'
-    b.classList.toggle('on', !!ED.evilBot)
-  }
-  _edSetMsg(ED.evilBot
-    ? 'Bot run will take the most presses that still clear.'
-    : 'Bot run will take the fewest presses.')
+  edSetBotStyle(ED.botStyle === 'evil' ? 'normal' : 'evil')
 }
 
 window.edTestPlay = async function(bot, noclipOverride) {
@@ -801,11 +821,14 @@ window.edTestPlay = async function(bot, noclipOverride) {
   document.getElementById('spd-score-hud').style.display = (!wave && !ufo) ? '' : 'none'
   const uh = document.getElementById('g40-score-hud'); if (uh) uh.style.display = ufo ? '' : 'none'
 
-  // Bot flavour: normal picks the fewest presses, evilbot the most
-  const evil = !!ED.evilBot
-  try { if (typeof G43 !== 'undefined') G43.evil = evil } catch {}
-  try { if (typeof G40 !== 'undefined') G40.evil = evil } catch {}
-  try { if (typeof _SPD !== 'undefined') _SPD.evil = evil } catch {}
+  // Which line the bot flies. `evil` is also set, because the HUDs read it to
+  // label an evilbot run, and cleared otherwise so a previous run cannot
+  // leave it on.
+  const style = ED.botStyle || 'normal'
+  const evil  = style === 'evil'
+  try { if (typeof G43 !== 'undefined') { G43.botStyle = style; G43.evil = evil } } catch {}
+  try { if (typeof G40 !== 'undefined') { G40.botStyle = style; G40.evil = evil } } catch {}
+  try { if (typeof _SPD !== 'undefined') { _SPD.botStyle = style; _SPD.evil = evil } } catch {}
 
   try {
     const clip = noclipOverride === undefined ? ED.testNoclip !== false : !!noclipOverride

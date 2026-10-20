@@ -239,7 +239,7 @@ const SPD_cheat = (typeof makeCheat === 'function')
 const _SPD = {
   active:false, phase:'idle',
   onFloor:true,
-  botMode:false, bot:null, evil:false,
+  botMode:false, bot:null, evil:false, botStyle:'normal',
   paused:false, taps:0,
   scrollX:0, speed:0,
   score:0,
@@ -461,7 +461,8 @@ function _spdSolveBot() {
   _SPD.bot = null
   if (!_SPD.botMode || typeof lcSolveSpider !== 'function') return
   try {
-    const r = lcSolveSpider(_SPD, !!_SPD.evil, _SPD.onFloor)
+    const style = _SPD.evil ? 'evil' : (_SPD.botStyle || 'normal')
+    const r = lcSolveSpider(_SPD, style, _SPD.onFloor)
     if (r.ok) _SPD.bot = { flips: r.flips, next: 0, taps: r.taps }
   } catch (e) { console.warn('spider bot:', e) }
 }

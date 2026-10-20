@@ -531,6 +531,7 @@ const G43 = {
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
   botMode:false, bot:null, botPending:false, simAcc:0, evil:false,  // autopilot playing the solved ideal line
+  botStyle:'normal',    // editor picks this; see LC_STYLES in levelcheck.js
   retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0,  // input count, measured as rising edges
   testLevel:null,
@@ -833,6 +834,12 @@ function _g43Hold() {
 
 function _g43On(e)    { e.preventDefault(); _g43Hold() }
 function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
+// Which bot line to fly. The editor sets botStyle; the in-game evilbot cheat
+// only knows how to set `evil`, so that still counts as asking for 'evil'.
+function _g43BotStyle() {
+  return G43.evil ? 'evil' : (G43.botStyle || 'normal')
+}
+
 function _g43KeyDn(e) {
   // The cheat code is handled by the always-on listener in cheats.js,
   // so it works on the start overlay too, not only mid-run.
@@ -1265,7 +1272,7 @@ function _g43Loop(ts) {
     const solved = lcSolveLineSafe({
       speed: G43.challenge.speed, clearAt: G43.clearAt,
       keyframes: G43.keyframes.map(k => ({ at:k.at, cf:k.cf, gapHf:k.gapH / h })),
-    }, h, G43_SIM_DT, !!G43.evil)
+    }, h, G43_SIM_DT, _g43BotStyle())
     if (solved.ok) {
       G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
     }
