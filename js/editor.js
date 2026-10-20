@@ -752,6 +752,22 @@ window.edBotPlay = function() {
   edTestPlay(true, false)
 }
 
+// Both waves flown at once. Wave Gauntlet only — it is the only game here
+// with a two-player mode. The second wave deliberately flies a different
+// line from the first, or they would overlap and show nothing.
+window.edBotPlay2P = function() {
+  const lv = _edCur(); if (!lv) return
+  if (lv.game !== 'wavegauntlet') {
+    _edSetMsg('\u26a0 Bot vs bot is Wave Gauntlet only — it is the only two-player game here.')
+    return
+  }
+  if (typeof lcReport === 'function') {
+    const r = lcReport(lv)
+    if (!r.clearable) { _edSetMsg("\u26a0 Nothing to show — this level can't be cleared."); return }
+  }
+  edTestPlay(true, false, true)
+}
+
 // Evilbot is a hidden code in the games, but in here the bot's line is a
 // plain option, because tuning a level is exactly when you want to see a
 // different one. Early and late are the pair that actually answer a design
@@ -821,7 +837,7 @@ window.edToggleEvil = function() {
   edSetBotStyle(ED.botStyle === 'evil' ? 'normal' : 'evil')
 }
 
-window.edTestPlay = async function(bot, noclipOverride) {
+window.edTestPlay = async function(bot, noclipOverride, twoPlayer) {
   const lv = _edCur(); if (!lv) return
   const built = _edBuildRuntime(lv)
   const wave  = ED.game === 'wavegauntlet'
@@ -858,7 +874,8 @@ window.edTestPlay = async function(bot, noclipOverride) {
 
   try {
     const clip = noclipOverride === undefined ? ED.testNoclip !== false : !!noclipOverride
-    if (wave)      { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
+    if (wave && twoPlayer) { await initGame43(); window.g43TestLevel2P(built, clip) }
+    else if (wave) { await initGame43(); window.g43TestLevel(built, clip, !!bot) }
     else if (ufo)  { await initGame40(); window.g40TestLevel(built, clip, !!bot) }
     else           { await initSpider(); window.spdTestLevel(built, clip, !!bot) }
   } catch (e) {
@@ -1322,7 +1339,17 @@ const ED_LINE_BUDGET_MS = 1200
 // paths are cached against the level's shape and only rebuilt when that
 // changes — and never mid-drag, which would make dragging a keyframe crawl.
 function _edLineSig(lv, h) {
-  return [lv.game, lv.speed, lv.clearAt, Math.round(h),
+  // The ghost's timestamp is in here so that test-playing the level and
+  // beating your best shows up when you come back to the editor, instead of
+  // the overlay sitting on the run you had before.
+  let g = 0
+  try {
+    if (typeof qgGhost !== 'undefined') {
+      const rec = qgGhost.get(lv.game, lv.name)
+      g = rec ? (rec.at || 0) : 0
+    }
+  } catch (e) {}
+  return [lv.game, lv.speed, lv.clearAt, Math.round(h), g,
           (lv.keyframes || []).map(k => [k.at, k.cf, k.gapHf].join()).join(';'),
           (lv.obstacles || []).map(o => [o.col, o.floor].join()).join(';'),
           (lv.portals   || []).map(p => [p.at, p.toAt, p.cf, p.toCf, p.mouth].join()).join(';'),
@@ -1330,7 +1357,13 @@ function _edLineSig(lv, h) {
 }
 
 function _edBuildLines(lv, h) {
-  const out = { sig: _edLineSig(lv, h), paths: [], deaths: null, windows: null }
+  const out = { sig: _edLineSig(lv, h), paths: [], deaths: null, windows: null, ghost: null }
+  // Your own best run on this level, if you have test-played it. Recorded by
+  // the game, stored as fractions of the screen height so it draws at any
+  // size — see qgGhost in game43.js.
+  try {
+    if (typeof qgGhost !== 'undefined') out.ghost = qgGhost.get(lv.game, lv.name)
+  } catch (e) { out.ghost = null }
   if (lv.game === 'spider') {
     // No path to draw — the spider is on the floor or the ceiling and nothing
     // between. What matters is the span of columns each flip can happen in.
@@ -1384,6 +1417,25 @@ function _edPaintLines(ctx, L, lv, w, h, ppc) {
     ctx.restore(); return
   }
   const speed = lv.speed || 200
+  // Your run goes on first, so the bot lines sit over it
+  if (L.ghost && L.ghost.pts && L.ghost.pts.length > 1) {
+    ctx.save()
+    ctx.strokeStyle = '#e879f9'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.85
+    ctx.setLineDash([5, 3])
+    ctx.beginPath()
+    L.ghost.pts.forEach(([sx, cf], i) => {
+      const x = sx * ppc, y = cf * h
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+    ctx.setLineDash([])
+    // Mark where it ended, which is the thing you want to look at
+    const last = L.ghost.pts[L.ghost.pts.length - 1]
+    const lx = last[0] * ppc, ly = last[1] * h
+    ctx.fillStyle = L.ghost.cleared ? '#4ade80' : '#e879f9'
+    ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+  }
   for (const p of L.paths) {
     const step = speed * p.dt
     ctx.strokeStyle = ED_LINE_COLS[p.style] || '#fff'
@@ -1426,6 +1478,12 @@ function _edPaintLines(ctx, L, lv, w, h, ppc) {
     ctx.fillStyle = ED_LINE_COLS[st]
     ctx.fillText(st, w - 4, ty); ty += 11
   }
+  if (L.ghost) {
+    ctx.fillStyle = '#e879f9'
+    ctx.fillText(L.ghost.cleared ? 'your best (cleared)'
+                                 : 'your best (died at ' + L.ghost.far + ')', w - 4, ty)
+    ty += 11
+  }
   if (L.partial) {
     ctx.fillStyle = 'rgba(255,255,255,0.4)'
     ctx.fillText('(long level — some lines skipped)', w - 4, ty)
@@ -1447,7 +1505,7 @@ window.edToggleLines = function() {
       ? 'Showing where each flip can happen. The wider the band, the more room you are giving.'
       : lv && lv.game === 'ufo'
         ? 'Bot lines are Wave Gauntlet and Spin Flip only for now.'
-        : 'Showing every bot\u2019s line at once, and where sloppy play dies. First draw takes a moment.')
+        : 'Showing every bot\u2019s line at once, where sloppy play dies, and your own best run if you have test-played this. First draw takes a moment.')
   _edDraw()
 }
 

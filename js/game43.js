@@ -531,6 +531,7 @@ const G43 = {
   fullTrail:[],         // whole run, for the clear-card picture
   paused:false,         // frozen while the clear card is up
   botMode:false, bot:null, botPending:false, simAcc:0, evil:false,  // autopilot playing the solved ideal line
+  bot2:null,            // 2P: the autopilot flying the second wave
   botStyle:'normal',    // editor picks this; see LC_STYLES in levelcheck.js
   retrying:false, retryT:0,  // brief hold on the death before restarting
   taps:0,  // input count, measured as rising edges
@@ -738,6 +739,14 @@ window.g43TestLevel = function(tmpl, noclip, bot) {
   G43.botMode = !!bot
   G43.testLevel = tmpl
   _g43Start(true, null, false, noclip === undefined ? true : noclip)
+}
+
+// Editor: both waves flown by the bot, so a 2P level can be tried without a
+// second person. Practice rules, so nothing here is scored.
+window.g43TestLevel2P = function(tmpl, noclip) {
+  G43.botMode = true
+  G43.testLevel = tmpl
+  _g43Start(true, null, true, noclip === undefined ? true : noclip)
 }
 
 window.stopGame43 = function() {
@@ -1027,6 +1036,7 @@ function _g43Merge(w, h) {
   shift(G43.trail)
   if (G43.p2trail) shift(G43.p2trail)
   G43.bot        = null
+  G43.bot2       = null
   G43.botPending = G43.botMode
   const ch = G43.challenge
   if (ch) G43.banner = { name: ch.name, diff: ch.diff, t: 1.6 }
@@ -1105,6 +1115,7 @@ function _g43LoadChallenge(w, h) {
   G43.attempts      = 0
   G43.fullTrail     = []
   G43.bot           = null
+  G43.bot2          = null
   G43.botPending    = G43.botMode
   G43.taps          = 0
   G43.retrying      = false
@@ -1276,6 +1287,34 @@ function _g43Loop(ts) {
     if (solved.ok) {
       G43.bot = { ys: solved.ys, idx: 0, taps: solved.taps, margin: solved.margin, dt: solved.dt }
     }
+    // 2P: fly the second wave too, so a two-player level can be tried out
+    // without a second person. It has to take a DIFFERENT line or the two
+    // waves sit exactly on top of each other and show nothing.
+    //
+    // Naming a style does not guarantee that: asking for 'late' on a level
+    // where the late controller cannot fly gets the plain solved line back,
+    // byte for byte, which is what happened the first time this was tried.
+    // So try the styles in turn and keep the first whose line really differs.
+    if (G43.multi && !G43_roomCode && solved.ok) {
+      const lvArg = {
+        speed: G43.challenge.speed, clearAt: G43.clearAt,
+        keyframes: G43.keyframes.map(k => ({ at:k.at, cf:k.cf, gapHf:k.gapH / h })),
+      }
+      const mine = _g43BotStyle()
+      for (const st of ['late', 'early', 'hug', 'centre', 'normal']) {
+        if (st === mine) continue
+        const s2 = lcSolveLineSafe(lvArg, h, G43_SIM_DT, st)
+        if (!s2.ok || !s2.ys) continue
+        let gap = 0
+        const n = Math.min(s2.ys.length, solved.ys.length)
+        for (let i = 0; i < n; i++) gap = Math.max(gap, Math.abs(s2.ys[i] - solved.ys[i]))
+        G43.bot2 = { ys: s2.ys, idx: 0, taps: s2.taps, dt: s2.dt, style: st, apart: gap }
+        if (gap > 8) break        // visibly its own route
+      }
+      // Every style flew the same line: the corridor leaves exactly one
+      // route, which is worth knowing about the level.
+      if (G43.bot2 && !(G43.bot2.apart > 8)) G43.bot2.oneRoute = true
+    }
   }
 
   // Index by scroll, not elapsed time. The solver pairs each target
@@ -1294,6 +1333,17 @@ function _g43Loop(ts) {
     G43.holding = want
   }
 
+  // The same controller for the second wave. Only ever used on one device:
+  // online, the other side sends its own position.
+  const _bot2Aim = () => {
+    if (!G43.bot2 || G43.phase !== 'playing' || !G43.multi || G43_roomCode) return
+    const step = (G43.challenge.speed || 200) * G43.bot2.dt
+    const i = Math.min(G43.bot2.ys.length - 1,
+                       Math.max(0, Math.round(G43.scrollX / step)))
+    G43.bot2.idx = i
+    G43.p2holding = G43.p2wy > G43.bot2.ys[i]
+  }
+
   const waveStep = (doClamp, sdt = dt) => {
     G43.wvy = G43.holding ? -G43_WAVE_SPD : G43_WAVE_SPD
     G43.wy += G43.wvy * sdt
@@ -1309,6 +1359,7 @@ function _g43Loop(ts) {
   // timestep instead of the display's variable frame time.
   const _g43PlayStep = (sdt) => {
     _botAim()
+    _bot2Aim()
     waveStep(true, sdt)
     G43.scrollX += G43.challenge.speed * sdt
 
@@ -1398,7 +1449,7 @@ function _g43Loop(ts) {
     }
 
     if (G43.scrollX >= G43.clearAt) {
-      if (G43.practice) _g43TrailCard()
+      if (G43.practice) { _g43TrailCard(); _g43SaveGhost(h, true) }
       if (!G43.practice) {
         G43.score++
         window._g43Score = G43.score
@@ -1509,6 +1560,7 @@ function _g43Die() {
   if (G43.practice) {
     // Hold on the death for a beat so you can see where it went wrong.
     // _g43RetryNow does the actual reset once the timer runs out.
+    try { _g43SaveGhost(_g43C().height, false) } catch (e) {}
     G43.attempts = (G43.attempts || 0) + 1
     G43.retrying = true
     G43.retryT   = 0
@@ -1534,7 +1586,7 @@ function _g43RetryNow() {
   const c = _g43C()
   // Re-plan on a retry: the frame rate may have changed, and a fresh plan
   // costs nothing next to the 0.45s death hold
-  if (G43.botMode) { G43.bot = null; G43.botPending = true }
+  if (G43.botMode) { G43.bot = null; G43.bot2 = null; G43.botPending = true }
   G43.retrying  = false
   G43.retryT    = 0
   G43.laps      = 0
@@ -1550,6 +1602,59 @@ function _g43RetryNow() {
 // ── Clear card ───────────────────────────────────────
 // The whole level drawn end to end with the line you actually took
 // through it. Practice only — it needs the full path.
+
+// ── Ghost of your best run ──────────────────────────────
+//  Practice already keeps the whole path of the current attempt in
+//  G43.fullTrail, for the picture on the clear card. This saves the best one
+//  per level so the editor can draw it next to the bot's lines — your own
+//  route against the ideal, which is where you can see what you are losing.
+//
+//  Heights are stored as a fraction of the screen, not pixels, so a run
+//  recorded on one window replays on any other. Columns are rounded and
+//  thinned to every 8, which keeps a long level to a few KB of localStorage.
+const G43_GHOST_STEP = 8
+
+window.qgGhost = {
+  key(game, name) { return 'qg_ghost_' + game + '_' + (name || '?') },
+  get(game, name) {
+    try { return JSON.parse(localStorage.getItem(this.key(game, name)) || 'null') }
+    catch { return null }
+  },
+  put(game, name, rec) {
+    try { localStorage.setItem(this.key(game, name), JSON.stringify(rec)) } catch {}
+  },
+  clear(game, name) { try { localStorage.removeItem(this.key(game, name)) } catch {} },
+}
+
+// Which level this run belongs to. Test play from the editor and a practice
+// level from the picker are both named; a full gauntlet run is not, and does
+// not get a ghost — it is a different level every time.
+function _g43GhostName() {
+  if (G43.testLevel && G43.testLevel.name) return G43.testLevel.name
+  if (G43.practiceLevel) return G43.practiceLevel
+  if (G43.practice && G43.challenge && G43.challenge.name) return G43.challenge.name
+  return null
+}
+
+function _g43SaveGhost(h, cleared) {
+  const name = _g43GhostName()
+  if (!name || !G43.fullTrail || G43.fullTrail.length < 4) return
+  const far = Math.round(G43.fullTrail[G43.fullTrail.length - 1].sx)
+  const old = qgGhost.get('wavegauntlet', name)
+  // A clear always beats a crash; otherwise whoever got further wins
+  const better = !old || (cleared && !old.cleared) ||
+                 (cleared === !!old.cleared && far > (old.far || 0))
+  if (!better) return
+  const pts = []
+  let lastSx = -1e9
+  for (const p of G43.fullTrail) {
+    if (p.sx - lastSx < G43_GHOST_STEP) continue
+    lastSx = p.sx
+    pts.push([Math.round(p.sx), +(p.y / h).toFixed(4)])
+  }
+  if (pts.length < 2) return
+  qgGhost.put('wavegauntlet', name, { far, cleared: !!cleared, pts, at: Date.now() })
+}
 
 function _g43TrailCard() {
   const src = _g43C()
