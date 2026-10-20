@@ -392,10 +392,17 @@ body:has(#home.active)::after {
   box-shadow: 0 4px 15px rgba(6,182,212,.4);
 }
 
+/* The card is centred, and used to be centred with no way to scroll — so on
+   a phone in landscape, where the viewport is about 390px tall and the card
+   is taller than that, the buttons at the bottom were simply off screen and
+   Retry could not be tapped at all. Scrolling makes them reachable whatever
+   the card ends up being; the compact sizing further down means you rarely
+   have to scroll in the first place. */
 .game-over-overlay {
   display: none; position: fixed; inset: 0; z-index: 100;
   background: rgba(0,0,0,.85); backdrop-filter: blur(8px);
   align-items: center; justify-content: center;
+  overflow-y: auto; padding: 1rem;
 }
 .game-over-overlay.show { display: flex; }
 .game-over-card {
@@ -1476,6 +1483,31 @@ body.has-tp #qg-lb-btn, body.has-tp #qg-theme-btn { display: none; }
   .btn-back { padding: .35rem .7rem; font-size: .8rem; }
   .canvas-overlay { overflow-y: auto; }
   .game-over-card { max-width: calc(100vw - 2rem); }
+}
+
+/* Short viewport: a phone held sideways, which is how these games are played.
+   The width query above does not catch it — an iPhone in landscape is 844
+   wide — so this one keys on height. */
+@media (max-width: 600px), (max-height: 560px) {
+  .game-over-card {
+    max-width: calc(100vw - 2rem); padding: 1.3rem 1.1rem; border-radius: 1rem;
+  }
+  .game-over-card h2 { font-size: 1.35rem; margin-bottom: .3rem; }
+  .game-over-card .final-score { font-size: 1.9rem; margin: .45rem 0; }
+  .game-over-card p { margin-bottom: .8rem; font-size: .85rem; }
+  /* Stacked and full width, so two buttons never share a cramped row and
+     every one is a 44px target. The <br><br> between them in the markup
+     would add dead space once they are blocks. */
+  .game-over-card .btn-primary,
+  .game-over-card .btn-back {
+    display: block; width: 100%; min-height: 44px; margin: 0 0 .5rem;
+    /* 36 of these cards set margin-left inline on the Home button, which an
+       ordinary rule cannot beat */
+    margin-left: 0 !important; margin-right: 0 !important;
+  }
+  .game-over-card .btn-primary:last-child,
+  .game-over-card .btn-back:last-child { margin-bottom: 0; }
+  .game-over-card br { display: none; }
 }
 
 /* ── Pause ──────────────────────────────────────────── */
