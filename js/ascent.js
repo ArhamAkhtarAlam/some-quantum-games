@@ -527,27 +527,38 @@ function gaUpdate(dt) {
   pdy = Math.max(-1, Math.min(1, pdy)); tdy = Math.max(-1, Math.min(1, tdy))
   if (GA.plan) [pdy, tdy] = abControl(GA.plan, GA.evil, GA.x, GA.py, GA.pv, GA.ty, GA.tv)
 
-  // Direct control: a key moves at a constant speed, releasing it stops.
+  // Two movement models, and which one you get depends on what you are doing.
   //
-  // This used to be a thrust-and-gravity model — each dot accelerated under
-  // its own gravity, blue falling up and pink falling down — and it read as
-  // flying two ships. Two of them, mirrored, each drifting the opposite way
-  // when you let go, and with momentum carrying you past where you aimed. It
-  // was the single most confusing thing in the game, and worse once the link
-  // broke and the two halves were steered separately.
+  // W and S are the mirror control, and they stay ships: thrust against the
+  // dot's own gravity, blue falling up and pink falling down, with momentum.
+  // That is the feel of the game and it is worth keeping.
   //
-  // So there is no gravity and no momentum here any more. Up means up at
-  // AL_VMAX, down means down at AL_VMAX, nothing means still — linked or
-  // broken, the same rule. The top speed is unchanged; what is gone is the
-  // ramp up to it and the drift afterwards.
-  GA.pv = pdy * AL_VMAX
-  GA.tv = tdy * AL_VMAX
+  // The arrows and a desynced section are the two cases that were confusing,
+  // so those move directly — up is up at AL_VMAX, down is down at AL_VMAX,
+  // nothing is still. Pressing an arrow is you saying where to be rather than
+  // which way to push, and when the halves are steered separately there is
+  // enough to think about without predicting two drifts as well.
+  //
+  // The handover is smooth in the direction that matters: letting go of an
+  // arrow leaves the ship model carrying on from the speed you were already
+  // doing, and gravity takes back over from there. Grabbing an arrow mid-fall
+  // does snap to full speed, which is the point of it.
+  const direct = split || ali !== 0
+  const lim = v => Math.max(-AL_VMAX, Math.min(AL_VMAX, v))
+  if (direct) {
+    GA.pv = pdy * AL_VMAX
+    GA.tv = tdy * AL_VMAX
+  } else {
+    GA.pv = lim(GA.pv + (pdy * AL_THRUST - AL_GRAV) * dt)
+    GA.tv = lim(GA.tv + (tdy * AL_THRUST + AL_GRAV) * dt)
+  }
 
   // Swap: while linked, whenever the two meet at the middle line moving
-  // toward each other they pass through and trade halves. Without gravity
-  // this is now something you do rather than something that happens to you —
-  // nothing drifts into the line on its own, so a swap takes holding them
-  // together deliberately. Not in desync sections.
+  // toward each other they pass through and trade halves — whichever colour
+  // is on which side, and whether thrust or gravity brought them together.
+  // Each keeps its own controls, speed and gravity, so a swapped pair falls
+  // back through the line to its home side unless you hold it apart. Not in
+  // desync sections.
   if (GA.swapCD > 0) GA.swapCD -= dt
   const closing = Math.sign(GA.pv) === Math.sign(GA.ty - GA.py) && Math.sign(GA.tv) === Math.sign(GA.py - GA.ty)
   if (!GA.plan && !GA.broken && !GA.forced && GA.swapCD <= 0 && closing &&
