@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 //  DECO — decorative, non-lethal level scenery
-//  Shared by Wave Gauntlet (43) and Spider (44), and by the
+//  Shared by Wave Gauntlet (43) and Spin Flip (44), and by the
 //  local level editor. Also home to the concept backdrops
 //  (drawDecoTheme) for Spin Flip and Entangled Gauntlet. Drawn behind the corridor/obstacles so
 //  it can never be mistaken for something that kills you.
@@ -213,62 +213,47 @@ function _decoHash(i, k) {
 }
 
 const DECO_THEMES = {
-  // Spin Flip — the spider's own nest. Threads drop from the ceiling or
-  // climb from the floor with a small spider bobbing on the end, corner
-  // webs fan out from both, and the odd ↑↓ marks the spin flip.
-  spider: { gap: 170, par: 0.5, draw(ctx, i, x, h, t, pal) {
+  // Spin Flip — bits. Streams of 0s and 1s hang from the ceiling or climb
+  // from the floor, faint byte registers tick over mid-air, and the odd big
+  // lone bit flips 0↔1 the way the player flips floor↔ceiling. Every digit
+  // flips on its own clock, so the scenery keeps quietly changing.
+  bits: { gap: 150, par: 0.5, draw(ctx, i, x, h, t, pal) {
     const r = k => _decoHash(i, k)
     const up  = r(0) < 0.5               // anchored to the ceiling?
     const col = r(1) < 0.7 ? pal[2] : pal[5]
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1
+    ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    // Bit `j` of this slot: a stable start value that flips every few seconds
+    const bit = (j, rate) => {
+      const ph = _decoHash(i * 31 + j, 7), per = 2 + _decoHash(i * 31 + j, 8) * rate
+      return ((ph < 0.5 ? 0 : 1) + Math.floor(t / per + ph * 9)) & 1
+    }
     const kind = r(2)
     if (kind < 0.45) {
-      // Dangling spider
-      const len = h * (0.18 + r(3) * 0.3) + Math.sin(t * 1.3 + r(4) * 6) * h * 0.04
-      const ay = up ? 0 : h, by = up ? len : h - len
-      ctx.globalAlpha = 0.28
-      ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x, by); ctx.stroke()
-      ctx.globalAlpha = 0.4
-      ctx.beginPath(); ctx.arc(x, by, 4, 0, Math.PI * 2); ctx.fill()
-      ctx.beginPath(); ctx.arc(x, by + (up ? 5 : -5), 2.5, 0, Math.PI * 2); ctx.fill()
-      const wig = Math.sin(t * 6 + i) * 0.25
-      for (const s of [-1, 1]) for (let l = 0; l < 4; l++) {
-        const a = (-0.7 + l * 0.45 + wig) * (up ? 1 : -1)
-        ctx.beginPath(); ctx.moveTo(x, by)
-        ctx.quadraticCurveTo(x + s * 6 * Math.cos(a), by + 6 * Math.sin(a) - 3,
-                             x + s * 9 * Math.cos(a), by + 9 * Math.sin(a) + 2)
-        ctx.stroke()
+      // Bit stream off the wall, fading as it reaches into the corridor
+      const fs = Math.round(h * 0.045), n = 3 + Math.floor(r(3) * 6)
+      ctx.font = `bold ${fs}px monospace`
+      for (let j = 0; j < n; j++) {
+        const y = up ? fs * (0.9 + j * 1.15) : h - fs * (0.9 + j * 1.15)
+        ctx.globalAlpha = 0.34 * (1 - j / (n + 1))
+        ctx.fillText(String(bit(j, 5)), x, y)
       }
     } else if (kind < 0.8) {
-      // Corner web: spokes fanning off the wall, joined by sagging rings
-      const R = h * (0.12 + r(3) * 0.14), ay = up ? 0 : h, dir = up ? 1 : -1
-      const spokes = 6, rings = 4
-      ctx.globalAlpha = 0.18
-      const pt = (s, f) => {
-        const a = Math.PI * (0.08 + 0.84 * s / (spokes - 1))
-        return [x - Math.cos(a) * R * f, ay + dir * Math.sin(a) * R * f]
-      }
-      for (let s = 0; s < spokes; s++) {
-        const [px, py] = pt(s, 1)
-        ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(px, py); ctx.stroke()
-      }
-      for (let g = 1; g <= rings; g++) {
-        const f = g / rings
-        ctx.beginPath()
-        for (let s = 0; s < spokes; s++) {
-          const [px, py] = pt(s, f)
-          if (!s) { ctx.moveTo(px, py); continue }
-          const [qx, qy] = pt(s - 0.5, f * 0.86)    // sag toward the hub
-          ctx.quadraticCurveTo(qx, qy, px, py)
-        }
-        ctx.stroke()
+      // Byte register: eight cells, lit for 1 and hollow for 0
+      const c = Math.max(6, Math.round(h * 0.022)), gap = 3
+      const y = h * (up ? 0.12 + r(3) * 0.18 : 0.7 + r(3) * 0.18)
+      const x0 = x - (8 * c + 7 * gap) / 2
+      for (let j = 0; j < 8; j++) {
+        const cx = x0 + j * (c + gap)
+        if (bit(j, 4)) { ctx.globalAlpha = 0.3; ctx.fillRect(cx, y, c, c) }
+        else           { ctx.globalAlpha = 0.2; ctx.strokeRect(cx + 0.5, y + 0.5, c - 1, c - 1) }
       }
     } else {
-      // Spin-flip marker
-      ctx.globalAlpha = 0.16 + 0.08 * Math.sin(t * 2 + i)
-      ctx.font = `bold ${Math.round(h * 0.09)}px monospace`
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(r(3) < 0.5 ? '↑↓' : '↓↑', x, h * (0.3 + r(4) * 0.4))
+      // A lone big bit flipping between 0 and 1
+      const b = bit(0, 2)
+      ctx.globalAlpha = 0.14 + 0.06 * Math.sin(t * 2 + i)
+      ctx.font = `bold ${Math.round(h * 0.14)}px monospace`
+      ctx.fillText(b ? '1' : '0', x, h * (0.3 + r(4) * 0.4))
     }
   }},
 
