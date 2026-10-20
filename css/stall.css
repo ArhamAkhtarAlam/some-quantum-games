@@ -10,8 +10,9 @@
    bar, a circuit trace of LEDs and a row of neon pennants.
 
    Everything here is drawn with gradients and borders — no
-   images, no webfonts, no CDN. A stand may be on bad wifi or
-   none at all, and the page still has to look right.
+   images and no CDN. The cyber fonts are self-hosted from /fonts
+   (see style.css), since a stand may be on bad wifi or none at
+   all and the page still has to look right.
    ═══════════════════════════════════════════════════════ */
 
 body.stall-mode {
@@ -146,7 +147,7 @@ body.stall-mode {
   background: rgba(59,130,246,.12);
   border-color: rgba(34,211,238,.45);
   color: var(--cy-cyan);
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Terminal cards ─────────────────────────────────── */
@@ -193,7 +194,7 @@ body.stall-mode {
   font-size: .78rem; color: var(--muted); white-space: nowrap;
 }
 .stall-esc kbd {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: .72rem; padding: .15rem .45rem; border-radius: 5px;
   border: 1px solid var(--border); border-bottom-width: 2px;
   background: var(--card); color: var(--text);
@@ -257,7 +258,7 @@ body.stall-mode {
 }
 .stall-how b {
   display: block;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
   color: var(--cy-cyan); margin-bottom: .35rem;
 }
