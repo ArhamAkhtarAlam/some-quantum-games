@@ -15,18 +15,25 @@
    all and the page still has to look right.
    ═══════════════════════════════════════════════════════ */
 
+/* Structure only — no colour here, because colour depends on the mode and
+   this block applies in both. */
 body.stall-mode {
-  /* ── Cyber World palette ───────────────────────────────
-     Turquoise and hot magenta over a deep purple-indigo, with a lime
-     accent — the Chapter 2 cyber look rather than the blue-sky-over-pink
-     synthwave this started as. Nothing about the shapes changed; every
-     rule below reads these six, and the -rgb triplets exist so the
-     translucent fills do too (there were 29 hard-coded copies of the old
-     colours before, which is why this used to be unrecolourable).
+  padding-top: 92px;
+}
 
-     The background was a near-black navy; Cyber World's is lit from
-     inside, so it is a purple that a cyan top glow and a magenta floor
-     glow can actually sit on. */
+/* ── Cyber World palette, dark ──────────────────────────
+   Turquoise and hot magenta over a deep purple-indigo with a lime accent:
+   the Chapter 2 cyber look rather than the blue-sky-over-pink synthwave
+   this started as. Nothing about the shapes changed; every rule below reads
+   these, and the -rgb triplets exist so the translucent fills do too.
+
+   Note the selector. These used to sit on a bare body.stall-mode, which
+   broke light mode outright: the light tokens are declared on :root, body is
+   a descendant of it, so a token redeclared on body wins for everything
+   inside — the page kept the dark values while light mode's own rules
+   applied over them. Scoping it to "not light" is the fix, and the light
+   palette below is what the stall uses instead. */
+:root:not([data-theme="light"]) body.stall-mode {
   --cy-cyan:      #3df5ff;
   --cy-pink:      #ff4fd8;
   --cy-blue:      #7a5cff;
@@ -44,10 +51,17 @@ body.stall-mode {
   --cy-blue-deep-rgb: 91 63 217;
   --cy-muted-rgb:     155 134 201;
 
-  /* The site's own tokens, so the cards, buttons, headings and glows on
-     the stall follow the same palette instead of staying violet-on-navy.
-     Redefined on body rather than :root so this file stays the only thing
-     the stall adds — the main site and /beta never load it. */
+  /* Ink and panel. These used to be written straight into the rules below as
+     pale hexes, which is why light mode was partly broken on the stall even
+     before the recolour: near-white card titles on a white page. */
+  --cy-ink:      #eaf6ff;
+  --cy-ink-soft: #d6c9f2;
+  --cy-ink-dim:  #b9a6e0;
+  --cy-panel-a:  #1b0f30;
+  --cy-panel-b:  #130a26;
+
+  /* The site's own tokens, so cards, buttons, headings and glows follow the
+     palette instead of staying violet-on-navy. */
   --bg:      #130a26;
   --surface: #1b0f30;
   --card:    #241544;
@@ -60,10 +74,54 @@ body.stall-mode {
   --glow:  0 0 20px rgb(var(--cy-pink-rgb) / .40);
   --glow2: 0 0 20px rgb(var(--cy-cyan-rgb) / .40);
 
-  padding-top: 92px;
   background:
     radial-gradient(ellipse 120% 60% at 50% 0%, rgb(var(--cy-cyan-rgb) / .20) 0%, transparent 62%),
     radial-gradient(ellipse 90% 45% at 50% 100%, rgb(var(--cy-pink-rgb) / .26) 0%, transparent 72%),
+    var(--cy-deep);
+}
+
+/* ── Cyber World palette, light ─────────────────────────
+   Same hues, taken down far enough to read as ink on paper: the neon ones
+   are unreadable on white and "pale cyan-white" text would vanish. The
+   background becomes a lilac tint so the stall still does not look like the
+   plain light site, and the two glows stay but at a fraction of the alpha.
+
+   --bg, --card, --border and --text are deliberately NOT set here: light
+   mode's own values in theme.css are already right, and the whole bug was
+   this file overriding them. Only the accents move. */
+:root[data-theme="light"] body.stall-mode {
+  --cy-cyan:      #0e7490;
+  --cy-pink:      #a21caf;
+  --cy-blue:      #4338ca;
+  --cy-violet:    #6d28d9;
+  --cy-lime:      #4d7c0f;
+  --cy-blue-deep: #3730a3;
+  --cy-muted:     #5a6079;
+  --cy-deep:      #f7f4ff;
+
+  --cy-cyan-rgb:      14 116 144;
+  --cy-pink-rgb:      162 28 175;
+  --cy-blue-rgb:      67 56 202;
+  --cy-violet-rgb:    109 40 217;
+  --cy-lime-rgb:      77 124 15;
+  --cy-blue-deep-rgb: 55 48 163;
+  --cy-muted-rgb:     90 96 121;
+
+  --cy-ink:      #14152b;
+  --cy-ink-soft: #3f3a5c;
+  --cy-ink-dim:  #5a6079;
+  --cy-panel-a:  #ffffff;
+  --cy-panel-b:  #f7f4ff;
+
+  --accent:  #a21caf;
+  --accent2: #0e7490;
+  --accent3: #4d7c0f;
+  --glow:  0 0 18px rgb(var(--cy-pink-rgb) / .18);
+  --glow2: 0 0 18px rgb(var(--cy-cyan-rgb) / .18);
+
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgb(var(--cy-cyan-rgb) / .10) 0%, transparent 62%),
+    radial-gradient(ellipse 90% 45% at 50% 100%, rgb(var(--cy-pink-rgb) / .10) 0%, transparent 72%),
     var(--cy-deep);
 }
 
@@ -77,7 +135,7 @@ body.stall-mode {
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(90deg, transparent 0 46px, rgb(var(--cy-blue-rgb) / .16) 46px 47px),
-    linear-gradient(180deg, #1b0f30 0%, #130a26 100%);
+    linear-gradient(180deg, var(--cy-panel-a) 0%, var(--cy-panel-b) 100%);
   box-shadow: 0 4px 22px rgba(0,0,0,.6);
 }
 /* Neon underline, with a glint sweeping along it */
@@ -175,13 +233,13 @@ body.stall-mode {
 /* ── Heading ────────────────────────────────────────── */
 .stall-mode .home-header { position: relative; padding-top: .4rem }
 .stall-mode .home-header h1 {
-  background: linear-gradient(180deg, #eaf6ff 0%, var(--cy-cyan) 45%, var(--cy-pink) 100%);
+  background: linear-gradient(180deg, var(--cy-ink) 0%, var(--cy-cyan) 45%, var(--cy-pink) 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
   filter: drop-shadow(0 0 1px rgba(255,255,255,.4)) drop-shadow(0 0 22px rgb(var(--cy-pink-rgb) / .45));
   letter-spacing: 1px;
 }
-.stall-mode .home-header p { color: #c9b8ea; opacity: .9 }
+.stall-mode .home-header p { color: var(--cy-ink-soft); opacity: .9 }
 .stall-mode .quantum-badge {
   background: rgb(var(--cy-blue-rgb) / .12);
   border-color: rgb(var(--cy-cyan-rgb) / .45);
@@ -196,7 +254,7 @@ body.stall-mode {
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, rgb(var(--cy-blue-rgb) / .10) 0%, transparent 45%),
-    #130a26;
+    var(--cy-panel-b);
   border: 1px solid rgb(var(--cy-violet-rgb) / .35);
   border-radius: .5rem;
   padding-top: 1.7rem;
@@ -217,8 +275,8 @@ body.stall-mode {
   box-shadow: 0 16px 34px rgba(0,0,0,.6), 0 0 26px rgb(var(--cy-pink-rgb) / .35),
               inset 0 0 0 1px rgb(var(--cy-pink-rgb) / .35);
 }
-.stall-mode .card-title { color: #eaf6ff; letter-spacing: .3px }
-.stall-mode .card-desc  { color: #b9a6e0 }
+.stall-mode .card-title { color: var(--cy-ink); letter-spacing: .3px }
+.stall-mode .card-desc  { color: var(--cy-ink-dim) }
 
 /* The auth button outranks the HUD bar on z-index, so without this it
    sits on top of it. Drop it below the bar. */
@@ -303,7 +361,7 @@ body.stall-mode {
 }
 .stall-how ul { margin: 0; padding-left: 1.05rem }
 .stall-how li {
-  font-size: .78rem; line-height: 1.45; color: #d6c9f2; margin-bottom: .18rem;
+  font-size: .78rem; line-height: 1.45; color: var(--cy-ink-soft); margin-bottom: .18rem;
 }
 .stall-how li::marker { color: var(--cy-pink) }
 

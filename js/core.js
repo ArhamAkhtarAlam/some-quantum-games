@@ -256,7 +256,7 @@ function qgApplyStall() {
     const link = document.createElement('link')
     link.id = 'stall-css'
     link.rel = 'stylesheet'
-    link.href = QG_ROOT + 'css/stall.css?v=23'
+    link.href = QG_ROOT + 'css/stall.css?v=24'
     document.head.appendChild(link)
   }
   const deco = (cls, n) => {
