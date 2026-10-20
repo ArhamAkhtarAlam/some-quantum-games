@@ -1719,6 +1719,9 @@ function _g43SaveGhost(h, cleared) {
 }
 
 function _g43TrailCard() {
+  // Switchable: the picture pauses the run and has to be dismissed, so it
+  // is not always wanted. See qgCardsOn in core.js.
+  if (typeof qgCardsOn === 'function' && !qgCardsOn()) return
   const src = _g43C()
   if (!src || G43.fullTrail.length < 2) return
   const H = src.height

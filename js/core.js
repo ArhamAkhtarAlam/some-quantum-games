@@ -1766,6 +1766,29 @@ function _qgModalOpen() {
   return !!document.querySelector('.game-over-overlay.show')
 }
 
+// ── Run pictures ────────────────────────────────────────
+//  Clearing a practice level draws the whole run as one picture. It is the
+//  nicest thing in the game and also an interruption — it pauses the run and
+//  has to be dismissed — so it is switchable. One preference for every game
+//  that makes one, because wanting them off is about the interruption, not
+//  about which game you are in.
+//
+//  The switch is in the pause menu, which is shared and two keys away from
+//  anywhere (Esc), and on the picture itself, which is where you are
+//  standing when you decide you have seen enough of them.
+let _qgCards = true
+try { _qgCards = localStorage.getItem('qg_cards') !== '0' } catch {}
+
+window.qgCardsOn = function() { return _qgCards }
+
+window.qgSetCards = function(on) {
+  _qgCards = !!on
+  try { localStorage.setItem('qg_cards', _qgCards ? '1' : '0') } catch {}
+  const b = document.getElementById('qg-pause-cards')
+  if (b) b.textContent = _qgCards ? '📷 Run pictures: on' : '📷 Run pictures: off'
+}
+
+
 function _qgPauseEl() {
   let el = document.getElementById('qg-pause')
   if (el) return el
@@ -1776,12 +1799,15 @@ function _qgPauseEl() {
       <h2>Paused</h2>
       <p>Your run is waiting exactly where you left it.</p>
       <button class="btn-primary" id="qg-pause-resume">▶ Resume</button>
+      <button class="btn-primary qg-pause-cards" id="qg-pause-cards">📷 Run pictures: on</button>
       <button class="btn-primary qg-pause-exit" id="qg-pause-exit">← Exit to menu</button>
       <p class="qg-pause-hint"><kbd>Esc</kbd> resumes too</p>
     </div>`
   document.body.appendChild(el)
   el.querySelector('#qg-pause-resume').addEventListener('click', qgResume)
   el.querySelector('#qg-pause-exit').addEventListener('click', () => { qgResume(); goHome() })
+  el.querySelector('#qg-pause-cards').addEventListener('click', () => qgSetCards(!_qgCards))
+  qgSetCards(_qgCards)
   return el
 }
 

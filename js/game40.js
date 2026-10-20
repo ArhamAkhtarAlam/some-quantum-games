@@ -1225,6 +1225,9 @@ function _g40DrawFinish(ctx, x, h, cell) {
 // as Wave Gauntlet's. Landable pillars are drawn green here too, so the
 // picture shows which ones you were allowed to sit on.
 function _g40TrailCard() {
+  // Switchable: the picture pauses the run and has to be dismissed, so it
+  // is not always wanted. See qgCardsOn in core.js.
+  if (typeof qgCardsOn === 'function' && !qgCardsOn()) return
   const src = _g40C()
   if (!src || G40.fullTrail.length < 2) return
   const H = src.height

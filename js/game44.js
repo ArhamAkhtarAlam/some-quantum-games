@@ -953,6 +953,9 @@ function _spdDrawFinish(ctx, x, h, cell) {
 // The picture of a cleared run, same idea as Wave Gauntlet's: the whole
 // level laid out flat with the line you actually took drawn over it.
 function _spdTrailCard() {
+  // Switchable: the picture pauses the run and has to be dismissed, so it
+  // is not always wanted. See qgCardsOn in core.js.
+  if (typeof qgCardsOn === 'function' && !qgCardsOn()) return
   const src = _spdC()
   if (!src || _SPD.fullTrail.length < 2) return
   const H = src.height

@@ -1510,6 +1510,21 @@ body.has-tp #qg-lb-btn, body.has-tp #qg-theme-btn { display: none; }
   .game-over-card br { display: none; }
 }
 
+/* The Entangled Gauntlet is the one game that shows its end screen on a
+   practice clear — the others restart the attempt instead — so its picture
+   has to sit above that screen rather than under it. .trail-card is z-index
+   20 against .game-over-overlay's 100, which would have hidden it entirely. */
+#ga-card { position: fixed; z-index: 110; }
+
+/* The opt-out on a run picture, and the matching switch in the pause menu.
+   Muted, because they are both a way out rather than something to press. */
+.trail-card-off, .qg-pause-cards {
+  background: var(--card); color: var(--muted);
+  border: 1px solid var(--border); box-shadow: none;
+}
+.trail-card-off:hover, .qg-pause-cards:hover { color: var(--text); }
+.qg-pause-card .qg-pause-cards { display: block; width: 100%; margin-bottom: .55rem }
+
 /* ── Pause ──────────────────────────────────────────── */
 #qg-pause {
   display: none; position: fixed; inset: 0; z-index: 120;

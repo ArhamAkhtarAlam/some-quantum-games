@@ -395,6 +395,7 @@ function gaStart(level) {
     submit: 0,   // what Submit Score sends; set when the run ends
     keys: {},
   })
+  GA.fullTrail = []
   GA.touches.clear()
   GA.stars = Array.from({ length: 70 }, () => ({
     x: Math.random() * GA.W, y: Math.random() * AL_H,
@@ -481,6 +482,15 @@ function gaUpdate(dt) {
     if (s.x < 0) { s.x = GA.W + 2; s.y = Math.random() * H }
   }
   GA.trail.push({ x: GA.x, py: GA.py, ty: GA.ty })
+  // Practice keeps the entire run so it can be drawn as one picture. Sampled
+  // every 4 units rather than every frame — at 600 units of height a finer
+  // sample adds nothing you can see and a lot you have to store.
+  if (GA.practice && typeof qgCardsOn === 'function' && qgCardsOn()) {
+    const ft = GA.fullTrail || (GA.fullTrail = [])
+    if (!ft.length || GA.x - ft[ft.length - 1].x >= 4) {
+      ft.push({ x: GA.x, py: GA.py, ty: GA.ty, br: GA.broken })
+    }
+  }
   while (GA.trail.length && GA.trail[0].x - GA.camX < GA_TRAIL_OFF) GA.trail.shift()
   if (GA.trail.length > GA_TRAIL_MAX) GA.trail.shift()
 
@@ -655,6 +665,80 @@ function gaWin() {
   for (const c of ['#60a5fa', '#f9a8d4', '#fde68a']) gaBurst(GA.x, AL_HALF, c, 14)
 }
 
+// ── The run as one picture ──────────────────────────────
+//  The other three gauntlets draw your cleared run as a single image. This
+//  one has two of you, so the picture is the pair: the player's path and the
+//  twin's, about the horizon they share, with ticks where you broke the link.
+//  That is what this game is about and it does not show up in a score.
+function gaTrailCard() {
+  if (typeof qgCardsOn === 'function' && !qgCardsOn()) return
+  const ft = GA.fullTrail
+  if (!ft || ft.length < 2) return
+  const endX = Math.max(1, (GA.level ? alEndX(GA.level) : ft[ft.length - 1].x) || 1)
+  const W = Math.round(Math.min(2400, Math.max(900, endX)))
+  const top = 46
+  const sx = W / endX
+  const cv = document.createElement('canvas')
+  cv.width = W; cv.height = AL_H + top
+  const g = cv.getContext('2d')
+
+  g.fillStyle = '#07061a'; g.fillRect(0, 0, W, AL_H + top)
+
+  // The horizon the two halves mirror about
+  g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1
+  g.beginPath(); g.moveTo(0, top + AL_HALF); g.lineTo(W, top + AL_HALF); g.stroke()
+
+  const path = (key, col) => {
+    g.strokeStyle = col; g.lineWidth = 2; g.shadowColor = col; g.shadowBlur = 8
+    g.beginPath()
+    ft.forEach((p, i) => {
+      const x = p.x * sx, y = top + p[key]
+      i === 0 ? g.moveTo(x, y) : g.lineTo(x, y)
+    })
+    g.stroke(); g.shadowBlur = 0
+  }
+  path('ty', '#f9a8d4')     // the twin
+  path('py', '#60a5fa')     // you
+
+  // The moments you chose to stop being mirrored
+  g.strokeStyle = 'rgba(253,230,138,0.85)'; g.lineWidth = 2
+  for (const p of ft) {
+    if (!p.br) continue
+    const x = p.x * sx
+    g.beginPath(); g.moveTo(x, AL_H + top); g.lineTo(x, AL_H + top - 8); g.stroke()
+  }
+
+  g.fillStyle = '#fff'; g.font = 'bold 20px monospace'; g.textAlign = 'left'
+  g.fillText((GA.level && GA.level.name) || 'ENTANGLED GAUNTLET', 16, 30)
+  g.font = '13px monospace'; g.fillStyle = 'rgba(255,255,255,0.6)'; g.textAlign = 'right'
+  const hits = GA.noclip ? GA.hits + ' hit' + (GA.hits === 1 ? '' : 's') + '  \u00b7  ' : ''
+  const att  = (GA.attempts || 1) + ' attempt' + ((GA.attempts || 1) === 1 ? '' : 's')
+  g.fillText(hits + att + '  \u00b7  Entangled Gauntlet', W - 16, 30)
+
+  const wrap = document.getElementById('ga-card')
+  const img  = document.getElementById('ga-card-img')
+  if (!wrap || !img) return
+  try { img.src = cv.toDataURL('image/png') } catch { return }
+  wrap.dataset.name = ((GA.level && GA.level.name) || 'run')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  wrap.style.display = 'flex'
+}
+
+window.gaCloseCard = function() {
+  const wrap = document.getElementById('ga-card')
+  if (wrap) wrap.style.display = 'none'
+}
+
+window.gaSaveCard = function() {
+  const img = document.getElementById('ga-card-img')
+  const wrap = document.getElementById('ga-card')
+  if (!img || !img.src) return
+  const a = document.createElement('a')
+  a.href = img.src
+  a.download = (wrap.dataset.name || 'run') + '-clear.png'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+}
+
 function gaShowOver() {
   const won = GA.phase === 'won'
   GA.phase = 'over'
@@ -700,6 +784,8 @@ function gaShowOver() {
     ? `<button class="btn-back" onclick="location.href='editor.html?game=ascent'">← Back to editor</button>`
     : `<button class="btn-back" onclick="gaMenu()">☰ Menu</button>`
   btns.innerHTML = html
+  // Over the top of the end screen, so you see the run before the buttons
+  if (GA.practice) gaTrailCard()
   document.getElementById('ga-over').classList.add('show')
 }
 
