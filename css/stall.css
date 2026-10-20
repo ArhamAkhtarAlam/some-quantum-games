@@ -16,15 +16,54 @@
    ═══════════════════════════════════════════════════════ */
 
 body.stall-mode {
-  --cy-blue:  #3b82f6;
-  --cy-pink:  #ec4899;
-  --cy-cyan:  #22d3ee;
-  --cy-violet:#a78bfa;
-  --cy-deep:  #07061a;
+  /* ── Cyber World palette ───────────────────────────────
+     Turquoise and hot magenta over a deep purple-indigo, with a lime
+     accent — the Chapter 2 cyber look rather than the blue-sky-over-pink
+     synthwave this started as. Nothing about the shapes changed; every
+     rule below reads these six, and the -rgb triplets exist so the
+     translucent fills do too (there were 29 hard-coded copies of the old
+     colours before, which is why this used to be unrecolourable).
+
+     The background was a near-black navy; Cyber World's is lit from
+     inside, so it is a purple that a cyan top glow and a magenta floor
+     glow can actually sit on. */
+  --cy-cyan:      #3df5ff;
+  --cy-pink:      #ff4fd8;
+  --cy-blue:      #7a5cff;
+  --cy-violet:    #c08bff;
+  --cy-lime:      #c6ff4f;
+  --cy-blue-deep: #5b3fd9;
+  --cy-muted:     #9b86c9;
+  --cy-deep:      #130a26;
+
+  --cy-cyan-rgb:      61 245 255;
+  --cy-pink-rgb:      255 79 216;
+  --cy-blue-rgb:      122 92 255;
+  --cy-violet-rgb:    192 139 255;
+  --cy-lime-rgb:      198 255 79;
+  --cy-blue-deep-rgb: 91 63 217;
+  --cy-muted-rgb:     155 134 201;
+
+  /* The site's own tokens, so the cards, buttons, headings and glows on
+     the stall follow the same palette instead of staying violet-on-navy.
+     Redefined on body rather than :root so this file stays the only thing
+     the stall adds — the main site and /beta never load it. */
+  --bg:      #130a26;
+  --surface: #1b0f30;
+  --card:    #241544;
+  --border:  #45277a;
+  --accent:  #ff4fd8;
+  --accent2: #3df5ff;
+  --accent3: #c6ff4f;
+  --text:    #eaf6ff;
+  --muted:   #9b86c9;
+  --glow:  0 0 20px rgb(var(--cy-pink-rgb) / .40);
+  --glow2: 0 0 20px rgb(var(--cy-cyan-rgb) / .40);
+
   padding-top: 92px;
   background:
-    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(59,130,246,.22) 0%, transparent 62%),
-    radial-gradient(ellipse 90% 45% at 50% 100%, rgba(236,72,153,.22) 0%, transparent 72%),
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgb(var(--cy-cyan-rgb) / .20) 0%, transparent 62%),
+    radial-gradient(ellipse 90% 45% at 50% 100%, rgb(var(--cy-pink-rgb) / .26) 0%, transparent 72%),
     var(--cy-deep);
 }
 
@@ -37,8 +76,8 @@ body.stall-mode {
   height: 46px; z-index: 60; pointer-events: none;
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(90deg, transparent 0 46px, rgba(59,130,246,.16) 46px 47px),
-    linear-gradient(180deg, #0d0b2a 0%, #090722 100%);
+    repeating-linear-gradient(90deg, transparent 0 46px, rgb(var(--cy-blue-rgb) / .16) 46px 47px),
+    linear-gradient(180deg, #1b0f30 0%, #130a26 100%);
   box-shadow: 0 4px 22px rgba(0,0,0,.6);
 }
 /* Neon underline, with a glint sweeping along it */
@@ -47,7 +86,7 @@ body.stall-mode {
   background:
     linear-gradient(90deg, transparent 0%, rgba(255,255,255,.95) 50%, transparent 100%) -30% 0 / 30% 100% no-repeat,
     linear-gradient(90deg, var(--cy-blue), var(--cy-violet) 50%, var(--cy-pink));
-  box-shadow: 0 0 12px 1px rgba(167,139,250,.7);
+  box-shadow: 0 0 12px 1px rgb(var(--cy-violet-rgb) / .7);
   animation: cy-glint 4.5s ease-in-out infinite;
 }
 @keyframes cy-glint {
@@ -65,8 +104,8 @@ body.stall-mode {
 /* The trace the LEDs hang off */
 .stall-lights::before {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(34,211,238,.55) 8%,
-              rgba(236,72,153,.55) 92%, transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--cy-cyan-rgb) / .55) 8%,
+              rgb(var(--cy-pink-rgb) / .55) 92%, transparent);
 }
 .stall-lights i {
   /* Only the LEDs take clicks — the strip spans the whole width and would
@@ -76,7 +115,7 @@ body.stall-mode {
   width: 9px; height: 9px;
   border-radius: 2px;
   background: var(--cy-cyan);
-  box-shadow: 0 0 10px 2px rgba(34,211,238,.8);
+  box-shadow: 0 0 10px 2px rgb(var(--cy-cyan-rgb) / .8);
   animation: stall-twinkle 2.4s ease-in-out infinite;
 }
 /* The short lead up to the trace */
@@ -84,10 +123,10 @@ body.stall-mode {
   content: ''; position: absolute;
   top: -7px; left: 50%; transform: translateX(-50%);
   width: 1px; height: 7px;
-  background: rgba(148,163,184,.55);
+  background: rgb(var(--cy-muted-rgb) / .55);
 }
-.stall-lights i:nth-child(3n+1) { background:var(--cy-pink); box-shadow:0 0 10px 2px rgba(236,72,153,.8); animation-delay:.35s }
-.stall-lights i:nth-child(3n+2) { background:var(--cy-blue); box-shadow:0 0 10px 2px rgba(59,130,246,.8); animation-delay:.75s }
+.stall-lights i:nth-child(3n+1) { background:var(--cy-pink); box-shadow:0 0 10px 2px rgb(var(--cy-pink-rgb) / .8); animation-delay:.35s }
+.stall-lights i:nth-child(3n+2) { background:var(--cy-blue); box-shadow:0 0 10px 2px rgb(var(--cy-blue-rgb) / .8); animation-delay:.75s }
 /* Clicking an LED pops it and rolls it to the next colour */
 @keyframes stall-pop {
   0%   { transform: scale(1) }
@@ -111,7 +150,7 @@ body.stall-mode {
   content: ''; position: absolute; top: 1px; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent, var(--cy-blue) 12%,
               var(--cy-pink) 88%, transparent);
-  box-shadow: 0 0 8px rgba(167,139,250,.6);
+  box-shadow: 0 0 8px rgb(var(--cy-violet-rgb) / .6);
 }
 .stall-bunting i {
   pointer-events: auto; cursor: grab;
@@ -120,14 +159,14 @@ body.stall-mode {
   border-left: 13px solid transparent;
   border-right: 13px solid transparent;
   border-top: 22px solid var(--cy-blue);
-  filter: drop-shadow(0 0 6px rgba(59,130,246,.75));
+  filter: drop-shadow(0 0 6px rgb(var(--cy-blue-rgb) / .75));
   opacity: .9;
   transform-origin: top center;
   animation: stall-sway 3.6s ease-in-out infinite;
 }
-.stall-bunting i:nth-child(4n+2) { border-top-color: var(--cy-violet); filter: drop-shadow(0 0 6px rgba(167,139,250,.75)); animation-delay:.3s }
-.stall-bunting i:nth-child(4n+3) { border-top-color: var(--cy-pink);   filter: drop-shadow(0 0 6px rgba(236,72,153,.75));  animation-delay:.6s }
-.stall-bunting i:nth-child(4n)   { border-top-color: var(--cy-cyan);   filter: drop-shadow(0 0 6px rgba(34,211,238,.75));  animation-delay:.9s }
+.stall-bunting i:nth-child(4n+2) { border-top-color: var(--cy-violet); filter: drop-shadow(0 0 6px rgb(var(--cy-violet-rgb) / .75)); animation-delay:.3s }
+.stall-bunting i:nth-child(4n+3) { border-top-color: var(--cy-pink);   filter: drop-shadow(0 0 6px rgb(var(--cy-pink-rgb) / .75));  animation-delay:.6s }
+.stall-bunting i:nth-child(4n)   { border-top-color: var(--cy-cyan);   filter: drop-shadow(0 0 6px rgb(var(--cy-cyan-rgb) / .75));  animation-delay:.9s }
 @keyframes stall-sway {
   0%, 100% { transform: rotate(-3deg) }
   50%      { transform: rotate(3deg) }
@@ -136,16 +175,16 @@ body.stall-mode {
 /* ── Heading ────────────────────────────────────────── */
 .stall-mode .home-header { position: relative; padding-top: .4rem }
 .stall-mode .home-header h1 {
-  background: linear-gradient(180deg, #e0f2fe 0%, #60a5fa 45%, var(--cy-pink) 100%);
+  background: linear-gradient(180deg, #eaf6ff 0%, var(--cy-cyan) 45%, var(--cy-pink) 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 1px rgba(255,255,255,.4)) drop-shadow(0 0 22px rgba(236,72,153,.45));
+  filter: drop-shadow(0 0 1px rgba(255,255,255,.4)) drop-shadow(0 0 22px rgb(var(--cy-pink-rgb) / .45));
   letter-spacing: 1px;
 }
-.stall-mode .home-header p { color: #b9c3e6; opacity: .9 }
+.stall-mode .home-header p { color: #c9b8ea; opacity: .9 }
 .stall-mode .quantum-badge {
-  background: rgba(59,130,246,.12);
-  border-color: rgba(34,211,238,.45);
+  background: rgb(var(--cy-blue-rgb) / .12);
+  border-color: rgb(var(--cy-cyan-rgb) / .45);
   color: var(--cy-cyan);
   font-family: var(--font-mono);
 }
@@ -156,12 +195,12 @@ body.stall-mode {
   position: relative;
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(59,130,246,.10) 0%, transparent 45%),
-    #0c0a24;
-  border: 1px solid rgba(167,139,250,.35);
+    linear-gradient(180deg, rgb(var(--cy-blue-rgb) / .10) 0%, transparent 45%),
+    #130a26;
+  border: 1px solid rgb(var(--cy-violet-rgb) / .35);
   border-radius: .5rem;
   padding-top: 1.7rem;
-  box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 0 1px rgba(59,130,246,.10);
+  box-shadow: 0 10px 26px rgba(0,0,0,.55), inset 0 0 0 1px rgb(var(--cy-blue-rgb) / .10);
   overflow: hidden;
   /* Clipped corner, like a HUD panel */
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
@@ -170,16 +209,16 @@ body.stall-mode {
 .stall-mode .game-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(90deg, var(--cy-blue), var(--cy-violet), var(--cy-pink));
-  box-shadow: 0 0 12px rgba(236,72,153,.7);
+  box-shadow: 0 0 12px rgb(var(--cy-pink-rgb) / .7);
 }
 .stall-mode .game-card:hover {
   transform: translateY(-6px);
   border-color: var(--cy-pink);
-  box-shadow: 0 16px 34px rgba(0,0,0,.6), 0 0 26px rgba(236,72,153,.35),
-              inset 0 0 0 1px rgba(236,72,153,.35);
+  box-shadow: 0 16px 34px rgba(0,0,0,.6), 0 0 26px rgb(var(--cy-pink-rgb) / .35),
+              inset 0 0 0 1px rgb(var(--cy-pink-rgb) / .35);
 }
-.stall-mode .card-title { color: #eef2ff; letter-spacing: .3px }
-.stall-mode .card-desc  { color: #a9b1d6 }
+.stall-mode .card-title { color: #eaf6ff; letter-spacing: .3px }
+.stall-mode .card-desc  { color: #b9a6e0 }
 
 /* The auth button outranks the HUD bar on z-index, so without this it
    sits on top of it. Drop it below the bar. */
@@ -216,7 +255,7 @@ body.stall-mode {
    loads after style.css, so the booth-card frame is switched off again. */
 @media (max-width: 600px) {
   .stall-mode .game-card { border: 0; padding: 0; clip-path: none }
-  .stall-mode .game-card .card-icon { border-color: rgba(167,139,250,.45) }
+  .stall-mode .game-card .card-icon { border-color: rgb(var(--cy-violet-rgb) / .45) }
   .stall-mode .auth-header-wrap { top: .4rem }
   .stall-mode .game-cards { gap: 1.1rem .4rem; margin-top: 0 }
 }
@@ -251,8 +290,8 @@ body.stall-mode {
   margin: .7rem 0 .2rem;
   padding: .6rem .7rem;
   border-radius: .35rem;
-  background: rgba(34,211,238,.05);
-  border: 1px solid rgba(34,211,238,.25);
+  background: rgb(var(--cy-cyan-rgb) / .05);
+  border: 1px solid rgb(var(--cy-cyan-rgb) / .25);
   border-left: 2px solid var(--cy-cyan);
   text-align: left;
 }
@@ -264,15 +303,15 @@ body.stall-mode {
 }
 .stall-how ul { margin: 0; padding-left: 1.05rem }
 .stall-how li {
-  font-size: .78rem; line-height: 1.45; color: #c7cdea; margin-bottom: .18rem;
+  font-size: .78rem; line-height: 1.45; color: #d6c9f2; margin-bottom: .18rem;
 }
 .stall-how li::marker { color: var(--cy-pink) }
 
 :root[data-theme="light"] .stall-how {
-  background: rgba(37,99,235,.05);
-  border-color: rgba(37,99,235,.22);
-  border-left-color: #2563eb;
+  background: rgb(var(--cy-blue-deep-rgb) / .05);
+  border-color: rgb(var(--cy-blue-deep-rgb) / .22);
+  border-left-color: var(--cy-cyan);
 }
-:root[data-theme="light"] .stall-how b  { color: #1d4ed8 }
+:root[data-theme="light"] .stall-how b  { color: #7e22ce }
 :root[data-theme="light"] .stall-how li { color: #334155 }
 :root[data-theme="light"] .stall-how li::marker { color: #db2777 }

@@ -42,6 +42,27 @@ const DECO_COLS_LIGHT = [
   '#dc2626', // red
   '#334155', // white → slate
 ]
+// The stall's Cyber World palette: the same six slots, shifted to turquoise
+// and hot magenta with a lime accent. Every shape is untouched — a deco item
+// stores an index into these, so recolouring is only ever this list.
+const DECO_COLS_CYBER = [
+  '#c6ff4f', // green  -> lime
+  '#3df5ff', // cyan   -> turquoise
+  '#ff4fd8', // purple -> hot magenta
+  '#ffd93d', // amber  -> cyber yellow
+  '#ff2e88', // red    -> hot pink
+  '#eaf6ff', // white  -> pale cyan-white
+]
+
+// Light mode wins over the stall palette: a stand in daylight has to be
+// readable first, and neon on white is not. Otherwise the stall gets the
+// cyber set and everywhere else keeps the original.
+function _decoPal() {
+  if (typeof qgLight === 'function' && qgLight()) return DECO_COLS_LIGHT
+  if (typeof window !== 'undefined' && window.QG_STALL) return DECO_COLS_CYBER
+  return DECO_COLS
+}
+
 const DECO_TYPES = ['rect', 'diamond', 'circle', 'bar', 'tri', 'line', 'text', 'laser']
 
 const DECO_DEFAULT_ALPHA = 0.22
@@ -80,7 +101,7 @@ function drawDeco(ctx, deco, w, h, scroll, originX, opts) {
   if (!deco || !deco.length) return
   const glow = !opts || opts.glow !== false
   const time = (opts && opts.time) || 0
-  const pal  = (typeof qgLight === 'function' && qgLight()) ? DECO_COLS_LIGHT : DECO_COLS
+  const pal  = _decoPal()
   ctx.save()
   for (const d of deco) {
     const m  = decoMotion(d, time)
@@ -302,7 +323,7 @@ function drawDecoTheme(ctx, theme, w, h, scroll, originX, opts) {
   if (!th) return
   opts = opts || {}
   const time = opts.time || 0
-  const pal  = (typeof qgLight === 'function' && qgLight()) ? DECO_COLS_LIGHT : DECO_COLS
+  const pal  = _decoPal()
   const s    = scroll * th.par, pad = 260
   if (th.paint) {                       // whole-frame themes
     ctx.save(); ctx.shadowBlur = 0
@@ -326,6 +347,7 @@ if (typeof window !== 'undefined') {
   window.drawDecoTheme = drawDecoTheme
   window.DECO_THEMES = DECO_THEMES
   window.DECO_COLS = DECO_COLS
+  window.DECO_COLS_CYBER = DECO_COLS_CYBER
   window.DECO_TYPES = DECO_TYPES
   window.drawDeco = drawDeco
   window.makeDeco = makeDeco
