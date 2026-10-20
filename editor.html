@@ -68,6 +68,7 @@
       border: 1px solid var(--border, #2a3140); border-radius: 7px;
       padding: .45rem .5rem; font: inherit; font-size: .82rem; cursor: pointer;
     }
+    #ed-lines-btn.on { border-color: #22d3ee; color: #22d3ee; background: rgba(34,211,238,.14); }
     #ed-bot-style.tuned { border-color: #f87171; color: #f87171; background: rgba(248,113,113,.14); }
   </style>
 </head>
@@ -133,6 +134,7 @@
         <button class="btn-primary" onclick="edTestPlay()">▶ Test Play</button>
         <button class="btn-primary ghost" id="ed-noclip-btn" onclick="edToggleTestNoclip()">🛡 noclip</button>
         <button class="btn-primary ghost" onclick="edBotPlay()" title="Watch the line the solver finds">🤖 Bot run</button>
+        <button class="btn-primary ghost" id="ed-lines-btn" onclick="edToggleLines()" title="Draw every bot's line over the level at once, and where sloppy play dies">🧭 Bot lines</button>
         <select id="ed-bot-style" onchange="edSetBotStyle(this.value)" title="Which line the Bot run flies">
           <option value="normal">🤖 Regular bot — fewest presses</option>
           <option value="early">⏪ Early bot — presses early, releases at the last moment</option>
@@ -294,11 +296,11 @@
 <script src="js/sfx.js?v=2"></script>
 <script src="js/deco.js"></script>
 <script src="js/cheats.js"></script>
-<script src="js/levelcheck.js?v=19"></script>
+<script src="js/levelcheck.js?v=20"></script>
 <script src="js/game43.js?v=42"></script>
 <script src="js/game40.js?v=18"></script>
 <script src="js/game44.js?v=1"></script>
-<script src="js/editor.js?v=11"></script>
+<script src="js/editor.js?v=12"></script>
 <script src="js/ascent-builtin.js?v=5"></script>
 <script src="js/ascent-levels.js?v=12"></script>
 <script src="js/ascent-editor.js?v=10"></script>

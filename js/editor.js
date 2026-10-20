@@ -62,6 +62,8 @@ const ED = {
   sel:-1,               // index into ED.levels
   drag:null,            // {type, i}
   botStyle:'normal',    // which line a Bot run flies — see LC_STYLES in levelcheck.js
+  showLines:false,      // draw every bot's line over the level at once
+  lines:null,           // cached paths + death columns, keyed by _edLineSig
   portalPend:null,      // first half of a portal, waiting for its exit
   portalSel:0,          // which portal the properties panel is editing
   scroll:0,             // horizontal scroll in columns
@@ -1293,6 +1295,162 @@ window.edValidate = function() {
   alert((w.startsWith('⏱') ? w + '\n\nNothing here is impossible.' : w) + fair)
 }
 
+// ── Every bot's line at once, drawn on the level ───────
+//  One Bot run shows you one line. Seven runs to see seven is no way to tune
+//  a level, so this draws them together, in the editor, while you edit: the
+//  regular line, the earliest and latest, and the two that ride the wall and
+//  the middle. The gap between them IS the room the level leaves a player.
+//
+//  The red ticks along the bottom are where sloppy play actually dies, from
+//  the same 50 runs the fairness figure in Check counts. They cluster, and
+//  the cluster is the bit of the level to loosen.
+const ED_LINE_COLS = {
+  normal: '#ffffff', early: '#22d3ee', late: '#fb923c',
+  hug:    '#f87171', centre: '#4ade80',
+}
+// Paint order — last is on top, so the regular line sits over the others
+const ED_LINE_ORDER = ['centre', 'hug', 'late', 'early', 'normal']
+// Solve order — most worth having first, because a huge level runs out of
+// budget below and keeps only what it got to. The regular line is also the
+// cheap one: it is already solved, where the other four walk a dwell ladder.
+const ED_LINE_SOLVE = ['normal', 'late', 'early', 'hug', 'centre']
+// All five over a 6000-column level is about 0.7s, which is fine to spend
+// after an edit. A 12000-column one is 3s, which is not, so it gets fewer.
+const ED_LINE_BUDGET_MS = 1200
+
+// Solving is 0.5-2s a style, and _edDraw runs on every mouse move, so the
+// paths are cached against the level's shape and only rebuilt when that
+// changes — and never mid-drag, which would make dragging a keyframe crawl.
+function _edLineSig(lv, h) {
+  return [lv.game, lv.speed, lv.clearAt, Math.round(h),
+          (lv.keyframes || []).map(k => [k.at, k.cf, k.gapHf].join()).join(';'),
+          (lv.obstacles || []).map(o => [o.col, o.floor].join()).join(';'),
+          (lv.portals   || []).map(p => [p.at, p.toAt, p.cf, p.toCf, p.mouth].join()).join(';'),
+         ].join('|')
+}
+
+function _edBuildLines(lv, h) {
+  const out = { sig: _edLineSig(lv, h), paths: [], deaths: null, windows: null }
+  if (lv.game === 'spider') {
+    // No path to draw — the spider is on the floor or the ceiling and nothing
+    // between. What matters is the span of columns each flip can happen in.
+    try { out.windows = lcSpiderWindows(lv) } catch (e) { out.windows = null }
+    return out
+  }
+  if (lv.game !== 'wavegauntlet') return out
+  const t0 = performance.now()
+  for (const st of ED_LINE_SOLVE) {
+    try {
+      const r = lcSolveLineSafe(lv, h, undefined, st)
+      if (r && r.ok && r.ys) out.paths.push({ style: st, ys: r.ys, dt: r.dt, taps: r.taps })
+    } catch (e) { /* a style that cannot solve just is not drawn */ }
+    if (performance.now() - t0 > ED_LINE_BUDGET_MS) { out.partial = true; break }
+  }
+  try { out.deaths = lcDeathCols(lv, h, undefined) } catch (e) { out.deaths = null }
+  return out
+}
+
+function _edDrawBotLines(ctx, lv, w, h, ppc) {
+  if (typeof lcSolveLineSafe !== 'function') return
+  const sig = _edLineSig(lv, h)
+  if (!ED.lines || ED.lines.sig !== sig) {
+    if (ED.drag) {
+      // Mid-drag: show the last lines faintly rather than stalling on a solve
+      if (!ED.lines) return
+      ctx.save(); ctx.globalAlpha = 0.25
+      _edPaintLines(ctx, ED.lines, lv, w, h, ppc)
+      ctx.restore()
+      return
+    }
+    ED.lines = _edBuildLines(lv, h)
+  }
+  _edPaintLines(ctx, ED.lines, lv, w, h, ppc)
+}
+
+function _edPaintLines(ctx, L, lv, w, h, ppc) {
+  ctx.save()
+  if (L.windows) {
+    // Spin Flip: shade the span each flip can land in
+    for (const win of L.windows) {
+      const x0 = win.lo * ppc, x1 = win.hi * ppc
+      ctx.fillStyle = 'rgba(34,211,238,0.14)'
+      ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h)
+      ctx.strokeStyle = 'rgba(34,211,238,0.5)'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, h)
+      ctx.moveTo(x1, 0); ctx.lineTo(x1, h); ctx.stroke()
+    }
+    ctx.fillStyle = 'rgba(34,211,238,0.8)'; ctx.font = '9px monospace'; ctx.textAlign = 'left'
+    ctx.fillText('shaded = where each flip can happen', 4, h - 6)
+    ctx.restore(); return
+  }
+  const speed = lv.speed || 200
+  for (const p of L.paths) {
+    const step = speed * p.dt
+    ctx.strokeStyle = ED_LINE_COLS[p.style] || '#fff'
+    ctx.lineWidth = p.style === 'normal' ? 1.6 : 1
+    ctx.globalAlpha = p.style === 'normal' ? 0.95 : 0.6
+    ctx.beginPath()
+    for (let i = 0; i < p.ys.length; i++) {
+      const cx = i * step
+      if (cx > lv.clearAt) break
+      const x = cx * ppc, y = p.ys[i]
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+  if (L.deaths && L.deaths.cols.length) {
+    // Stack the ticks so a column that kills ten runs looks worse than one
+    // that kills one
+    const tally = new Map()
+    for (const c of L.deaths.cols) {
+      const k = Math.round(c / 20) * 20
+      tally.set(k, (tally.get(k) || 0) + 1)
+    }
+    const most = Math.max(...tally.values())
+    for (const [c, n] of tally) {
+      const x = c * ppc
+      ctx.strokeStyle = 'rgba(248,113,113,' + (0.35 + 0.65 * n / most).toFixed(2) + ')'
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 6 - 18 * n / most); ctx.stroke()
+    }
+    ctx.fillStyle = 'rgba(248,113,113,0.85)'; ctx.font = '9px monospace'; ctx.textAlign = 'left'
+    ctx.fillText(L.deaths.runs - L.deaths.clears + ' of ' + L.deaths.runs
+      + ' shaky runs die (ticks = where)', 4, h - 6)
+  }
+  // Key, so the colours mean something without reading the source
+  ctx.font = '9px monospace'; ctx.textAlign = 'right'
+  let ty = 12
+  for (const st of ED_LINE_ORDER.slice().reverse()) {
+    if (!L.paths.some(p => p.style === st)) continue
+    ctx.fillStyle = ED_LINE_COLS[st]
+    ctx.fillText(st, w - 4, ty); ty += 11
+  }
+  if (L.partial) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.fillText('(long level — some lines skipped)', w - 4, ty)
+  }
+  ctx.restore()
+}
+
+window.edToggleLines = function() {
+  ED.showLines = !ED.showLines
+  if (!ED.showLines) ED.lines = null
+  const b = document.getElementById('ed-lines-btn')
+  if (b) {
+    b.textContent = ED.showLines ? '🧭 Bot lines ON' : '🧭 Bot lines'
+    b.classList.toggle('on', ED.showLines)
+  }
+  const lv = _edCur()
+  _edSetMsg(!ED.showLines ? 'Bot lines hidden.'
+    : lv && lv.game === 'spider'
+      ? 'Showing where each flip can happen. The wider the band, the more room you are giving.'
+      : lv && lv.game === 'ufo'
+        ? 'Bot lines are Wave Gauntlet and Spin Flip only for now.'
+        : 'Showing every bot\u2019s line at once, and where sloppy play dies. First draw takes a moment.')
+  _edDraw()
+}
+
 // ── Modes: level shape / deco / stamp ─────────────────
 
 window.edSetMode = function(m) {
@@ -1430,6 +1588,8 @@ function _edDraw() {
   if      (lv.game === 'wavegauntlet') _edDrawWave(ctx, lv, w, h, ppc, col)
   else if (lv.game === 'ufo')         _edDrawUFO(ctx, lv, w, h, ppc, col)
   else                                _edDrawSpider(ctx, lv, w, h, ppc, col)
+
+  if (ED.showLines) _edDrawBotLines(ctx, lv, w, h, ppc)
 
   // Portals — blue is where you go in, orange is where you come out
   for (const p of (lv.portals || [])) {

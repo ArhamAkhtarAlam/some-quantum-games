@@ -421,6 +421,21 @@ function _lcSafeMap(lv, h, DT) {
   return { safe, step, nSteps, GQ, lo, hi, bins, yOf, binOf, move, roomAt, DT }
 }
 
+// The map depends only on the level's shape, the screen height and the clock
+// — not on which style is asking. Without this it was rebuilt on every rung
+// of the dwell ladder, so drawing all five lines over a long level built it
+// about thirty times and took three seconds.
+let _lcMapCache = null
+function _lcSafeMapCached(lv, h, DT) {
+  const sig = [h, DT, lv.speed, lv.clearAt,
+               (lv.keyframes || []).map(k => k.at + ',' + k.cf + ',' + k.gapHf).join(';'),
+               (lv.portals || []).length].join('|')
+  if (_lcMapCache && _lcMapCache.sig === sig) return _lcMapCache.M
+  const M = _lcSafeMap(lv, h, DT)
+  _lcMapCache = { sig, M }
+  return M
+}
+
 // Walk the level holding each input for as long as the map allows.
 //
 //   'late'  switch only when carrying on would leave the safe map on the next
@@ -445,7 +460,7 @@ function _lcSafeMap(lv, h, DT) {
 //  255px/s — so hugging and centring both have to saw back and forth to stay
 //  where they want to be. That is the game, not a flaw in the bot.
 function _lcWaveGreedy(lv, h, DT, mode, dwell) {
-  const M = _lcSafeMap(lv, h, DT)
+  const M = _lcSafeMapCached(lv, h, DT)
   if (!M) return null
   const { safe, nSteps, bins, yOf, move } = M
   let b = M.binOf(h / 2)
@@ -530,7 +545,7 @@ function _lcWaveShaky(lv, h, DT, plan, spread, rnd) {
   const n = Math.ceil(clear / step) + 2
   const holds = new Array(n).fill(false)
   const path  = new Array(n).fill(h / 2)
-  let wy = h / 2, scroll = 0, i = 0, ok = true
+  let wy = h / 2, scroll = 0, i = 0, ok = true, diedAt = -1
   let off = 0, nextDraw = 0
   while (scroll < clear && i < n) {
     // A new timing error every `spread` steps, so it is a wobble in the
@@ -552,12 +567,14 @@ function _lcWaveShaky(lv, h, DT, plan, spread, rnd) {
     path[i] = wy
     i++
     const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll), h)
-    if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) { ok = false; break }
+    if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) {
+      ok = false; diedAt = Math.round(scroll); break
+    }
   }
   for (let k = i; k < n; k++) path[k] = wy
   let taps = 0
   for (let k = 0; k < n; k++) if (holds[k] && !holds[k - 1]) taps++
-  return { ok, holds, ys: path, frames: n, taps, margin: 0, dt: DT }
+  return { ok, holds, ys: path, frames: n, taps, margin: 0, dt: DT, diedAt }
 }
 
 // A fresh seed for each shaky RUN. Date.now() alone repeats inside the same
@@ -587,6 +604,48 @@ function _lcRng(seed) {
 //  This is a companion to the reaction-time warning in lcReport, not a
 //  replacement: that one says whether the level can be SEEN in time, this
 //  says whether it survives being played slightly wrong.
+// Every surface switch the spider is forced into, and the span of columns it
+// could flip in. The editor shades these; lcFairness jitters inside them.
+function lcSpiderWindows(lv) {
+  const obs = [...(lv.obstacles || [])].sort((a, b) => a.col - b.col)
+  const wins = []
+  let onFloor = true, prevCol = 0
+  for (const ob of obs) {
+    const needFloor = !ob.floor
+    if (needFloor !== onFloor) {
+      wins.push({ lo: prevCol + 26 / 2 + 9 + 2, hi: ob.col - 26 / 2 - 9 - 2, at: ob.col })
+      onFloor = needFloor
+    }
+    prevCol = ob.col
+  }
+  return wins
+}
+
+// Where sloppy play actually dies, as a list of columns. The fairness figure
+// says how often; this says where, which is the bit you can do something
+// about.
+function lcDeathCols(lv, h, dt, opts) {
+  const o = opts || {}
+  const ms = o.ms != null ? o.ms : LC_SHAKE_MS
+  const runs = o.runs != null ? o.runs : LC_SHAKE_RUNS
+  const DT = dt || LC_SIM_DT
+  const game = lv.game || (lv.keyframes ? 'wavegauntlet' : 'spider')
+  if (game !== 'wavegauntlet') return null
+  const base = lcSolveLineSafe(lv, h, DT, 'normal')
+  if (!base.ok || !base.ys) return null
+  const spread = Math.max(1, Math.round((ms / 1000) / DT))
+  const rnd = _lcRng(0xC0FFEE)
+  const cols = []
+  let clears = 0
+  for (let r = 0; r < runs; r++) {
+    const fly = _lcWaveShaky(lv, h, DT, base, spread, rnd)
+    if (!fly) break
+    if (fly.ok) clears++
+    else if (fly.diedAt >= 0) cols.push(fly.diedAt)
+  }
+  return { cols, runs, clears, ms }
+}
+
 function lcFairness(lv, h, dt, opts) {
   const o = opts || {}
   const ms = o.ms != null ? o.ms : LC_SHAKE_MS
@@ -603,17 +662,7 @@ function lcFairness(lv, h, dt, opts) {
     if (!base.ok || !base.flips.length) return null
     const speed = lv.speed || 200
     const spreadCols = (ms / 1000) * speed
-    // Rebuild the window each flip belongs to, in the same order
-    const wins = []
-    let onFloor = true, prevCol = 0
-    for (const ob of obs) {
-      const needFloor = !ob.floor
-      if (needFloor !== onFloor) {
-        wins.push({ lo: prevCol + 26 / 2 + 9 + 2, hi: ob.col - 26 / 2 - 9 - 2 })
-        onFloor = needFloor
-      }
-      prevCol = ob.col
-    }
+    const wins = lcSpiderWindows(lv)
     if (!wins.length) return null
     const rnd = _lcRng(0xC0FFEE)
     let clears = 0
@@ -1172,10 +1221,12 @@ if (typeof window !== 'undefined') {
   window.LC_STYLES = LC_STYLES
   window.LC_FLOWN = LC_FLOWN
   window.lcFairness = lcFairness
+  window.lcDeathCols = lcDeathCols
+  window.lcSpiderWindows = lcSpiderWindows
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES, LC_FLOWN, lcFairness }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES, LC_FLOWN, lcFairness, lcDeathCols, lcSpiderWindows }
