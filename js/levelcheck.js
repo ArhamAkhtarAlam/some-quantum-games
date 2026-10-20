@@ -97,11 +97,12 @@ function _lcThroughMouth(ports, ny, h, step, i, R) {
 //  one does the window is as tight as that one line.
 //
 //  normal  fewest presses — what the bot has always done
-//  early   presses the first moment it is allowed to, again and again
+//  early   presses the first moment it can and releases at the last
 //  late    presses only when carrying on would kill it next frame
 //  evil    the most presses that still clear (the old evilbot)
 //  hug     stays as close to a wall as it can without touching
 //  centre  stays as far from both walls as it can
+//  shaky   the regular line, pressed with human timing error
 //
 //  The last four are controllers over a map of which spots can still finish
 //  (see _lcSafeMap), not tweaks of the solved line. An earlier attempt did
@@ -110,10 +111,16 @@ function _lcThroughMouth(ports, ny, h, step, i, R) {
 //  bot's — for the reason already written up for the UFO evilbot: only one
 //  node is kept per state key.
 // ═══════════════════════════════════════════════════════
-const LC_STYLES = ['normal', 'early', 'late', 'evil', 'hug', 'centre']
+const LC_STYLES = ['normal', 'early', 'late', 'evil', 'hug', 'centre', 'shaky']
 
 // Which styles are controllers rather than search preferences
-const LC_FLOWN = ['early', 'late', 'hug', 'centre']
+const LC_FLOWN = ['early', 'late', 'hug', 'centre', 'shaky']
+
+// How far out a human's timing is, in milliseconds either side of the press
+// the line asks for. 33ms is one frame at 60Hz — the right order for a
+// decent player who knows the level and is still only human.
+const LC_SHAKE_MS = 33
+const LC_SHAKE_RUNS = 50
 
 // The hugging bot aims to graze, which left it 0.4px inside a wall at its
 // tightest — the safe map's height bins are 0.27px and the column it is
@@ -419,13 +426,18 @@ function _lcSafeMap(lv, h, DT) {
 //   'late'  switch only when carrying on would leave the safe map on the next
 //           step — that is, only when it would otherwise die. This is the
 //           bot pressing and releasing at the last instant every time.
-//   'early' switch the moment the switch is safe, so every press starts as
-//           soon as it can. Pressing early means pressing often — there is no
-//           way to press sooner than "whenever allowed" — so this one needs a
-//           minimum dwell to stop it becoming a frame-by-frame flicker that
-//           the bot's own controller cannot track. The caller walks a ladder
-//           of dwells and takes the shortest one that still flies, which is
-//           the earliest and busiest line the level actually permits.
+//   'early' press the moment a climb is safe, then hold it until holding any
+//           longer would kill it: early on the press, late on the release, so
+//           every hold is as long as the level allows and the wave rides the
+//           top of the corridor.
+//
+//           The release is never delayed; the re-press is, by `dwell`. I
+//           assumed it would not need to be — after a forced release a climb
+//           is unsafe, so surely it dives for a while — but "safe" only means
+//           "can still finish", and dropping a single step restores enough
+//           room for that. Measured, it sawed at the ceiling in 1-step
+//           flickers and took 985 presses. So the dive has a floor on it and
+//           the caller walks the dwell ladder for the shortest that flies.
 //   'hug'   of the safe moves, take whichever ends up nearest a wall.
 //   'centre' of the safe moves, take whichever ends up furthest from both.
 //
@@ -475,11 +487,13 @@ function _lcWaveGreedy(lv, h, DT, mode, dwell) {
       else if (!keepOk && flipOk) use = !hold
       else use = hold
     } else {
-      // Switch at the first chance, but hold it long enough to be a press
-      // rather than a flicker
-      if (flipOk && held >= dwell) use = !hold
-      else if (!keepOk && flipOk) use = !hold
-      else if (!keepOk && !flipOk) use = hold
+      // 'early'. Holding: carry on until that is the step it would die on —
+      // the release is always as late as it can be. Not holding: press again
+      // the moment a climb is safe, once the dive has lasted the dwell, or
+      // straight away if carrying on diving would kill it.
+      if (hold) use = keepOk
+      else if (!keepOk && flipOk) use = true
+      else use = flipOk && held >= dwell
     }
     held = (use === hold) ? held + 1 : 0
     hold = use
@@ -492,6 +506,140 @@ function _lcWaveGreedy(lv, h, DT, mode, dwell) {
   return { ok: true, holds, ys, frames: ys.length, taps, margin: 0, dt: DT }
 }
 
+// Fly the intended line like a player with shaky timing: still watching the
+// corridor and still aiming at the same path, but pressing a little early or
+// a little late each time.
+//
+// The first version of this replayed a fixed schedule of presses with the
+// switch times knocked about, and it was far too harsh — every level scored
+// 0% at 33ms, and the sweep told the story: 0ms 92%, 8ms 52%, 16ms 10%,
+// 33ms 0%. With no feedback the wave never recovers, so each mistimed press
+// leaves a permanent offset and they random-walk the wave into a wall. A
+// person does not do that; they see where they are and correct.
+//
+// So the error goes on the TARGET instead: the player aims at where the line
+// is a few steps either side of now, re-drawn every so often. Mistiming no
+// longer accumulates, because the wave is still chasing the real path.
+function _lcWaveShaky(lv, h, DT, plan, spread, rnd) {
+  const kfs = lv.keyframes || []
+  const speed = lv.speed || 200
+  const clear = lv.clearAt || 800
+  const step = speed * DT
+  const ys = plan.ys
+  if (!ys || !ys.length || step <= 0) return null
+  const n = Math.ceil(clear / step) + 2
+  const holds = new Array(n).fill(false)
+  const path  = new Array(n).fill(h / 2)
+  let wy = h / 2, scroll = 0, i = 0, ok = true
+  let off = 0, nextDraw = 0
+  while (scroll < clear && i < n) {
+    // A new timing error every `spread` steps, so it is a wobble in the
+    // player's timing rather than fresh noise on every single frame
+    if (i >= nextDraw) {
+      off = Math.round((rnd() * 2 - 1) * spread)
+      nextDraw = i + Math.max(1, spread)
+    }
+    // Behind by `spread` on top of the wobble: a player reacts to what they
+    // have already seen, so the aim is never centred on "now". Without this
+    // the model is a perfect servo that corrects instantly and every level
+    // scores 100%, which measures nothing.
+    const t = Math.min(ys.length - 1, Math.max(0, i - spread + off))
+    const hold = wy > ys[t]
+    wy += (hold ? -LC_WAVE : LC_WAVE) * DT
+    wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))
+    scroll += step
+    holds[i] = hold
+    path[i] = wy
+    i++
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(scroll), h)
+    if (wy - LC_R < cy - gapH / 2 || wy + LC_R > cy + gapH / 2) { ok = false; break }
+  }
+  for (let k = i; k < n; k++) path[k] = wy
+  let taps = 0
+  for (let k = 0; k < n; k++) if (holds[k] && !holds[k - 1]) taps++
+  return { ok, holds, ys: path, frames: n, taps, margin: 0, dt: DT }
+}
+
+// A fresh seed for each shaky RUN. Date.now() alone repeats inside the same
+// millisecond, which made two solves in a row produce the identical "random"
+// line, so a counter goes in with it.
+let _lcNonce = 0
+function _lcShakeSeed() { return ((Date.now() | 0) ^ (++_lcNonce * 0x9E3779B1)) | 0 }
+
+// Small seeded generator. lcFairness seeds it with a FIXED value, so the
+// figure is the same every time you press Check on the same level — a number
+// that wobbled run to run would be worse than no number.
+function _lcRng(seed) {
+  let a = (seed >>> 0) || 1
+  return () => {
+    a ^= a << 13; a >>>= 0
+    a ^= a >>> 17
+    a ^= a << 5;  a >>>= 0
+    return a / 4294967296
+  }
+}
+
+// ── How much slack is there for a human? ────────────────
+//  Fly the bot's own line LC_SHAKE_RUNS times with the presses knocked about
+//  by up to `ms` either side, and count how many still clear. A level only a
+//  machine can play comes out near zero; a forgiving one comes out near 50.
+//
+//  This is a companion to the reaction-time warning in lcReport, not a
+//  replacement: that one says whether the level can be SEEN in time, this
+//  says whether it survives being played slightly wrong.
+function lcFairness(lv, h, dt, opts) {
+  const o = opts || {}
+  const ms = o.ms != null ? o.ms : LC_SHAKE_MS
+  const runs = o.runs != null ? o.runs : LC_SHAKE_RUNS
+  const DT = dt || LC_SIM_DT
+  const game = lv.game || (lv.keyframes ? 'wavegauntlet' : 'spider')
+  const spread = Math.max(1, Math.round((ms / 1000) / DT))
+
+  if (game === 'spider') {
+    // Every flip has a window it has to land inside; jitter the column and
+    // see whether it still does. No simulation needed — the windows are exact.
+    const obs = [...(lv.obstacles || [])].sort((a, b) => a.col - b.col)
+    const base = lcSolveSpider(lv, 'normal', true)
+    if (!base.ok || !base.flips.length) return null
+    const speed = lv.speed || 200
+    const spreadCols = (ms / 1000) * speed
+    // Rebuild the window each flip belongs to, in the same order
+    const wins = []
+    let onFloor = true, prevCol = 0
+    for (const ob of obs) {
+      const needFloor = !ob.floor
+      if (needFloor !== onFloor) {
+        wins.push({ lo: prevCol + 26 / 2 + 9 + 2, hi: ob.col - 26 / 2 - 9 - 2 })
+        onFloor = needFloor
+      }
+      prevCol = ob.col
+    }
+    if (!wins.length) return null
+    const rnd = _lcRng(0xC0FFEE)
+    let clears = 0
+    for (let r = 0; r < runs; r++) {
+      let ok = true
+      for (let i = 0; i < wins.length && ok; i++) {
+        const at = base.flips[i] + (rnd() * 2 - 1) * spreadCols
+        if (at < wins[i].lo || at > wins[i].hi) ok = false
+      }
+      if (ok) clears++
+    }
+    return { runs, clears, rate: clears / runs, ms, game }
+  }
+
+  if (game !== 'wavegauntlet') return null
+  const base = lcSolveLineSafe(lv, h, DT, 'normal')
+  if (!base.ok || !base.holds) return null
+  const rnd = _lcRng(0xC0FFEE)
+  let clears = 0
+  for (let r = 0; r < runs; r++) {
+    const fly = _lcWaveShaky(lv, h, DT, base, spread, rnd)
+    if (fly && fly.ok) clears++
+  }
+  return { runs, clears, rate: clears / runs, ms, game }
+}
+
 function lcSolveLineSafe(lv, h, dt, style) {
   const st = lcStyle(style)
   // A finer ladder than before, because the first plan that solves is not
@@ -501,6 +649,20 @@ function lcSolveLineSafe(lv, h, dt, style) {
   // solved line: they walk the safe map and switch at the first or the last
   // moment it allows. If the map cannot be built (a level with portals) they
   // fall through to the ordinary line below.
+  if (st === 'shaky') {
+    // One run of the regular line, pressed slightly wrong. It may well die —
+    // that is the whole point of watching it. lcFairness is the same thing
+    // counted over many runs.
+    const DT = dt || LC_SIM_DT
+    const base = lcSolveLineSafe(lv, h, DT, 'normal')
+    if (base.ok && base.ys) {
+      const spread = Math.max(1, Math.round((LC_SHAKE_MS / 1000) / DT))
+      const fly = _lcWaveShaky(lv, h, DT, base, spread, _lcRng(_lcShakeSeed()))
+      // ok:false means this particular shaky run crashed, which is worth
+      // watching — so it is still returned as a runnable plan.
+      if (fly) { fly.style = st; return fly }
+    }
+  }
   if (st === 'late') {
     const DT = dt || LC_SIM_DT
     const g = _lcWaveGreedy(lv, h, DT, 'late', 0)
@@ -508,12 +670,10 @@ function lcSolveLineSafe(lv, h, dt, style) {
   }
   if (st === 'early' || st === 'hug' || st === 'centre') {
     const DT = dt || LC_SIM_DT
-    // Shortest dwell first. For 'early' the shorter it is the sooner and the
-    // oftener the bot presses; for 'hug' and 'centre' the shorter it is the
-    // tighter it tracks what it is aiming at. Either way the first one the
-    // bot's controller can actually fly is the most of it this level allows.
-    // Steps are at the simulation clock, so 4 is about 17ms and 80 a third
-    // of a second.
+    // Shortest dwell first: the shorter it is the tighter the bot tracks what
+    // it is aiming at, and the first one its own controller can actually fly
+    // is as close as this level allows. Steps are at the simulation clock, so
+    // 4 is about 17ms and 80 a third of a second.
     for (const dwell of [4, 6, 10, 14, 20, 28, 40, 56, 80]) {
       const g = _lcWaveGreedy(lv, h, DT, st, dwell)
       if (g && _lcReplayOk(lv, h, g)) { g.style = st; g.dwell = dwell; return g }
@@ -951,8 +1111,12 @@ function _lcUfoMoreTaps(lv, h, w, flaps, DT) {
 // `startFloor` is which surface the spider is on at column 0. A level always
 // spawns it on the floor, but in a gauntlet run one level rolls straight
 // into the next and the spider arrives on whichever surface it finished on.
+// Re-seeded per solve so each shaky run is a different one
+let _lcSpiderRnd = () => Math.random()
+
 function lcSolveSpider(lv, style, startFloor) {
   const st = lcStyle(style)
+  if (st === 'shaky') _lcSpiderRnd = _lcRng(_lcShakeSeed())
   const obs = [...(lv.obstacles || [])].sort((a, b) => a.col - b.col)
   const flips = []
   let onFloor = startFloor !== false
@@ -967,10 +1131,16 @@ function lcSolveSpider(lv, style, startFloor) {
       const latest = o.col - 26 / 2 - 9 - 2
       const earliest = prevCol + 26 / 2 + 9 + 2
       const mid = (earliest + latest) / 2
+      // Shaky knocks the normal flip about by a human's timing error, which
+      // on a cramped level puts it outside the window and kills the run —
+      // which is the point of watching it. lcFairness counts how often.
+      const normal = Math.max(earliest, mid)
+      const shake = st === 'shaky'
+        ? (_lcSpiderRnd() * 2 - 1) * (LC_SHAKE_MS / 1000) * (lv.speed || 200)
+        : 0
       const pick = st === 'early' ? earliest
                  : (st === 'late' || st === 'evil') ? latest
-                 : st === 'safe' ? mid
-                 : Math.max(earliest, mid)     // normal, unchanged
+                 : normal + shake
       flips.push(Math.max(0, pick))
       onFloor = needFloor
     }
@@ -1001,10 +1171,11 @@ if (typeof window !== 'undefined') {
   window.lcStyle = lcStyle
   window.LC_STYLES = LC_STYLES
   window.LC_FLOWN = LC_FLOWN
+  window.lcFairness = lcFairness
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES, LC_FLOWN }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES, LC_FLOWN, lcFairness }

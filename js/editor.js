@@ -758,11 +758,12 @@ window.edBotPlay = function() {
 // slack in it, and if only one does, that one line is the whole window.
 const ED_BOT_BLURB = {
   normal: 'Bot run takes the fewest presses.',
-  early:  'Bot run presses at the first moment it is allowed to, over and over — pressing early means pressing often.',
+  early:  'Bot run presses as soon as it can and holds until letting go any longer would kill it.',
   late:   'Bot run only presses or releases when carrying on would kill it next frame.',
   evil:   'Bot run takes the most presses that still clear.',
   hug:    'Bot run flies as close to a wall as it can without clipping it — shows which side of your corridor is the tight one.',
   centre: 'Bot run keeps as far from both walls as it can — shows how much room the level really leaves.',
+  shaky:  'Bot run flies the regular line with a human\u2019s timing error, so it may well crash — Check counts how often it does.',
 }
 
 // Which games each style actually changes. The solvers fall back to the
@@ -775,6 +776,7 @@ const ED_BOT_GAMES = {
   late:   ['wavegauntlet', 'spider', 'ufo'],
   hug:    ['wavegauntlet'],                          // needs a corridor to hug
   centre: ['wavegauntlet'],
+  shaky:  ['wavegauntlet', 'spider'],
 }
 const ED_GAME_NAME = { wavegauntlet: 'Wave Gauntlet', spider: 'Spin Flip',
                        ufo: 'Quantum Tunnel', ascent: 'Entangled Gauntlet' }
@@ -1263,12 +1265,32 @@ function _edValidate(lv) {
   return out
 }
 
+// How much slack the level leaves a human, measured rather than estimated:
+// fly the bot's own line 50 times with the presses knocked about by a frame
+// either side and count the clears. The timing checks above say whether a
+// level is possible; this says whether it is fair.
+function _edFairnessLine(lv) {
+  if (typeof lcFairness !== 'function') return ''
+  let f = null
+  try { f = lcFairness(lv, 500, undefined) } catch (e) { return '' }
+  if (!f) return ''
+  const pct = Math.round(f.rate * 100)
+  const verdict = pct >= 90 ? 'forgiving.'
+                : pct >= 60 ? 'tight, but fair.'
+                : pct >= 25 ? 'punishing — most attempts die to timing alone.'
+                : pct > 0   ? 'near frame-perfect. Almost nothing survives being played slightly wrong.'
+                :             'frame-perfect. Nothing survives being played slightly wrong.'
+  return `\n\n🎲 Played with human timing (±${f.ms}ms, on a 500px screen):`
+       + `\nclears ${f.clears} of ${f.runs} runs — ${verdict}`
+}
+
 window.edValidate = function() {
   const lv = _edCur(); if (!lv) return
   const w = _edValidate(lv)
-  if (!w) { alert('✅ Looks playable — no timing problems found.'); return }
+  const fair = _edFairnessLine(lv)
+  if (!w) { alert('✅ Looks playable — no timing problems found.' + fair); return }
   // Warning-only results are legitimate for frame-perfect levels
-  alert(w.startsWith('⏱') ? w + '\n\nNothing here is impossible.' : w)
+  alert((w.startsWith('⏱') ? w + '\n\nNothing here is impossible.' : w) + fair)
 }
 
 // ── Modes: level shape / deco / stamp ─────────────────
