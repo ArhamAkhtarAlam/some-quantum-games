@@ -1212,6 +1212,55 @@ function _g43WallOf(src, col, h) {
 }
 
 // Work out the offset a level needs to join on from where `prev` ended
+// ── Padding at a join ───────────────────────────────────
+//  Levels run straight into one another, and each carries its own scroll
+//  speed. The wave always climbs at 255px/s, so the angle you fly is
+//  atan(255/speed) — and that used to change the instant the flag went past.
+//  Measured over a 40-level chain: 25 of the 39 joins changed the on-screen
+//  angle by more than 12 degrees and the worst flipped it by 44, with no
+//  distance at all to adjust in. That is what dying "during speed changes"
+//  is.
+//
+//  So every joined level now opens with a stretch at its own speed that asks
+//  nothing of you: its own keyframes hold one height across it, and it is as
+//  wide as the more generous of the two sides, so the join is never tighter
+//  than either level is. The angle still changes at the flag — it has to,
+//  the speed is part of the level — but there is now a run of corridor to
+//  read it in before the level starts asking for anything.
+//
+//  The one thing still moving through it is the seam easing, which carries
+//  the corridor from where the last level ended to where this one begins.
+//  That was always budgeted at half the wave's climb, so it is flyable; what
+//  it lacked was time, because the span had a 120-column floor and 120
+//  columns is 0.12 of a second at speed 1000. The floor is a time now, and
+//  the easing spreads across the run-in rather than finishing before you
+//  could react to it.
+const G43_RUNIN_SEC = 0.45
+
+function _g43PadEntry(lv, prev, h, runin) {
+  const kfs = lv.keyframes
+  if (!prev || !kfs || !kfs.length || !(runin > 0)) return lv
+  const first = kfs[0]
+  let gap = first.gapH
+  try {
+    const pw = _g43WallOf(prev, prev.clearAt != null ? prev.clearAt : 0, h)
+    if (pw && pw.gapH) gap = Math.max(gap, pw.gapH)
+  } catch (e) { /* keep the level's own gap */ }
+  lv.keyframes = [
+    { at: 0,     cf: first.cf, gapH: gap },
+    { at: runin, cf: first.cf, gapH: first.gapH },
+    ...kfs.slice(1).map(k => ({ ...k, at: k.at + runin })),
+  ]
+  lv.clearAt = (lv.clearAt || 0) + runin
+  // Everything else placed by column has to move with it
+  if (lv.deco) lv.deco = lv.deco.map(d => ({ ...d, col: (d.col || 0) + runin }))
+  if (lv.portals) lv.portals = lv.portals.map(p => ({
+    ...p, at: p.at + runin, toAt: (p.toAt ?? p.at) + runin,
+  }))
+  lv.runin = runin
+  return lv
+}
+
 function _g43SetSeam(lv, prev, h) {
   const nk = lv.keyframes && lv.keyframes[0]
   if (!prev || !prev.keyframes || !prev.keyframes.length || !nk) {
@@ -1228,8 +1277,21 @@ function _g43SetSeam(lv, prev, h) {
   // Budget half the wave's climb per column. Smoothstep's steepest point is
   // 1.5x the average, so the span has to allow for that or a fast level's
   // join would be steeper than the wave can fly.
-  const perCol = 0.5 * G43_WAVE_SPD / ((lv.challenge && lv.challenge.speed) || 200)
-  lv.seamSpan = Math.max(120, Math.ceil(1.5 * Math.abs(lv.seamDy) / Math.max(0.05, perCol)))
+  const spd = (lv.challenge && lv.challenge.speed) || 200
+  const perCol = 0.5 * G43_WAVE_SPD / spd
+  // How long the easing needs to stay inside its budget. Smoothstep's
+  // steepest point is 1.5x the average, so the span has to allow for that or
+  // a fast level's join would be steeper than the wave can fly.
+  const needed = Math.ceil(1.5 * Math.abs(lv.seamDy) / Math.max(0.05, perCol))
+  // The run-in has to be at least as long as the easing, not just at least
+  // 0.45s. The floor used to be a flat 120 columns — 3 seconds on PURGATORY
+  // but 0.12 of one at speed 1000 — and when the easing was longer than the
+  // padding it carried on into the level's own first feature, so the two
+  // added up exactly where there was least room. Now the easing finishes
+  // before the level starts asking for anything.
+  const runin = Math.max(120, Math.round(G43_RUNIN_SEC * spd), needed)
+  _g43PadEntry(lv, prev, h, runin)
+  lv.seamSpan = runin
   return lv
 }
 
