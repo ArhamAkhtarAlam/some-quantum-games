@@ -135,9 +135,11 @@
         <button class="btn-primary ghost" onclick="edBotPlay()" title="Watch the line the solver finds">🤖 Bot run</button>
         <select id="ed-bot-style" onchange="edSetBotStyle(this.value)" title="Which line the Bot run flies">
           <option value="normal">🤖 Regular bot — fewest presses</option>
-          <option value="early">⏪ Early bot — presses as early as it can</option>
-          <option value="late">⏩ Late bot — presses as late as it can</option>
+          <option value="early">⏪ Early bot — presses the first moment it can</option>
+          <option value="late">⏩ Late bot — only presses to avoid dying next frame</option>
           <option value="evil">😈 Evilbot — most presses that still clear</option>
+          <option value="hug">🧱 Wall hugger — stays as close to a wall as it dares</option>
+          <option value="centre">🎯 Centre bot — stays as far from both walls as it can</option>
         </select>
         <button class="btn-primary" style="background:#22c55e;border-color:#22c55e;color:#04220f;" onclick="edSubmit()">📤 Submit</button>
         <button class="btn-primary" onclick="edValidate()">✓ Check</button>
@@ -291,11 +293,11 @@
 <script src="js/sfx.js?v=2"></script>
 <script src="js/deco.js"></script>
 <script src="js/cheats.js"></script>
-<script src="js/levelcheck.js?v=17"></script>
+<script src="js/levelcheck.js?v=18"></script>
 <script src="js/game43.js?v=42"></script>
 <script src="js/game40.js?v=18"></script>
 <script src="js/game44.js?v=1"></script>
-<script src="js/editor.js?v=9"></script>
+<script src="js/editor.js?v=10"></script>
 <script src="js/ascent-builtin.js?v=5"></script>
 <script src="js/ascent-levels.js?v=12"></script>
 <script src="js/ascent-editor.js?v=10"></script>

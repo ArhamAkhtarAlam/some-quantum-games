@@ -758,10 +758,26 @@ window.edBotPlay = function() {
 // slack in it, and if only one does, that one line is the whole window.
 const ED_BOT_BLURB = {
   normal: 'Bot run takes the fewest presses.',
-  early:  'Bot run presses as early as it can — with Late bot, these two bracket the timing window.',
-  late:   'Bot run presses as late as it can — with Early bot, these two bracket the timing window.',
+  early:  'Bot run presses at the first moment it is allowed to, over and over — pressing early means pressing often.',
+  late:   'Bot run only presses or releases when carrying on would kill it next frame.',
   evil:   'Bot run takes the most presses that still clear.',
+  hug:    'Bot run flies as close to a wall as it can without clipping it — shows which side of your corridor is the tight one.',
+  centre: 'Bot run keeps as far from both walls as it can — shows how much room the level really leaves.',
 }
+
+// Which games each style actually changes. The solvers fall back to the
+// regular line elsewhere, which would otherwise look like the menu doing
+// nothing, so say it instead.
+const ED_BOT_GAMES = {
+  normal: null,                                      // everywhere
+  evil:   null,
+  early:  ['wavegauntlet', 'spider', 'ufo'],
+  late:   ['wavegauntlet', 'spider', 'ufo'],
+  hug:    ['wavegauntlet'],                          // needs a corridor to hug
+  centre: ['wavegauntlet'],
+}
+const ED_GAME_NAME = { wavegauntlet: 'Wave Gauntlet', spider: 'Spin Flip',
+                       ufo: 'Quantum Tunnel', ascent: 'Entangled Gauntlet' }
 
 function _edSyncBotStyle() {
   const sel = document.getElementById('ed-bot-style')
@@ -786,7 +802,13 @@ window.edSetBotStyle = function(v) {
   ED.botStyle = (typeof lcStyle === 'function') ? lcStyle(v) : (v || 'normal')
   try { localStorage.setItem('qg_ed_bot_style', ED.botStyle) } catch {}
   _edSyncBotStyle()
-  _edSetMsg(ED_BOT_BLURB[ED.botStyle] || ED_BOT_BLURB.normal)
+  let msg = ED_BOT_BLURB[ED.botStyle] || ED_BOT_BLURB.normal
+  const only = ED_BOT_GAMES[ED.botStyle]
+  if (only && only.indexOf(ED.game) < 0) {
+    msg += ' (' + only.map(g => ED_GAME_NAME[g] || g).join(' and ')
+        + ' only — here the bot flies its regular line.)'
+  }
+  _edSetMsg(msg)
 }
 
 // Kept so an old button or a saved link cannot break: it just flips between

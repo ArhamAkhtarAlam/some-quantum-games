@@ -97,16 +97,30 @@ function _lcThroughMouth(ports, ny, h, step, i, R) {
 //  one does the window is as tight as that one line.
 //
 //  normal  fewest presses — what the bot has always done
-//  early   the same line, every press as early as it can go
-//  late    the same line, every press as late as it can go
+//  early   presses the first moment it is allowed to, again and again
+//  late    presses only when carrying on would kill it next frame
 //  evil    the most presses that still clear (the old evilbot)
+//  hug     stays as close to a wall as it can without touching
+//  centre  stays as far from both walls as it can
 //
-//  There is deliberately no "safest" style: lcSolveLineSafe already walks the
-//  margin ladder widest-first, so the regular bot is already the roomiest
-//  line it can find, and asking a search to maximise clearance instead just
-//  spams presses to hug the middle — 640 of them on a test level.
+//  The last four are controllers over a map of which spots can still finish
+//  (see _lcSafeMap), not tweaks of the solved line. An earlier attempt did
+//  early/late as preferences inside the search instead and it gave the wrong
+//  answer — the "early" bot's first press came out LATER than the plain
+//  bot's — for the reason already written up for the UFO evilbot: only one
+//  node is kept per state key.
 // ═══════════════════════════════════════════════════════
-const LC_STYLES = ['normal', 'early', 'late', 'evil']
+const LC_STYLES = ['normal', 'early', 'late', 'evil', 'hug', 'centre']
+
+// Which styles are controllers rather than search preferences
+const LC_FLOWN = ['early', 'late', 'hug', 'centre']
+
+// The hugging bot aims to graze, which left it 0.4px inside a wall at its
+// tightest — the safe map's height bins are 0.27px and the column it is
+// tested at can differ by one, so "as close as possible" has to mean as
+// close as possible with a pixel in hand, or it is one rounding away from
+// a clip. It still averages about 4px from the wall, which looks glued to it.
+const LC_HUG_MIN = 1
 
 // The solvers used to take a boolean `worst`, so true still means evil and
 // anything unrecognised falls back to the line the bot always flew.
@@ -117,7 +131,7 @@ function lcStyle(s) {
 }
 
 // Only evilbot changes what the search prefers. Early and late are applied
-// afterwards, to a plan that already flies — see _lcWaveShift.
+// afterwards by their own controllers — see _lcWaveGreedy.
 function _lcBetter(st, a, b) {
   return st === 'evil' ? a.taps > b.taps : a.taps < b.taps
 }
@@ -335,63 +349,147 @@ function _lcSegments(lv, h, step) {
   return segs
 }
 
-// Slide every press as early (dir -1) or as late (dir +1) as it will go.
+// ── Can I still clear it from here? ─────────────────────
+//  A map of every (step, height) the wave can be in and still finish, built
+//  backwards from the finish line: a spot is safe if it is inside the
+//  corridor and at least one of climb/dive from it is safe on the next step.
 //
-// Deciding this inside the search does not work, for the same reason the UFO
-// evilbot pads afterwards: only one node is kept per (height, holding) key, so
-// preferring an earlier route stores a representative that loses later and the
-// line comes out no earlier at all — measured, the "early" bot's first press
-// landed at step 183 while the plain bot's was at 85.
+//  This is what makes "as late as possible" exact rather than hopeful. A
+//  purely local rule — switch when the next frame would hit a wall — can fly
+//  itself into a dead end that was avoidable ten steps earlier. Asking the
+//  map instead means the bot switches at the last step it could have, with no
+//  risk of painting itself into a corner.
 //
-// So shift a plan that already flies. The wave's path is fully determined by
-// the hold sequence, so moving a switch and re-integrating gives a new path,
-// and _lcReplayOk says whether it still clears. Switches are walked from the
-// front for early and from the back for late so they cannot hop over each
-// other and collapse into a pile.
-function _lcWaveShift(lv, h, plan, dir) {
-  const DT = plan.dt, speed = lv.speed || 200
+//  One Uint8Array of height-bins per step: about 8 MB on a long level, which
+//  is the same order as the forward search already allocates.
+//
+//  Portals move the wave between columns, which this does not model, so a
+//  level with any portal gets null and the caller keeps the plain solved line.
+function _lcSafeMap(lv, h, DT) {
+  if ((lv.portals || []).length) return null
+  const kfs = lv.keyframes || []
+  const speed = lv.speed || 200
+  const clear = lv.clearAt || 800
   const step = speed * DT
-  const n = plan.holds.length
-  // Re-integrate the wave from a hold sequence, exactly as the game moves it.
-  const pathOf = holds => {
-    const ys = new Array(n).fill(h / 2)
-    let wy = h / 2
-    for (let i = 0; i < n; i++) {
-      wy += (holds[i] ? -LC_WAVE : LC_WAVE) * DT
-      wy = Math.max(LC_R + 2, Math.min(h - LC_R - 2, wy))
-      ys[i] = wy
-    }
-    return ys
+  if (step <= 0) return null
+  const nSteps = Math.ceil(clear / step)
+  const GQ = (LC_WAVE * DT) / 4
+  const lo = LC_R + 2, hi = h - LC_R - 2
+  const bins = Math.floor((hi - lo) / GQ) + 1
+  if (!(bins > 0) || nSteps > 200000 || bins * nSteps > 40e6) return null
+  const yOf = b => lo + b * GQ
+  const binOf = y => Math.min(bins - 1, Math.max(0, Math.round((y - lo) / GQ)))
+  const move = (b, up) => {
+    const y = Math.max(lo, Math.min(hi, yOf(b) + (up ? -LC_WAVE : LC_WAVE) * DT))
+    return binOf(y)
   }
-  const flies = holds => _lcReplayOk(lv, h, { ys: pathOf(holds), dt: DT })
-  let holds = plan.holds.slice()
-  if (!flies(holds)) return plan        // nothing to improve on
-  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
-  const t0 = now()
-  const switches = () => {
-    const out = []
-    for (let i = 1; i < n; i++) if (holds[i] !== holds[i - 1]) out.push(i)
-    return out
+  // Inside the corridor at this step? Measured the way the game does it:
+  // move, advance the scroll, then test the wall at the new column.
+  const insideAt = (i, b) => {
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(i * step), h)
+    const y = yOf(b)
+    return y - LC_R >= cy - gapH / 2 && y + LC_R <= cy + gapH / 2
   }
-  const list = switches()
-  if (dir > 0) list.reverse()
-  for (const start of list) {
-    let at = start
-    while (true) {
-      const to = at + dir
-      if (to < 1 || to > n - 1) break
-      if (holds[to] !== holds[to - 1]) break        // would land on another switch
-      if (now() - t0 > 900) { plan.ys = pathOf(holds); plan.holds = holds; return plan }
-      const next = holds.slice()
-      // Moving a switch means the step it vacates takes the other value
-      if (dir < 0) next[to] = holds[at]
-      else         next[at] = holds[at - 1]
-      if (flies(next)) { holds = next; at = to } else break
+  const safe = new Array(nSteps + 2)
+  // At or past the finish, anything still inside the corridor has cleared
+  for (let i = nSteps; i <= nSteps + 1; i++) {
+    safe[i] = new Uint8Array(bins)
+    for (let b = 0; b < bins; b++) safe[i][b] = insideAt(i, b) ? 1 : 0
+  }
+  for (let i = nSteps - 1; i >= 0; i--) {
+    const cur = safe[i] = new Uint8Array(bins)
+    const nxt = safe[i + 1]
+    for (let b = 0; b < bins; b++) {
+      if (!insideAt(i, b)) continue
+      if (nxt[move(b, true)] || nxt[move(b, false)]) cur[b] = 1
     }
   }
-  plan.holds = holds
-  plan.ys = pathOf(holds)
-  return plan
+  // How much clear air there is either side at a given spot — what the
+  // hugging and centring bots steer by.
+  const roomAt = (i, b) => {
+    const { cy, gapH } = lcWallAt(kfs, Math.floor(i * step), h)
+    const y = yOf(b)
+    return Math.min(y - LC_R - (cy - gapH / 2), (cy + gapH / 2) - (y + LC_R))
+  }
+  return { safe, step, nSteps, GQ, lo, hi, bins, yOf, binOf, move, roomAt, DT }
+}
+
+// Walk the level holding each input for as long as the map allows.
+//
+//   'late'  switch only when carrying on would leave the safe map on the next
+//           step — that is, only when it would otherwise die. This is the
+//           bot pressing and releasing at the last instant every time.
+//   'early' switch the moment the switch is safe, so every press starts as
+//           soon as it can. Pressing early means pressing often — there is no
+//           way to press sooner than "whenever allowed" — so this one needs a
+//           minimum dwell to stop it becoming a frame-by-frame flicker that
+//           the bot's own controller cannot track. The caller walks a ladder
+//           of dwells and takes the shortest one that still flies, which is
+//           the earliest and busiest line the level actually permits.
+//   'hug'   of the safe moves, take whichever ends up nearest a wall.
+//   'centre' of the safe moves, take whichever ends up furthest from both.
+//
+//  Note the wave can never hold a height — it is always climbing or diving at
+//  255px/s — so hugging and centring both have to saw back and forth to stay
+//  where they want to be. That is the game, not a flaw in the bot.
+function _lcWaveGreedy(lv, h, DT, mode, dwell) {
+  const M = _lcSafeMap(lv, h, DT)
+  if (!M) return null
+  const { safe, nSteps, bins, yOf, move } = M
+  let b = M.binOf(h / 2)
+  if (!safe[0][b]) {
+    // Start height is already doomed — nudge to the nearest spot that is not
+    let found = -1
+    for (let d = 1; d < bins && found < 0; d++) {
+      if (b - d >= 0 && safe[0][b - d]) found = b - d
+      else if (b + d < bins && safe[0][b + d]) found = b + d
+    }
+    if (found < 0) return null
+    b = found
+  }
+  const holds = new Array(nSteps + 2).fill(false)
+  const ys    = new Array(nSteps + 2).fill(h / 2)
+  let hold = false, held = 0
+  for (let i = 0; i <= nSteps; i++) {
+    const nxt = safe[i + 1] || safe[nSteps + 1]
+    const keepB = move(b, hold), flipB = move(b, !hold)
+    const keepOk = !!nxt[keepB], flipOk = !!nxt[flipB]
+    let use = hold
+    if (mode === 'late') {
+      // Carry on unless that is the step it dies on
+      if (!keepOk && flipOk) use = !hold
+    } else if (mode === 'hug' || mode === 'centre') {
+      // Steer by where the move lands, not by when to press. Only switch once
+      // the current input has been held for the dwell, or the line saws too
+      // fast for the bot's own controller to follow it.
+      const want = b2 => mode === 'hug' ? -M.roomAt(i + 1, b2) : M.roomAt(i + 1, b2)
+      // A move the hugger will not take even though the map calls it safe,
+      // because it leaves nothing in hand
+      const tooTight = b2 => mode === 'hug' && M.roomAt(i + 1, b2) < LC_HUG_MIN
+      const keepUse = keepOk && !tooTight(keepB)
+      const flipUse = flipOk && !tooTight(flipB)
+      if (keepUse && flipUse) use = (held >= dwell && want(flipB) > want(keepB)) ? !hold : hold
+      else if (flipUse && !keepUse) use = !hold
+      else if (keepUse && !flipUse) use = hold
+      // Both too tight: fall back to whatever merely survives
+      else if (!keepOk && flipOk) use = !hold
+      else use = hold
+    } else {
+      // Switch at the first chance, but hold it long enough to be a press
+      // rather than a flicker
+      if (flipOk && held >= dwell) use = !hold
+      else if (!keepOk && flipOk) use = !hold
+      else if (!keepOk && !flipOk) use = hold
+    }
+    held = (use === hold) ? held + 1 : 0
+    hold = use
+    b = move(b, hold)
+    holds[i] = hold
+    ys[i] = yOf(b)
+  }
+  let taps = 0
+  for (let i = 0; i < holds.length; i++) if (holds[i] && !holds[i - 1]) taps++
+  return { ok: true, holds, ys, frames: ys.length, taps, margin: 0, dt: DT }
 }
 
 function lcSolveLineSafe(lv, h, dt, style) {
@@ -399,10 +497,31 @@ function lcSolveLineSafe(lv, h, dt, style) {
   // A finer ladder than before, because the first plan that solves is not
   // necessarily one the controller can hold — more rungs means more chances
   // to find one that both solves and survives.
+  // Early and late are their own controllers rather than a tweak of the
+  // solved line: they walk the safe map and switch at the first or the last
+  // moment it allows. If the map cannot be built (a level with portals) they
+  // fall through to the ordinary line below.
+  if (st === 'late') {
+    const DT = dt || LC_SIM_DT
+    const g = _lcWaveGreedy(lv, h, DT, 'late', 0)
+    if (g && _lcReplayOk(lv, h, g)) { g.style = st; return g }
+  }
+  if (st === 'early' || st === 'hug' || st === 'centre') {
+    const DT = dt || LC_SIM_DT
+    // Shortest dwell first. For 'early' the shorter it is the sooner and the
+    // oftener the bot presses; for 'hug' and 'centre' the shorter it is the
+    // tighter it tracks what it is aiming at. Either way the first one the
+    // bot's controller can actually fly is the most of it this level allows.
+    // Steps are at the simulation clock, so 4 is about 17ms and 80 a third
+    // of a second.
+    for (const dwell of [4, 6, 10, 14, 20, 28, 40, 56, 80]) {
+      const g = _lcWaveGreedy(lv, h, DT, st, dwell)
+      if (g && _lcReplayOk(lv, h, g)) { g.style = st; g.dwell = dwell; return g }
+    }
+  }
   for (const pad of [10, 8, 6, 4.5, 3, 2, 1.5, 1, 0.5, 0]) {
     const r = lcSolveLine(lv, h, pad, dt, st)
     if (r.ok && _lcReplayOk(lv, h, r)) {
-      if (st === 'early' || st === 'late') _lcWaveShift(lv, h, r, st === 'early' ? -1 : 1)
       r.style = st
       return r
     }
@@ -881,10 +1000,11 @@ if (typeof window !== 'undefined') {
   window.lcSolveLineSafe = lcSolveLineSafe
   window.lcStyle = lcStyle
   window.LC_STYLES = LC_STYLES
+  window.LC_FLOWN = LC_FLOWN
   window.lcWallAt = lcWallAt
   window.lcLabel = lcLabel
   window.LC_HEIGHTS = LC_HEIGHTS
   window.LC_FRAME = LC_FRAME
   window.LC_SIM_DT = LC_SIM_DT
 }
-if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES }
+if (typeof module !== 'undefined') module.exports = { lcReport, lcSolveWave, lcSolveLine, lcSolveLineSafe, lcSolveUFO, lcSolveUFOAll, lcSolveSpider, lcWallAt, lcLabel, lcStyle, LC_STYLES, LC_FLOWN }
