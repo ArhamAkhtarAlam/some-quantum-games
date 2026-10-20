@@ -234,8 +234,64 @@ const G43_POOL = {
         ]}
       }
     },
+  ],
+
+  fp: [
+    // speed=255 = wave vertical speed → diagonal angle = exactly 45°.
+    // Wall snaps tight (gapH=22) while simultaneously sloping at 1px/column.
+    // Wave R=7 (diam=14), clearance=4px/side ≈ 1-frame timing window.
+    // Player must hold (upslope) or release (downslope) at the exact frame.
     {
-      name:'SUPERSONIC', diff:'hard', speed:3000, weight:0.25,
+      name:'FRAME PERFECT', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const startCf = 0.60 + qRandInt(15)/100   // 60-75%: below center
+        const endCf   = startCf - 80/h             // 80px rise = 45° upslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },       // drift to slope position
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° upslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
+        ]}
+      }
+    },
+    {
+      name:'DOWN FP', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const startCf = 0.28 + qRandInt(12)/100   // 28-40%: above center
+        const endCf   = startCf + 80/h             // 80px drop = 45° downslope
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
+          { at:280, cf:endCf,   gapH:22    },        // 45° downslope (80 col)
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
+        ]}
+      }
+    },
+    {
+      name:'MID FP', diff:'fp', speed:255, isFP:true,
+      gen(h) {
+        const up      = qRandInt(2) === 0
+        const startCf = up ? 0.55 + qRandInt(15)/100 : 0.28 + qRandInt(12)/100
+        const endCf   = up ? startCf - 80/h : startCf + 80/h
+        return { clearAt:720, keyframes:[
+          { at:0,   cf:0.50,    gapH:h*.42 },
+          { at:160, cf:0.50,    gapH:h*.42 },
+          { at:198, cf:startCf, gapH:h*.42 },
+          { at:200, cf:startCf, gapH:22    },
+          { at:280, cf:endCf,   gapH:22    },
+          { at:320, cf:endCf,   gapH:h*.42 },
+          { at:720, cf:0.50,    gapH:h*.42 },
+        ]}
+      }
+    },
+    {
+      name:'SUPERSONIC', diff:'fp', speed:3000, weight:0.25,
       gen(h) {
         // Hand-built in the editor. At 3000px/s the level lasts under two
         // seconds and scrolls ~50 columns per frame at 60Hz, so the fine
@@ -298,59 +354,27 @@ const G43_POOL = {
         ]}
       }
     },
-  ],
-
-  fp: [
-    // speed=255 = wave vertical speed → diagonal angle = exactly 45°.
-    // Wall snaps tight (gapH=22) while simultaneously sloping at 1px/column.
-    // Wave R=7 (diam=14), clearance=4px/side ≈ 1-frame timing window.
-    // Player must hold (upslope) or release (downslope) at the exact frame.
     {
-      name:'FRAME PERFECT', diff:'fp', speed:255, isFP:true,
+      name:'SPECIAL HOLD', diff:'fp', speed:1000,
       gen(h) {
-        const startCf = 0.60 + qRandInt(15)/100   // 60-75%: below center
-        const endCf   = startCf - 80/h             // 80px rise = 45° upslope
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },       // drift to slope position
-          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
-          { at:280, cf:endCf,   gapH:22    },        // 45° upslope (80 col)
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
-        ]}
-      }
-    },
-    {
-      name:'DOWN FP', diff:'fp', speed:255, isFP:true,
-      gen(h) {
-        const startCf = 0.28 + qRandInt(12)/100   // 28-40%: above center
-        const endCf   = startCf + 80/h             // 80px drop = 45° downslope
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },
-          { at:200, cf:startCf, gapH:22    },        // SNAP + slope begins
-          { at:280, cf:endCf,   gapH:22    },        // 45° downslope (80 col)
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
-        ]}
-      }
-    },
-    {
-      name:'MID FP', diff:'fp', speed:255, isFP:true,
-      gen(h) {
-        const up      = qRandInt(2) === 0
-        const startCf = up ? 0.55 + qRandInt(15)/100 : 0.28 + qRandInt(12)/100
-        const endCf   = up ? startCf - 80/h : startCf + 80/h
-        return { clearAt:720, keyframes:[
-          { at:0,   cf:0.50,    gapH:h*.42 },
-          { at:160, cf:0.50,    gapH:h*.42 },
-          { at:198, cf:startCf, gapH:h*.42 },
-          { at:200, cf:startCf, gapH:22    },
-          { at:280, cf:endCf,   gapH:22    },
-          { at:320, cf:endCf,   gapH:h*.42 },
-          { at:720, cf:0.50,    gapH:h*.42 },
+        // Hand-built in the editor. Sits alongside SQUEEZE SHIFT.
+        // The pinch is the h*0.0603 gap around col 260 — one held line
+        // through it, which is where the name comes from. The three
+        // keyframes at 533/543/547 are 10 and 4 columns apart, under one
+        // frame at this speed, so that drop reads as an instant snap.
+        return { clearAt:920, keyframes:[
+          {at:0, cf:0.5, gapH:h*0.36},
+          {at:100, cf:0.5348, gapH:h*0.36},
+          {at:160, cf:0.5348, gapH:h*0.2554},
+          {at:260, cf:0.5452, gapH:h*0.0603},   // the hold
+          {at:330, cf:0.5452, gapH:h*0.2},
+          {at:387, cf:0.5557, gapH:h*0.1226},
+          {at:439, cf:0.5845, gapH:h*0.36},
+          {at:485, cf:0.5933, gapH:h*0.2642},
+          {at:533, cf:0.4751, gapH:h*0.36},
+          {at:543, cf:0.4112, gapH:h*0.36},
+          {at:547, cf:0.3412, gapH:h*0.36},
+          {at:920, cf:0.5, gapH:h*0.36},
         ]}
       }
     },
@@ -396,30 +420,6 @@ const G43_POOL = {
           {at:260, cf:cy2,  gapH:52},     // slow drift 100 col (6-13px) while slammed
           {at:330, cf:cy2,  gapH:h*.36},
           {at:920, cf:0.50, gapH:h*.36},
-        ]}
-      }
-    },
-    {
-      name:'SPECIAL HOLD', diff:'extreme', speed:1000,
-      gen(h) {
-        // Hand-built in the editor. Sits alongside SQUEEZE SHIFT.
-        // The pinch is the h*0.0603 gap around col 260 — one held line
-        // through it, which is where the name comes from. The three
-        // keyframes at 533/543/547 are 10 and 4 columns apart, under one
-        // frame at this speed, so that drop reads as an instant snap.
-        return { clearAt:920, keyframes:[
-          {at:0, cf:0.5, gapH:h*0.36},
-          {at:100, cf:0.5348, gapH:h*0.36},
-          {at:160, cf:0.5348, gapH:h*0.2554},
-          {at:260, cf:0.5452, gapH:h*0.0603},   // the hold
-          {at:330, cf:0.5452, gapH:h*0.2},
-          {at:387, cf:0.5557, gapH:h*0.1226},
-          {at:439, cf:0.5845, gapH:h*0.36},
-          {at:485, cf:0.5933, gapH:h*0.2642},
-          {at:533, cf:0.4751, gapH:h*0.36},
-          {at:543, cf:0.4112, gapH:h*0.36},
-          {at:547, cf:0.3412, gapH:h*0.36},
-          {at:920, cf:0.5, gapH:h*0.36},
         ]}
       }
     },
