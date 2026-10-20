@@ -295,58 +295,107 @@ const DECO_THEMES = {
   // below, so the line reads as one horizon the two ships share. Rungs
   // stream toward the horizon and the rays slide with the scroll, so the
   // speed of the run is easy to feel. Whole-frame, so it uses `paint`.
-  // Wave Gauntlet — the wave seen from outside. Traces scroll past like an
-  // oscilloscope, slower ones further back, and the whole stack breathes with
-  // what you are doing: holding lifts the amplitude, and every press sends a
-  // ripple out from the wave's own x. A standing-wave grid sits behind it so
-  // the traces have something to be measured against.
-  wave: { par: 0.45, paint(ctx, w, h, s, t, pal, opts) {
+  // Wave Gauntlet — the lab the wave is being measured in. Four kinds of
+  // apparatus scroll past: wave packets in their envelopes, phase dials with
+  // a hand going round, a bank of oscillator bars, and the odd big lone sine
+  // that fills and empties.
+  //
+  // That last one is the point, the way the lone flipping bit is the point of
+  // the Spin Flip backdrop: it rises while you hold and falls when you let
+  // go, doing the thing you are doing. The first version here was three
+  // abstract sine traces across the whole screen and it read as wallpaper —
+  // scenery wants objects in it, not lines.
+  wave: { gap: 165, par: 0.5, draw(ctx, i, x, h, t, pal, opts) {
+    const r = k => _decoHash(i, k)
     const hold  = !!(opts && opts.hold)
     const pulse = Math.max(0, Math.min(1, (opts && opts.pulse) || 0))
-    const waveX = (opts && opts.waveX) || w * 0.22
-    const lt = typeof qgLight === 'function' && qgLight()
-    const base = lt ? 0.05 : 0.07
+    const lift  = (hold ? 1 : 0)
+    const col   = r(1) < 0.65 ? pal[1] : pal[2]
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    const up   = r(0) < 0.5
+    const kind = r(2)
 
-    // Graticule: faint horizontals, a brighter centre line
-    ctx.lineWidth = 1
-    ctx.strokeStyle = pal[1]
-    for (let k = 1; k < 6; k++) {
-      ctx.globalAlpha = (k === 3 ? 0.16 : 0.06) + pulse * 0.05
-      const y = h * k / 6
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
-    }
-
-    // Three traces at different depths. Holding raises them; a press makes
-    // them briefly busier. Amplitude is capped so this never fills the screen.
-    const amp0 = h * 0.055
-    for (let L = 0; L < 3; L++) {
-      const depth = 1 - L * 0.28
-      const k     = 0.012 + L * 0.004               // waves per pixel
-      const amp   = amp0 * depth * (1 + (hold ? 0.45 : 0) + pulse * 0.5)
-      const yMid  = h * (0.5 + (L - 1) * 0.16)
-      const phase = -s * (0.6 + L * 0.35) * 0.02 + t * (0.8 + L * 0.3)
-      ctx.strokeStyle = L === 1 ? pal[2] : pal[1]
-      ctx.globalAlpha = (base + 0.05 * depth) * (1 + pulse * 0.8)
-      ctx.lineWidth = L === 1 ? 1.6 : 1
+    if (kind < 0.3) {
+      // Wave packet: a short burst under a bell, boxed like a readout
+      const wd = h * (0.10 + r(3) * 0.05), ht = h * 0.05 * (1 + lift * 0.35 + pulse * 0.4)
+      const cy = h * (up ? 0.14 + r(4) * 0.22 : 0.64 + r(4) * 0.22)
+      ctx.globalAlpha = 0.12 + pulse * 0.1
+      ctx.strokeRect(x - wd / 2, cy - h * 0.055, wd, h * 0.11)
+      ctx.globalAlpha = 0.3 + pulse * 0.3
       ctx.beginPath()
-      for (let x = 0; x <= w; x += 6) {
-        const y = yMid + Math.sin(x * k + phase) * amp
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+      for (let k2 = 0; k2 <= 28; k2++) {
+        const f = k2 / 28, px = x - wd / 2 + f * wd
+        const env = Math.exp(-Math.pow((f - 0.5) * 3.4, 2))
+        const py = cy + Math.sin(f * 22 + t * (2 + r(5) * 2)) * ht * env
+        k2 === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
       }
       ctx.stroke()
-    }
 
-    // The press itself: a ring leaving the wave, which is the one thing here
-    // tied to a moment rather than to a state.
-    if (pulse > 0.01) {
-      const r = (1 - pulse) * w * 0.5
-      ctx.strokeStyle = pal[2]
-      ctx.globalAlpha = pulse * 0.22
+    } else if (kind < 0.55) {
+      // Phase dial: a hand going round, ticks on the rim
+      const rad = h * (0.028 + r(3) * 0.016)
+      const cy  = h * (up ? 0.16 + r(4) * 0.2 : 0.66 + r(4) * 0.2)
+      ctx.globalAlpha = 0.16 + pulse * 0.12
+      ctx.beginPath(); ctx.arc(x, cy, rad, 0, Math.PI * 2); ctx.stroke()
+      for (let k2 = 0; k2 < 8; k2++) {
+        const a = k2 / 8 * Math.PI * 2
+        ctx.beginPath()
+        ctx.moveTo(x + Math.cos(a) * rad * 0.82, cy + Math.sin(a) * rad * 0.82)
+        ctx.lineTo(x + Math.cos(a) * rad, cy + Math.sin(a) * rad)
+        ctx.stroke()
+      }
+      const ang = t * (0.7 + r(5) * 1.1) + r(6) * 6.28
+      ctx.globalAlpha = 0.34 + pulse * 0.3
+      ctx.beginPath(); ctx.moveTo(x, cy)
+      ctx.lineTo(x + Math.cos(ang) * rad * 0.8, cy + Math.sin(ang) * rad * 0.8)
+      ctx.stroke()
+
+    } else if (kind < 0.82) {
+      // Oscillator bank: bars off the wall, taller while you hold
+      const n = 5 + Math.floor(r(3) * 4)
+      const bw = Math.max(2, h * 0.012), gap2 = Math.max(2, h * 0.008)
+      const x0 = x - (n * bw + (n - 1) * gap2) / 2
+      for (let j = 0; j < n; j++) {
+        const ph = _decoHash(i * 17 + j, 9) * 6.28
+        const amp = 0.5 + 0.5 * Math.sin(t * (1.4 + _decoHash(i * 17 + j, 10)) + ph)
+        const len = h * (0.03 + amp * 0.07) * (1 + lift * 0.5 + pulse * 0.5)
+        ctx.globalAlpha = 0.14 + amp * 0.14 + pulse * 0.16
+        const bx = x0 + j * (bw + gap2)
+        up ? ctx.fillRect(bx, 0, bw, len) : ctx.fillRect(bx, h - len, bw, len)
+      }
+
+    } else {
+      // The big one: a single sine whose amplitude follows your hold, the way
+      // the lone bit follows a flip
+      const cy = h * (0.3 + r(3) * 0.4), wd = h * 0.42
+      const amp = h * (0.03 + 0.05 * (0.5 + 0.5 * Math.sin(t * 0.9 + i))) * (1 + lift * 0.9 + pulse * 0.6)
+      ctx.globalAlpha = 0.1 + lift * 0.06 + pulse * 0.14
       ctx.lineWidth = 2
-      ctx.beginPath(); ctx.ellipse(waveX, h / 2, r, r * 0.55, 0, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath()
+      for (let k2 = 0; k2 <= 40; k2++) {
+        const f = k2 / 40, px = x - wd / 2 + f * wd
+        const py = cy + Math.sin(f * 9 + t * 1.6) * amp
+        k2 === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+      }
+      ctx.stroke()
+      ctx.lineWidth = 1
     }
     ctx.globalAlpha = 1
-  } },
+  },
+  // The press itself, drawn once over the lot: a ring leaving the wave. The
+  // one thing here tied to a moment rather than to a state.
+  over(ctx, w, h, s, t, pal, opts) {
+    const pulse = Math.max(0, Math.min(1, (opts && opts.pulse) || 0))
+    if (pulse <= 0.01) return
+    const waveX = (opts && opts.waveX) || w * 0.22
+    ctx.strokeStyle = pal[2]
+    ctx.globalAlpha = pulse * 0.22
+    ctx.lineWidth = 2
+    ctx.beginPath(); ctx.ellipse(waveX, h / 2, (1 - pulse) * w * 0.5, (1 - pulse) * w * 0.28, 0, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }},
 
   entangled: { par: 1, paint(ctx, w, h, s, t, pal, opts) {
     const mid  = opts.mid ?? h / 2
@@ -405,6 +454,11 @@ function drawDecoTheme(ctx, theme, w, h, scroll, originX, opts) {
     th.draw(ctx, i, originX + i * th.gap - s, h, time, pal, opts)
     ctx.restore()
   }
+  // A slot theme can also have one whole-frame pass on top, for the things
+  // that belong to the moment rather than to a position — the ring a press
+  // sends out, say. `paint` cannot be used for that: a theme with one is
+  // treated as whole-frame only and never gets its slots drawn at all.
+  if (th.over) { ctx.save(); th.over(ctx, w, h, s, time, pal, opts); ctx.restore() }
   ctx.restore()
 }
 
