@@ -1,4 +1,24 @@
+/* ── Cyber type ── */
+/* Self-hosted (latin subset) so a stand on bad wifi still gets them.
+   Orbitron for headings, Exo 2 for reading text, Share Tech Mono for
+   readouts. Anything outside latin falls through to the system stack. */
+@font-face {
+  font-family: 'Orbitron'; font-style: normal; font-weight: 500 900;
+  font-display: swap; src: url(../fonts/orbitron.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Exo 2'; font-style: normal; font-weight: 400 800;
+  font-display: swap; src: url(../fonts/exo2.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Share Tech Mono'; font-style: normal; font-weight: 400;
+  font-display: swap; src: url(../fonts/share-tech-mono.woff2) format('woff2');
+}
+
 :root {
+  --font-display: 'Orbitron', 'Exo 2', system-ui, sans-serif;
+  --font-body:    'Exo 2', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --bg: #0a0a14;
   --surface: #10101e;
   --card: #16162a;
@@ -24,10 +44,19 @@ body {
     var(--bg);
   background-attachment: fixed;
   color: var(--text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   min-height: 100vh;
   overflow-x: hidden;
 }
+
+/* Headings, titles and big numbers get the wide display face */
+h1, h2, h3,
+.card-title, .game-title, .final-score {
+  font-family: var(--font-display);
+  letter-spacing: .02em;
+}
+/* Readouts and code */
+code, kbd, pre, samp { font-family: var(--font-mono); }
 
 /* ── Particle canvas background ── */
 #bg-canvas {
@@ -84,7 +113,7 @@ body:has(#home.active)::after {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: none;
-  letter-spacing: -1px;
+  letter-spacing: .04em;
 }
 .home-header p {
   color: var(--muted); margin-top: .5rem; font-size: 1rem;
@@ -853,6 +882,8 @@ body:has(#home.active)::after {
   }
   .game-card:active .card-icon { transform: scale(.9); }
   .game-card .card-title {
+    /* Orbitron is too wide for two lines under a phone icon tile */
+    font-family: var(--font-body);
     font-size: .7rem; font-weight: 600; line-height: 1.2; margin: 0;
     max-width: 100%; padding: 0 2px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -899,7 +930,7 @@ body:has(#home.active)::after {
   width: 64px; height: 48px;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid #374151; border-radius: 8px;
-  font-size: .85rem; font-weight: 700; font-family: monospace;
+  font-size: .85rem; font-weight: 700; font-family: var(--font-mono);
   background: rgba(255,255,255,.03);
   cursor: default; transition: border-color .1s, background .1s;
   user-select: none;
@@ -1101,7 +1132,7 @@ body:has(#home.active)::after {
 .ed-modal-line { font-size: .8rem; color: var(--muted); margin: .2rem 0; line-height: 1.5; }
 .ed-modal-note { font-size: .84rem; margin: .7rem 0 .5rem; line-height: 1.55; }
 .ed-modal-json {
-  width: 100%; height: 170px; resize: vertical; font-family: monospace; font-size: .7rem;
+  width: 100%; height: 170px; resize: vertical; font-family: var(--font-mono); font-size: .7rem;
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: .5rem;
 }
