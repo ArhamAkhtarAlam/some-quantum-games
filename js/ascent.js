@@ -6,7 +6,12 @@
 //    W / S   — mirrored: W thrusts each ship against its gravity, S with it
 //    ↑ / ↓   — aligned: both move the same way, shifting how they line up
 //    SPACE   — break the link: W/S moves only you, ↑/↓ moves only the twin
-//  The ships have momentum: keys are thrust, so they fly in curved arcs.
+//  Two movement models, and the input picks which (see gaUpdate):
+//    W/S while linked    thrust — weight, momentum, curved arcs
+//    the arrows, or ANY key once split — direct, constant speed, stops dead
+//  The arrows and a split were the two confusing cases: an arrow is you
+//  saying where to be rather than which way to push, and steering the halves
+//  separately is enough to think about without two drifts on top.
 //  Gravity: you (blue) are pulled up, the twin (pink) is pulled down, and
 //  each keeps its own pull after a swap.
 //  While linked, pushing the two together at the middle line swaps them:
@@ -707,6 +712,52 @@ function gaTrailCard() {
   // The horizon the two halves mirror about
   g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1
   g.beginPath(); g.moveTo(0, top + AL_HALF); g.lineTo(W, top + AL_HALF); g.stroke()
+
+  // What you flew through. Drawn from the level's own object list rather than
+  // GA.cols and friends, because those are culled once they are behind the
+  // camera — by the end of a run they hold the last screenful and nothing
+  // else, so the picture came out as two curves in an empty field.
+  //
+  // Everything is scaled on x only, the card being the level's full length at
+  // the world's own height, so a saw becomes a slightly squashed ellipse
+  // rather than a circle. Better that than a circle in the wrong place.
+  const objs = (GA.level && GA.level.objects) || []
+  const rect = (x, y, w2, h2, fill) => {
+    if (w2 <= 0 || h2 <= 0) return
+    g.fillStyle = fill
+    g.fillRect(x * sx, top + y, Math.max(1, w2 * sx), h2)
+  }
+  const SPIKE = 'rgba(248,113,113,0.55)'
+  for (const o of objs) {
+    if (o.t === 'col') {
+      const w2 = o.w || AL_COL_W, x = o.x - w2 / 2
+      const [[ta, tb], [ba, bb]] = [o.top, o.bot]
+      const fill = alIsDesync(o) ? 'rgba(252,165,165,0.5)' : SPIKE
+      rect(x, 0, w2, ta, fill)
+      rect(x, tb, w2, AL_HALF - tb, fill)
+      rect(x, AL_HALF, w2, ba - AL_HALF, fill)
+      rect(x, bb, w2, AL_H - bb, fill)
+    } else if (o.t === 'block') {
+      rect(o.x - AL_BLOCK / 2, o.y - AL_BLOCK / 2, AL_BLOCK, AL_BLOCK, 'rgba(251,146,60,0.55)')
+    } else if (o.t === 'strip') {
+      const [rx, ry, rw, rh] = alStripRect(o)
+      rect(rx, ry, rw, rh, SPIKE)
+    } else if (o.t === 'saw') {
+      const r = o.r || AL_SAW_R
+      g.fillStyle = 'rgba(239,68,68,0.5)'
+      g.strokeStyle = 'rgba(239,68,68,0.85)'; g.lineWidth = 1.5
+      g.beginPath(); g.ellipse(o.x * sx, top + o.y, Math.max(1.5, r * sx), r, 0, 0, Math.PI * 2)
+      g.fill(); g.stroke()
+    } else if (o.t === 'portal') {
+      g.strokeStyle = o.kind === 'slow' ? 'rgba(34,211,238,0.8)'
+                    : o.kind === 'fast' ? 'rgba(249,115,22,0.8)' : 'rgba(167,139,250,0.8)'
+      g.lineWidth = 2
+      g.beginPath(); g.ellipse(o.x * sx, top + o.y, 4, 11, 0, 0, Math.PI * 2); g.stroke()
+    } else if (o.t === 'orb') {
+      g.fillStyle = o.kind === 'gold' ? 'rgba(253,224,71,0.85)' : 'rgba(74,222,128,0.85)'
+      g.beginPath(); g.arc(o.x * sx, top + o.y, 3.5, 0, Math.PI * 2); g.fill()
+    }
+  }
 
   const path = (key, col) => {
     g.strokeStyle = col; g.lineWidth = 2; g.shadowColor = col; g.shadowBlur = 8

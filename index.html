@@ -1349,7 +1349,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/sfx.js?v=2"></script>
-<script src="js/core.js?v=53"></script>
+<script src="js/core.js?v=54"></script>
 <script src="js/touchpad.js?v=7"></script>
 <script src="js/auth.js"></script>
 <script src="js/game1.js?v=2"></script>
@@ -1980,9 +1980,11 @@
       <h3>🔗 Entangled Gauntlet</h3>
       <p class="ga-howto">
         You (blue, top) and your twin (pink, bottom) fly forward — <b>touch a spike and it's over</b>.
-        <b>W</b> thrusts both ships against their gravity (<b>S</b> the other way), <b>↑/↓</b> moves you both the same way.
+        <b>W</b> thrusts both ships against their gravity (<b>S</b> the other way) — those have weight and drift.
+        <b>↑/↓</b> just moves you both, at a steady speed, and stops the moment you let go.
         Blue falls up, pink falls down. Whenever the two meet at the middle line they <b>swap sides</b>, each keeping its own gravity.
-        <b style="color:#fca5a5">Red DESYNC</b> columns need re-aligning, or <b>SPACE</b> to break the link.
+        <b style="color:#fca5a5">Red DESYNC</b> columns need re-aligning, or <b>SPACE</b> to break the link —
+        and while you are split, <b>every</b> key moves directly rather than thrusting, so there is no drift to predict.
         Speed portals (<span style="color:#f97316">fast</span> · <span style="color:#22d3ee">slow</span> ·
         <span style="color:#a78bfa">normal</span>) only count if you fly through them.
       </p>
@@ -2032,7 +2034,7 @@
 <script src="js/ascent-builtin.js?v=5"></script>
 <script src="js/ascent-levels.js?v=13"></script>
 <script src="js/ascent-bot.js?v=8"></script>
-<script src="js/ascent.js?v=36"></script>
+<script src="js/ascent.js?v=38"></script>
 
 
 

@@ -208,6 +208,7 @@ const STALL_HOWTO = {
   48: { keys: 'Drag \u00B7 or W and S',
         steps: ['Two ships fall apart from each other; thrust pushes them together',
                 'Drag in either half to steer the ship there, or hold W to thrust',
+                'The arrows skip the thrust and just move them, either way',
                 'One spike ends the run \u2014 clear as many levels as you can'] },
   40: { keys: 'Tap / click / any key',
         steps: ['Each tap fires the thruster, let go and you fall',
