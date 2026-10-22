@@ -1338,17 +1338,31 @@ const ED_LINE_BUDGET_MS = 1200
 // Solving is 0.5-2s a style, and _edDraw runs on every mouse move, so the
 // paths are cached against the level's shape and only rebuilt when that
 // changes — and never mid-drag, which would make dragging a keyframe crawl.
+// The ghost, read at most once per change rather than once per frame.
+//
+// _edLineSig is called from _edDrawBotLines, which runs on every _edDraw,
+// which runs on every mouse move — and it was calling qgGhost.get(), which is
+// a localStorage read AND a JSON.parse of a few KB. Parsing a stored run
+// several hundred times a second is enough to make dragging stutter. The raw
+// string is cheap to fetch and compare; only a different one is parsed.
+let _edGhostRaw = null, _edGhostRec = null, _edGhostKey = null
+function _edGhost(lv) {
+  if (typeof qgGhost === 'undefined') return null
+  const key = lv.game + '/' + lv.name
+  let raw = null
+  try { raw = localStorage.getItem(qgGhost.key(lv.game, lv.name)) } catch (e) { return null }
+  if (key === _edGhostKey && raw === _edGhostRaw) return _edGhostRec
+  _edGhostKey = key; _edGhostRaw = raw
+  try { _edGhostRec = raw ? JSON.parse(raw) : null } catch (e) { _edGhostRec = null }
+  return _edGhostRec
+}
+
 function _edLineSig(lv, h) {
   // The ghost's timestamp is in here so that test-playing the level and
   // beating your best shows up when you come back to the editor, instead of
   // the overlay sitting on the run you had before.
   let g = 0
-  try {
-    if (typeof qgGhost !== 'undefined') {
-      const rec = qgGhost.get(lv.game, lv.name)
-      g = rec ? (rec.at || 0) : 0
-    }
-  } catch (e) {}
+  try { const rec = _edGhost(lv); g = rec ? (rec.at || 0) : 0 } catch (e) {}
   return [lv.game, lv.speed, lv.clearAt, Math.round(h), g,
           (lv.keyframes || []).map(k => [k.at, k.cf, k.gapHf].join()).join(';'),
           (lv.obstacles || []).map(o => [o.col, o.floor].join()).join(';'),
@@ -1361,9 +1375,7 @@ function _edBuildLines(lv, h) {
   // Your own best run on this level, if you have test-played it. Recorded by
   // the game, stored as fractions of the screen height so it draws at any
   // size — see qgGhost in game43.js.
-  try {
-    if (typeof qgGhost !== 'undefined') out.ghost = qgGhost.get(lv.game, lv.name)
-  } catch (e) { out.ghost = null }
+  try { out.ghost = _edGhost(lv) } catch (e) { out.ghost = null }
   if (lv.game === 'spider') {
     // No path to draw — the spider is on the floor or the ceiling and nothing
     // between. What matters is the span of columns each flip can happen in.
