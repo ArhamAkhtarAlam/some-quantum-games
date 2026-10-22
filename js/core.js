@@ -169,7 +169,16 @@ window.qgLeaveBeta = function() {
 
 const QG_ROOT = (() => {
   const p = (typeof location !== 'undefined' && location.pathname) || '/'
-  return p.endsWith('/') ? p : p.slice(0, p.lastIndexOf('/') + 1)
+  // The directory the page lives in, as before: everything up to the last /.
+  const dir = p.endsWith('/') ? p : p.slice(0, p.lastIndexOf('/') + 1)
+  // Then, if that "directory" is itself a file, drop it. The site used to
+  // build /games/index.html/spider for itself (see getBasePath), and the
+  // directory of that is /games/index.html/ — under which every asset 404s.
+  // Quietly, too: the quantum pool fails to load and everything falls back
+  // to Math.random.
+  const segs = dir.split('/').filter(Boolean)
+  if (segs.length && segs[segs.length - 1].includes('.')) segs.pop()
+  return segs.length ? '/' + segs.join('/') + '/' : '/'
 })()
 
 function _quantumSrc() { return QG_ROOT + 'data/quantum.bin' }
@@ -597,13 +606,23 @@ const GAME_SLUGS = {
 const SLUG_BY_ID = Object.fromEntries(Object.entries(GAME_SLUGS).map(([k,v]) => [v, k]))
 
 function getBasePath() {
-  // Works on both Netlify (/) and GitHub Pages (/some-quantum-games/)
+  // Works on both Netlify (/) and GitHub Pages (/some-quantum-games/), and on
+  // a URL that names the file outright: /games/index.html.
+  //
+  // That last one used to break the whole page. Only a known game slug was
+  // stripped, so getBasePath('/games/index.html') returned the lot, and
+  // pushGameUrl then wrote /games/index.html/wavegauntlet — treating the file
+  // as a directory. Every relative link on the page resolved against it from
+  // then on, which is where /games/index.html/editor.html came from. It only
+  // showed up after opening a game, because that is what rewrites the URL.
+  //
+  // So: drop a trailing slug, then drop a trailing filename. Doing both in
+  // that order also repairs a URL that is already in the broken shape.
   const segs = window.location.pathname.split('/').filter(Boolean)
   const knownSlugs = new Set(Object.keys(GAME_SLUGS))
-  if (segs.length && knownSlugs.has(segs[segs.length - 1])) {
-    return '/' + segs.slice(0, -1).join('/')
-  }
-  return window.location.pathname.replace(/\/$/, '')
+  if (segs.length && knownSlugs.has(segs[segs.length - 1])) segs.pop()
+  if (segs.length && segs[segs.length - 1].includes('.')) segs.pop()
+  return segs.length ? '/' + segs.join('/') : ''
 }
 
 function pushGameUrl(n) {
