@@ -51,7 +51,7 @@ const G40 = {
   clearAt:  0,
   announceT: 0,
   clearedT: 0,
-  // Same-device 2P: P1 on Space, P2 on the up arrow, one shared level
+  // Same-device 2P: P1 on any key, P2 on the mouse, one shared level
   multi:    false,
   p2y:      0,
   p2vy:     0,
@@ -537,15 +537,7 @@ window.stopGame40 = function() {
 
 function _g40Key(e) {
   // preventDefault before the auto-repeat check — see the note in game43
-  // Two players share one keyboard, so 2P keeps Space and ArrowUp apart.
-  if (G40.multi) {
-    const ours = e.code === 'Space' || e.key === 'ArrowUp'
-    if (ours) e.preventDefault()
-    if (e.repeat) return
-    if (e.code === 'Space') _g40DoThrust()
-    else if (e.key === 'ArrowUp') _g40DoThrust2()
-    return
-  }
+  // In 2P the whole keyboard is P1's; P2 has the mouse (see _g40Thrust).
   const ok = (typeof qgTapKey === 'function')
     ? qgTapKey(e) : (e.code === 'Space' || e.key === 'ArrowUp')
   if (!ok) return
@@ -558,7 +550,11 @@ function _g40DoThrust2() {
   G40.p2vy = G40_THRUST * (G40.gauntlet ? _g40C().height / 560 : 1)
   SFX.tap()
 }
-function _g40Thrust(e) { e.preventDefault(); _g40DoThrust() }
+function _g40Thrust(e) {
+  e.preventDefault()
+  if (G40.multi && e.type === 'click') _g40DoThrust2()
+  else _g40DoThrust()
+}
 function _g40DoThrust() {
   if (G40.phase !== 'playing' || G40.p1dead) return
   G40.taps = (G40.taps || 0) + 1
