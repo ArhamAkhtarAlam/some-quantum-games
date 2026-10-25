@@ -846,8 +846,20 @@ function _g43Hold() {
   G43.holding = true
 }
 
-function _g43On(e)    { e.preventDefault(); _g43Hold() }
-function _g43Off(e)   { if (e.cancelable) e.preventDefault(); G43.holding = false }
+// Same-device 2P splits keyboard and mouse: P1 on any key, P2 on the mouse.
+// Online the other player is on their own device, so the mouse stays yours.
+function _g43MouseP2(e) { return G43.multi && !G43_roomCode && e.type.startsWith('mouse') }
+function _g43On(e) {
+  e.preventDefault()
+  if (!_g43MouseP2(e)) { _g43Hold(); return }
+  if (!G43.p2holding) SFX.tap()
+  G43.p2holding = true
+}
+function _g43Off(e) {
+  if (_g43MouseP2(e)) { G43.p2holding = false; return }
+  if (e.cancelable) e.preventDefault()
+  G43.holding = false
+}
 // Which bot line to fly. The editor sets botStyle; the in-game evilbot cheat
 // only knows how to set `evil`, so that still counts as asking for 'evil'.
 function _g43BotStyle() {
@@ -860,16 +872,8 @@ function _g43KeyDn(e) {
   // Suppress the browser default first, and only then ignore auto-repeat.
   // The other order meant a held key never called preventDefault, so a
   // focused button stayed armed and Chrome clicked it on the keyup.
-  // Two people share one keyboard in 2P, so it keeps Space and ArrowUp
-  // apart. On your own, any key climbs — see qgTapKey in core.js.
-  if (G43.multi) {
-    const ours = e.code === 'Space' || e.key === 'ArrowUp'
-    if (ours) e.preventDefault()
-    if (e.repeat) return        // key auto-repeat is not a new press
-    if (e.code === 'Space') _g43Hold()
-    else if (e.key === 'ArrowUp') G43.p2holding = true
-    return
-  }
+  // Any key climbs — see qgTapKey in core.js. In same-device 2P the
+  // keyboard is all P1's; P2 has the mouse (see _g43On).
   const ok = (typeof qgTapKey === 'function')
     ? qgTapKey(e) : (e.code === 'Space' || e.key === 'ArrowUp')
   if (!ok) return
@@ -884,12 +888,6 @@ function _g43KeyDn(e) {
 const _g43Held = new Set()
 
 function _g43KeyUp(e) {
-  if (G43.multi) {
-    if (e.code === 'Space' || e.key === 'ArrowUp') e.preventDefault()
-    if (e.code === 'Space') G43.holding = false
-    else if (e.key === 'ArrowUp') G43.p2holding = false
-    return
-  }
   if (typeof qgTapPrevent === 'function') qgTapPrevent(e)
   _g43Held.delete(e.code)
   if (!_g43Held.size) G43.holding = false
@@ -2129,11 +2127,11 @@ function _g43Draw(ctx, w, h) {
     ctx.fillText(ch.name, w/2, h/2 - 12); ctx.shadowBlur = 0
     ctx.font = '12px monospace'; ctx.fillStyle = 'rgba(255,255,255,0.36)'
     if (G43.multi && G43_roomCode) {
-      ctx.fillStyle = mainCol; ctx.fillText('SPACE / click to fly up', w/2, h/2 + 16)
+      ctx.fillStyle = mainCol; ctx.fillText('any key / click to fly up', w/2, h/2 + 16)
       ctx.fillStyle = '#38bdf8'; ctx.fillText('Opponent online', w/2, h/2 + 34)
     } else if (G43.multi) {
-      ctx.fillStyle = mainCol; ctx.fillText('P1: SPACE / click', w/2, h/2 + 16)
-      ctx.fillStyle = '#38bdf8'; ctx.fillText('P2: ↑ arrow key',  w/2, h/2 + 34)
+      ctx.fillStyle = mainCol; ctx.fillText('P1: hold any key', w/2, h/2 + 16)
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('P2: hold mouse button', w/2, h/2 + 34)
     } else {
       ctx.fillText('hold any key / click to fly up', w/2, h/2 + 18)
     }
