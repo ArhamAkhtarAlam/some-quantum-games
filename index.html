@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum Games — Powered by real qubits</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="css/style.css?v=23" />
+  <link rel="stylesheet" href="css/style.css?v=24" />
 </head>
 <body>
 
@@ -24,6 +24,16 @@
 <section id="home" class="screen active">
   <!-- Auth button — only on home screen -->
   <div id="auth-header-wrap" class="auth-header-wrap"></div>
+
+  <!-- Ad slot. Deliberately inside #home, so it exists only on the menu and
+       can never overlap a game or affect a canvas's size. Hidden for good
+       once dismissed, and never built at all on the stall. Paste the ad
+       network's snippet inside #qg-ad-slot; until then this renders nothing. -->
+  <div id="qg-ad" hidden>
+    <span class="qg-ad-tag">Ad</span>
+    <div id="qg-ad-slot"></div>
+    <button id="qg-ad-x" type="button" aria-label="Hide this ad">✕</button>
+  </div>
 
   <div class="home-header">
     <h1>Quantum Games</h1>
@@ -1349,7 +1359,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="js/sfx.js?v=2"></script>
-<script src="js/core.js?v=55"></script>
+<script src="js/core.js?v=56"></script>
 <script src="js/touchpad.js?v=7"></script>
 <script src="js/auth.js"></script>
 <script src="js/game1.js?v=2"></script>

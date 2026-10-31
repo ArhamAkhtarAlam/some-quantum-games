@@ -1786,6 +1786,54 @@ function _qgModalOpen() {
   return !!document.querySelector('.game-over-overlay.show')
 }
 
+// ── Ad slot ─────────────────────────────────────────────
+//  A small banner on the menu, which pays for the domain and splits a few
+//  pounds between whoever is working on this.
+//
+//  Three rules it has to keep, because an ad on your own game is only
+//  tolerable if it behaves:
+//
+//    Easy to be rid of. One click hides it, and it stays hidden — no
+//    re-showing after a week, no second ask. That is the whole deal.
+//    Nowhere near a game. It lives inside #home, so it cannot overlap a
+//    canvas or change the size one is measured against. No game screen has
+//    ever heard of it.
+//    Not on the stall. A stand is a stand.
+//
+//  #qg-ad-slot is deliberately empty: until a network's snippet is pasted in
+//  there, this renders nothing at all and costs nothing to anyone.
+const QG_AD_KEY = 'qg_ad_hidden'
+
+function qgAdInit() {
+  const el = document.getElementById('qg-ad')
+  if (!el) return
+  if (QG_STALL) return                       // never on the stand
+  let hidden = false
+  try { hidden = localStorage.getItem(QG_AD_KEY) === '1' } catch {}
+  if (hidden) return
+  // Nothing to show yet? Then show nothing — an empty bordered box is worse
+  // than no box. The slot is filled by whatever snippet lives in the markup.
+  const slot = document.getElementById('qg-ad-slot')
+  if (!slot || !slot.children.length) return
+  el.hidden = false
+  const x = document.getElementById('qg-ad-x')
+  if (x) x.addEventListener('click', () => {
+    el.hidden = true
+    try { localStorage.setItem(QG_AD_KEY, '1') } catch {}
+  })
+}
+
+// Lets you get it back without clearing site data
+window.qgAdReset = function() {
+  try { localStorage.removeItem(QG_AD_KEY) } catch {}
+  qgAdInit()
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', qgAdInit)
+  else qgAdInit()
+}
+
 // ── Run pictures ────────────────────────────────────────
 //  Clearing a practice level draws the whole run as one picture. It is the
 //  nicest thing in the game and also an interruption — it pauses the run and
