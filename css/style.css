@@ -1343,6 +1343,13 @@ body:has(#home.active)::after {
 }
 #qg-lb-btn:hover { transform: translateY(-2px) scale(1.06); }
 #qg-lb-btn[aria-expanded="true"] { border-color: var(--accent); }
+/* Docked open on the menu, the floating trophy is a button offering to
+   show what is already on screen, so it steps aside. It comes straight
+   back when the X collapses the panel. Scoped to an active #home: over a
+   game the panel floats and the trophy is the only way to reach it. */
+body:has(#home.active #qg-lb-panel.qg-lb-docked:not([hidden])) #qg-lb-btn {
+  display: none;
+}
 #qg-lb-panel {
   position: fixed; left: 14px; bottom: 66px; z-index: 90;
   width: min(380px, calc(100vw - 28px)); max-height: min(70vh, 560px);

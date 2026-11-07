@@ -954,6 +954,7 @@ window.goHome = function() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
   document.getElementById('home').classList.add('active')
   qgReleaseCanvases('home')
+  if (typeof qgLbAutoShow === 'function') qgLbAutoShow()
   pushHomeUrl()
 }
 
@@ -1572,7 +1573,10 @@ function qgLbStatus(msg, ok) {
 }
 
 
-function qgLbPanelShow() {
+// scroll: false for the automatic open on the home screen. Scrolling the
+// page down to a panel the reader never asked for would move the ground
+// under them on load; a deliberate click still scrolls.
+function qgLbPanelShow({ scroll = true } = {}) {
   const panel = document.getElementById('qg-lb-panel')
   const select = document.getElementById('qg-lb-game')
   const games = lbAvailableGames()
@@ -1603,18 +1607,46 @@ function qgLbPanelShow() {
   qgLbStatus('')
   document.getElementById('qg-lb-btn').setAttribute('aria-expanded', 'true')
   qgLbPanelRefresh()
-  if (onHome) panel.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  if (onHome && scroll) panel.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 
-function qgLbPanelHide() {
+// remember: true only when the reader closed it on purpose, with the X or
+// the trophy. Escape is "give me the keyboard back", not "never again".
+function qgLbPanelHide({ remember = false } = {}) {
   const panel = document.getElementById('qg-lb-panel')
   if (!panel) return
   panel.hidden = true
+  if (remember) qgLbSetDismissed(true)
   document.getElementById('qg-lb-btn').setAttribute('aria-expanded', 'false')
   // Give the keyboard back to the game — a focused button or select
   // would otherwise swallow Space and the arrow keys
   if (panel.contains(document.activeElement) || document.activeElement?.id === 'qg-lb-btn') document.activeElement.blur()
 }
+
+// The home screen shows the board without being asked for it. Closing it
+// sticks, so "always visible" never means "cannot be got rid of" — the X
+// collapses it back to the trophy, and the trophy brings it straight back.
+const QG_LB_KEY = 'qg_lb_closed'
+function qgLbDismissed() {
+  try { return localStorage.getItem(QG_LB_KEY) === '1' } catch { return false }
+}
+function qgLbSetDismissed(v) {
+  try { v ? localStorage.setItem(QG_LB_KEY, '1') : localStorage.removeItem(QG_LB_KEY) } catch {}
+}
+
+// Open the docked board on the home screen. Runs on load and again from
+// goHome, so the board is there every time the menu is, not just the first.
+function qgLbAutoShow() {
+  if (QG_STALL || qgLbDismissed()) return          // the stand is unchanged
+  const panel = document.getElementById('qg-lb-panel')
+  const home  = document.getElementById('home')
+  if (!panel || !home || !home.classList.contains('active')) return
+  // Coming back from a game it is still docked and still filled in, and
+  // showing it again would only re-fetch the board already on screen.
+  if (!panel.hidden && panel.parentNode === document.getElementById('qg-lb-slot')) return
+  qgLbPanelShow({ scroll: false })
+}
+window.qgLbAutoShow = qgLbAutoShow
 
 function qgBuildLbPanel() {
   if (document.getElementById('qg-lb-btn')) return
@@ -1627,7 +1659,8 @@ function qgBuildLbPanel() {
   btn.setAttribute('aria-controls', 'qg-lb-panel')
   btn.setAttribute('aria-expanded', 'false')
   btn.addEventListener('click', () => {
-    qgLbPanelOpen() ? qgLbPanelHide() : qgLbPanelShow()
+    if (qgLbPanelOpen()) qgLbPanelHide({ remember: true })
+    else { qgLbSetDismissed(false); qgLbPanelShow() }
     btn.blur()
   })
 
@@ -1650,7 +1683,10 @@ function qgBuildLbPanel() {
     </div>
     <div class="qg-lb-status" id="qg-lb-status" role="status"></div>
     <div class="lb-list" id="qg-lb-list"></div>`
-  panel.querySelector('.qg-lb-close').addEventListener('click', qgLbPanelHide)
+  // Wrapped, not passed straight: the click event would land in the
+  // options argument and read as remember: false.
+  panel.querySelector('.qg-lb-close')
+    .addEventListener('click', () => qgLbPanelHide({ remember: true }))
   panel.querySelector('#qg-lb-list').addEventListener('click', e => {
     const a = e.target.closest('.lb-acct-link')
     if (!a) return
@@ -1670,6 +1706,7 @@ function qgBuildLbPanel() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && qgLbPanelOpen()) qgLbPanelHide()
   })
+  qgLbAutoShow()
 }
 if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', qgBuildLbPanel)
 
